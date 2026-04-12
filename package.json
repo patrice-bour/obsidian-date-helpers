@@ -1,0 +1,57 @@
+{
+  "name": "obsidian-date-helpers",
+  "version": "0.1.0",
+  "description": "Centralized date tools with keyboard-first interaction, natural language parsing, and full internationalization support",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "rollup -c",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts' 'tests/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "validate": "npm run typecheck && npm run lint && npm run test",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "date",
+    "time",
+    "i18n",
+    "calendar"
+  ],
+  "author": "Patrice Bour",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-alias": "^6.0.0",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@types/jest": "^29.5.11",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.19.9",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "obsidian": "^1.5.0",
+    "prettier": "^3.1.1",
+    "rollup": "^4.9.0",
+    "ts-jest": "^29.1.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "chrono-node": "^2.9.0",
+    "luxon": "^3.7.2"
+  }
+}

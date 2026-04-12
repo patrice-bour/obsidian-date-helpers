@@ -1,0 +1,145 @@
+{
+  "commands": {
+    "insertText": {
+      "name": "Insérer une date comme texte"
+    },
+    "insertDailyNote": {
+      "name": "Insérer un lien Daily Note (note quotidienne)"
+    },
+    "openDailyNote": {
+      "name": "Ouvrir la Daily Note (note quotidienne)"
+    },
+    "convertSelection": {
+      "name": "Convertir la sélection en date"
+    }
+  },
+  "settings": {
+    "title": "Paramètres Date Helpers",
+    "description": "Configurez comment les dates sont insérées et formatées.",
+    "sections": {
+      "general": "Paramètres généraux",
+      "features": "Fonctionnalités",
+      "dailyNotes": "Paramètres Daily Note (note quotidienne)",
+      "text": "Paramètres d'insertion de texte",
+      "triggers": "Caractères déclencheurs",
+      "presets": "Formats disponibles"
+    },
+    "locale": {
+      "name": "Locale",
+      "desc": "Langue et région pour le formatage des dates (ex. : en, fr, de, es). Utilisez 'auto' pour hériter d'Obsidian.",
+      "placeholder": "auto (utiliser la langue d'Obsidian)"
+    },
+    "weekStart": {
+      "name": "La semaine commence le",
+      "desc": "Premier jour de la semaine pour l'affichage du calendrier",
+      "sunday": "Dimanche",
+      "monday": "Lundi",
+      "saturday": "Samedi"
+    },
+    "features": {
+      "enableDatePicker": {
+        "name": "Activer le sélecteur de date",
+        "desc": "Afficher le calendrier pour la sélection de date"
+      },
+      "enableNLP": {
+        "name": "Activer l'analyse du langage naturel",
+        "desc": "Analyser les expressions comme « demain », « lundi prochain », « il y a 3 jours »"
+      },
+      "nlpAutoDetect": {
+        "name": "Détection automatique de la langue",
+        "desc": "Détecte et analyse automatiquement les expressions de date. Langues supportées : anglais, français, allemand, japonais, portugais, néerlandais, chinois."
+      },
+      "nlpStrictMode": {
+        "name": "Mode d'analyse",
+        "desc": "Contrôle la permissivité de l'analyseur",
+        "casual": "Permissif – accepte plus d'expressions (recommandé)",
+        "strict": "Strict – réduit les faux positifs"
+      },
+      "nlpShowWarning": {
+        "name": "Afficher un avertissement",
+        "desc": "Affiche une notification lorsqu'une expression de date ne peut pas être analysée. Le texte original est toujours préservé."
+      }
+    },
+    "dailyNotes": {
+      "description": "Configurez la génération des liens wikilinks vers les Daily Notes (notes quotidiennes). Ces paramètres s'appliquent aux actions « Insérer un lien Daily Note » et « Ouvrir la Daily Note ».",
+      "aliasFormat": {
+        "name": "Format de l'alias du wikilink",
+        "desc": "Format pour le texte affiché (alias) dans les liens Daily Note",
+        "withText": "Format (avec texte)",
+        "withoutText": "Format (sans texte)",
+        "originalText": "Original Text"
+      },
+      "createIfMissing": {
+        "name": "Créer la Daily Note si absente",
+        "desc": "Créer automatiquement le fichier Daily Note s'il n'existe pas (utilise votre modèle Daily Notes)"
+      }
+    },
+    "text": {
+      "description": "Sélectionnez les formats par défaut pour l'insertion de dates en texte brut. Ces paramètres s'appliquent à l'action « Insérer une date comme texte » et aux commandes de format.",
+      "defaultDateFormat": {
+        "name": "Format de date par défaut",
+        "desc": "Format utilisé par les commandes de date"
+      },
+      "defaultTimeFormat": {
+        "name": "Format d'heure par défaut",
+        "desc": "Format utilisé par les commandes d'heure"
+      },
+      "defaultDateTimeFormat": {
+        "name": "Format date-heure par défaut",
+        "desc": "Format utilisé par les commandes date-heure"
+      },
+      "noPresetsAvailable": "Aucun format disponible"
+    },
+    "triggers": {
+      "description": "Tapez ces séquences de caractères pour ouvrir le sélecteur de date. Vous pouvez configurer plusieurs déclencheurs ici. Vous pouvez aussi utiliser les Raccourcis clavier (Hotkeys) d'Obsidian.",
+      "characters": {
+        "name": "Caractères déclencheurs",
+        "desc": "Séquences qui ouvrent le sélecteur de date (ex. : @@, //d)",
+        "placeholder": "Entrez un déclencheur (ex. : ;;)"
+      },
+      "add": "Ajouter",
+      "remove": "Supprimer",
+      "validation": {
+        "empty": "Le déclencheur ne peut pas être vide",
+        "tooLong": "Le déclencheur doit faire 5 caractères maximum",
+        "duplicate": "Ce déclencheur existe déjà",
+        "minRequired": "Au moins un déclencheur est requis"
+      }
+    },
+    "presets": {
+      "description": "Liste de tous les formats disponibles pour les commandes et paramètres.",
+      "dateFormats": "Formats de date",
+      "timeFormats": "Formats d'heure",
+      "dateTimeFormats": "Formats date-heure",
+      "example": "Exemple",
+      "formats": {
+        "iso8601": { "name": "ISO 8601", "desc": "Format ISO standard" },
+        "locale-short": { "name": "Date courte", "desc": "Date courte selon la locale" },
+        "locale-long": { "name": "Date longue", "desc": "Date longue selon la locale" },
+        "date-verbose": { "name": "Complète", "desc": "Jour complet et mois" },
+        "date-short-month": { "name": "Mois abrégé", "desc": "Format avec mois abrégé" },
+        "time-24h": { "name": "24 heures", "desc": "Format 24h" },
+        "time-12h": { "name": "12 heures", "desc": "Format 12h avec AM/PM" },
+        "time-24h-seconds": { "name": "24h avec secondes", "desc": "Format 24h avec secondes" },
+        "datetime-iso": { "name": "ISO date-heure", "desc": "Format ISO avec heure" },
+        "datetime-readable": { "name": "Lisible", "desc": "Format lisible selon la locale" },
+        "datetime-standard": { "name": "Standard", "desc": "Format standard" }
+      }
+    }
+  },
+  "errors": {
+    "invalidDate": "Date invalide : {{date}}"
+  },
+  "picker": {
+    "tabs": {
+      "insertText": "Insérer texte",
+      "insertDailyNote": "Insérer Daily Note",
+      "openDailyNote": "Ouvrir note"
+    },
+    "nlpPlaceholder": "Tapez une expression (ex. : demain, lundi prochain)",
+    "format": "Format",
+    "preview": "Aperçu",
+    "confirm": "Confirmer",
+    "cancel": "Annuler"
+  }
+}

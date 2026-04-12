@@ -1,0 +1,145 @@
+{
+  "commands": {
+    "insertText": {
+      "name": "Insert date as text"
+    },
+    "insertDailyNote": {
+      "name": "Insert Daily Note link"
+    },
+    "openDailyNote": {
+      "name": "Open Daily Note"
+    },
+    "convertSelection": {
+      "name": "Convert selection to date"
+    }
+  },
+  "settings": {
+    "title": "Date Helpers Settings",
+    "description": "Configure how dates are inserted and formatted.",
+    "sections": {
+      "general": "General Settings",
+      "features": "Features",
+      "dailyNotes": "Daily Note Link Settings",
+      "text": "Text Insertion Settings",
+      "triggers": "Trigger Characters",
+      "presets": "Available Format Presets"
+    },
+    "locale": {
+      "name": "Locale",
+      "desc": "Language and region for date formatting (e.g., en, fr, de, es). Use 'auto' to inherit from Obsidian.",
+      "placeholder": "auto (use Obsidian language)"
+    },
+    "weekStart": {
+      "name": "Week starts on",
+      "desc": "First day of the week for calendar displays",
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "saturday": "Saturday"
+    },
+    "features": {
+      "enableDatePicker": {
+        "name": "Enable date picker",
+        "desc": "Show calendar picker UI for date selection"
+      },
+      "enableNLP": {
+        "name": "Enable natural language parsing",
+        "desc": "Parse date expressions like \"tomorrow\", \"next Monday\", \"3 days ago\""
+      },
+      "nlpAutoDetect": {
+        "name": "Auto-detect language",
+        "desc": "Automatically detect and parse date expressions. Supported: English, French, German, Japanese, Portuguese, Dutch, Chinese."
+      },
+      "nlpStrictMode": {
+        "name": "Parsing mode",
+        "desc": "Controls how aggressively the parser matches text",
+        "casual": "Casual - accepts more expressions (recommended)",
+        "strict": "Strict - reduces false positives"
+      },
+      "nlpShowWarning": {
+        "name": "Show parsing warning",
+        "desc": "Display a notification when a date expression cannot be parsed. The original text is always preserved."
+      }
+    },
+    "dailyNotes": {
+      "description": "Configure how Daily Note wikilinks are generated. These settings apply when using the \"Insert Daily Note link\" or \"Open Daily Note\" actions.",
+      "aliasFormat": {
+        "name": "Wikilink alias format",
+        "desc": "Format preset for the display text (alias) in Daily Note wikilinks",
+        "withText": "Format (with text)",
+        "withoutText": "Format (no text)",
+        "originalText": "Original Text"
+      },
+      "createIfMissing": {
+        "name": "Create Daily Note if missing",
+        "desc": "Automatically create the Daily Note file when it doesn't exist (uses your Daily Notes template)"
+      }
+    },
+    "text": {
+      "description": "Select default formats for plain text date insertion. These settings apply when using the \"Insert date as text\" action or preset commands.",
+      "defaultDateFormat": {
+        "name": "Default date format",
+        "desc": "Format used by date preset commands"
+      },
+      "defaultTimeFormat": {
+        "name": "Default time format",
+        "desc": "Format used by time preset commands"
+      },
+      "defaultDateTimeFormat": {
+        "name": "Default datetime format",
+        "desc": "Format used by datetime preset commands"
+      },
+      "noPresetsAvailable": "No presets available"
+    },
+    "triggers": {
+      "description": "Type these character sequences to open the date picker inline. You can configure multiple triggers here. You can also use Obsidian's Hotkeys settings for keyboard shortcuts.",
+      "characters": {
+        "name": "Trigger characters",
+        "desc": "Character sequences that open the date picker (e.g., @@, //d)",
+        "placeholder": "Enter trigger (e.g., ;;)"
+      },
+      "add": "Add",
+      "remove": "Remove",
+      "validation": {
+        "empty": "Trigger cannot be empty",
+        "tooLong": "Trigger must be 5 characters or less",
+        "duplicate": "This trigger already exists",
+        "minRequired": "At least one trigger is required"
+      }
+    },
+    "presets": {
+      "description": "List of all format presets available for use in commands and settings.",
+      "dateFormats": "Date Formats",
+      "timeFormats": "Time Formats",
+      "dateTimeFormats": "DateTime Formats",
+      "example": "Example",
+      "formats": {
+        "iso8601": { "name": "ISO 8601", "desc": "Standard ISO format" },
+        "locale-short": { "name": "Locale Short", "desc": "Short date in your locale" },
+        "locale-long": { "name": "Locale Long", "desc": "Long date in your locale" },
+        "date-verbose": { "name": "Verbose", "desc": "Full weekday and month" },
+        "date-short-month": { "name": "Short Month", "desc": "Locale-aware with abbreviated month" },
+        "time-24h": { "name": "24-hour", "desc": "24-hour time format" },
+        "time-12h": { "name": "12-hour", "desc": "12-hour time with AM/PM" },
+        "time-24h-seconds": { "name": "24-hour with seconds", "desc": "24-hour time with seconds" },
+        "datetime-iso": { "name": "ISO DateTime", "desc": "ISO format with time" },
+        "datetime-readable": { "name": "Readable", "desc": "Locale-aware readable format" },
+        "datetime-standard": { "name": "Standard", "desc": "Standard datetime format" }
+      }
+    }
+  },
+  "errors": {
+    "invalidDate": "Invalid date: {{date}}"
+  },
+  "picker": {
+    "tabs": {
+      "insertText": "Insert Text",
+      "insertDailyNote": "Insert Daily Note",
+      "openDailyNote": "Open Note"
+    },
+    "nlpPlaceholder": "Type a date expression (e.g., tomorrow, next Monday)",
+    "format": "Format",
+    "preview": "Preview",
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+  }
+}

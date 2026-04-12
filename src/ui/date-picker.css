@@ -1,0 +1,193 @@
+/* Date Picker Modal Styles */
+
+.date-picker-modal .modal-content {
+  padding: 16px;
+  min-width: 320px;
+  max-width: 400px;
+}
+
+/* Header */
+.date-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.date-picker-nav-button {
+  padding: 4px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  background-color: var(--interactive-normal);
+  border: 1px solid var(--background-modifier-border);
+  font-size: 1.2em;
+  line-height: 1;
+  transition: background-color 0.1s;
+}
+
+.date-picker-nav-button:hover {
+  background-color: var(--interactive-hover);
+}
+
+.date-picker-nav-button:active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.date-picker-month-year {
+  font-weight: 600;
+  font-size: 1.1em;
+  flex: 1;
+  text-align: center;
+}
+
+.date-picker-format-selector {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--interactive-normal);
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.date-picker-format-selector:hover {
+  background-color: var(--interactive-hover);
+}
+
+/* Day labels */
+.date-picker-day-labels {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.date-picker-day-label {
+  text-align: center;
+  font-size: 0.85em;
+  font-weight: 600;
+  padding: 6px 4px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* Day grid */
+.date-picker-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.date-picker-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.1s;
+  font-size: 0.95em;
+  font-weight: 500;
+  min-height: 32px;
+  position: relative;
+}
+
+.date-picker-day:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.date-picker-day:active {
+  background-color: var(--background-modifier-active-hover);
+}
+
+/* Day states */
+.date-picker-day.is-today {
+  font-weight: 700;
+  color: var(--interactive-accent);
+  background-color: var(--background-modifier-hover);
+}
+
+.date-picker-day.is-selected {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: 600;
+}
+
+.date-picker-day.is-focused {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.date-picker-day.is-other-month {
+  opacity: 0.35;
+  color: var(--text-faint);
+}
+
+.date-picker-day.is-other-month:hover {
+  opacity: 0.6;
+}
+
+/* Footer */
+.date-picker-footer {
+  margin-top: 8px;
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.date-picker-today-button {
+  padding: 6px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  background-color: var(--interactive-normal);
+  border: 1px solid var(--background-modifier-border);
+  font-size: 0.9em;
+  transition: background-color 0.1s;
+}
+
+.date-picker-today-button:hover {
+  background-color: var(--interactive-hover);
+}
+
+.date-picker-today-button:active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .date-picker-modal .modal-content {
+    min-width: 280px;
+    padding: 12px;
+  }
+
+  .date-picker-day {
+    font-size: 0.85em;
+    min-height: 28px;
+  }
+
+  .date-picker-day-label {
+    font-size: 0.75em;
+  }
+}
+
+/* Dark mode adjustments */
+.theme-dark .date-picker-day.is-today {
+  background-color: var(--background-modifier-active-hover);
+}
+
+/* Accessibility */
+.date-picker-day:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.date-picker-nav-button:focus-visible,
+.date-picker-format-selector:focus-visible,
+.date-picker-today-button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
