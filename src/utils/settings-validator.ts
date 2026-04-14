@@ -78,12 +78,6 @@ export function validateSettings(
     }
   }
 
-  // Validate defaultFormat is a string
-  if (typeof validated.defaultFormat !== 'string' || validated.defaultFormat.trim() === '') {
-    console.warn('defaultFormat must be a non-empty string, resetting to default');
-    validated.defaultFormat = DEFAULT_SETTINGS.defaultFormat;
-  }
-
   // Phase 1: Validate format presets
   if (!Array.isArray(validated.formatPresets) || validated.formatPresets.length === 0) {
     console.warn('formatPresets must be a non-empty array, resetting to defaults');

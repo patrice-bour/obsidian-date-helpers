@@ -550,11 +550,11 @@ export class UnifiedDatePickerModal extends Modal {
 
     new Setting(nlpContainer)
       .setName('Natural language')
-      .setDesc('e.g., "tomorrow", "next Monday", "3 days ago"')
+      .setDesc('For example: tomorrow, next monday, 3 days ago')
       .addText(text => {
         this.nlpInputEl = text.inputEl;
         text
-          .setPlaceholder('tomorrow')
+          .setPlaceholder('Tomorrow')
           .onChange(value => this.updateNLPPreview(value));
 
         // Restore NLP text (currentNLPText preserves user edits across re-renders)
@@ -621,7 +621,7 @@ export class UnifiedDatePickerModal extends Modal {
     const parseResult = this.parseNLPExpression(text);
 
     if (!parseResult) {
-      this.nlpPreviewEl.setText('⚠️  Could not parse date');
+      this.nlpPreviewEl.setText('Could not parse date');
       this.nlpPreviewEl.removeClass('nlp-preview-success', 'nlp-preview-empty');
       this.nlpPreviewEl.addClass('nlp-preview-error');
       return;

@@ -17,7 +17,7 @@ export const DEFAULT_FORMAT_PRESETS: FormatPreset[] = [
   },
   {
     id: 'locale-short',
-    name: 'Locale Short',
+    name: 'Locale short',
     format: 'D',
     type: 'date',
     builtin: true,
@@ -25,7 +25,7 @@ export const DEFAULT_FORMAT_PRESETS: FormatPreset[] = [
   },
   {
     id: 'locale-long',
-    name: 'Locale Long',
+    name: 'Locale long',
     format: 'DDD',
     type: 'date',
     builtin: true,
@@ -41,7 +41,7 @@ export const DEFAULT_FORMAT_PRESETS: FormatPreset[] = [
   },
   {
     id: 'date-short-month',
-    name: 'Short Month',
+    name: 'Short month',
     format: 'LOCALE_MED',
     type: 'date',
     builtin: true,
@@ -77,7 +77,7 @@ export const DEFAULT_FORMAT_PRESETS: FormatPreset[] = [
   // DateTime formats
   {
     id: 'datetime-iso',
-    name: 'ISO DateTime',
+    name: 'ISO datetime',
     format: "yyyy-MM-dd'T'HH:mm:ss",
     type: 'datetime',
     builtin: true,

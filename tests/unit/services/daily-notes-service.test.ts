@@ -530,7 +530,7 @@ describe('DailyNotesService', () => {
 
       // Mock template file exists - needs to be a proper TFile mock
       const templateContent = '# {{date}}\n\n## Notes\n';
-      const mockTemplateFile = { path: 'Templates/Daily.md' };
+      const mockTemplateFile = createMockFile('Templates/Daily.md');
 
       // First call for note existence check (doesn't exist),
       // Second call for template file (exists)
@@ -581,7 +581,7 @@ describe('DailyNotesService', () => {
     });
 
     it('should not recreate existing note', async () => {
-      const mockFile = {} as TFile;
+      const mockFile = createMockFile('Journal/2025-11-12.md');
       (mockApp.vault.getAbstractFileByPath as jest.Mock).mockReturnValue(mockFile);
 
       const date = DateTime.fromISO('2025-11-12');

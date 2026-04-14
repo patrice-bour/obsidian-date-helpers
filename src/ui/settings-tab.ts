@@ -26,7 +26,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: this.t('settings.title') });
+    new Setting(containerEl).setName(this.t('settings.title')).setHeading();
 
     containerEl.createEl('p', {
       text: this.t('settings.description'),
@@ -46,7 +46,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
     // ====================================================
     // 3. GENERAL SETTINGS
     // ====================================================
-    containerEl.createEl('h3', { text: this.t('settings.sections.general') });
+    new Setting(containerEl).setName(this.t('settings.sections.general')).setHeading();
 
     // Locale setting
     new Setting(containerEl)
@@ -97,7 +97,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
     // ====================================================
     // 4. FEATURE TOGGLES
     // ====================================================
-    containerEl.createEl('h3', { text: this.t('settings.sections.features') });
+    new Setting(containerEl).setName(this.t('settings.sections.features')).setHeading();
 
     // Enable date picker toggle
     new Setting(containerEl)
@@ -181,7 +181,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
    * Render Daily Notes settings
    */
   private renderDailyNotesSettings(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: this.t('settings.sections.dailyNotes') });
+    new Setting(containerEl).setName(this.t('settings.sections.dailyNotes')).setHeading();
     containerEl.createEl('p', {
       text: this.t('settings.dailyNotes.description'),
       cls: 'setting-item-description',
@@ -268,7 +268,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
    * Render text formatting settings
    */
   private renderTextModeSettings(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: this.t('settings.sections.text') });
+    new Setting(containerEl).setName(this.t('settings.sections.text')).setHeading();
     containerEl.createEl('p', {
       text: this.t('settings.text.description'),
       cls: 'setting-item-description',
@@ -357,7 +357,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
    * Render trigger characters settings
    */
   private renderTriggerSettings(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: this.t('settings.sections.triggers') });
+    new Setting(containerEl).setName(this.t('settings.sections.triggers')).setHeading();
     containerEl.createEl('p', {
       text: this.t('settings.triggers.description'),
       cls: 'setting-item-description',
@@ -487,7 +487,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
    * Render available format presets section
    */
   private renderFormatPresets(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: this.t('settings.sections.presets') });
+    new Setting(containerEl).setName(this.t('settings.sections.presets')).setHeading();
     containerEl.createEl('p', {
       text: this.t('settings.presets.description'),
       cls: 'setting-item-description',
@@ -501,7 +501,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
     // Date presets
     if (presetsByType.date.length > 0) {
-      containerEl.createEl('h4', { text: this.t('settings.presets.dateFormats') });
+      new Setting(containerEl).setName(this.t('settings.presets.dateFormats')).setHeading();
       presetsByType.date.forEach(preset => {
         const example = this.plugin.formatterService.getFormatExample(preset.format);
         const name = this.getPresetName(preset.id, preset.name);
@@ -515,7 +515,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
     // Time presets
     if (presetsByType.time.length > 0) {
-      containerEl.createEl('h4', { text: this.t('settings.presets.timeFormats') });
+      new Setting(containerEl).setName(this.t('settings.presets.timeFormats')).setHeading();
       presetsByType.time.forEach(preset => {
         const example = this.plugin.formatterService.getFormatExample(preset.format);
         const name = this.getPresetName(preset.id, preset.name);
@@ -529,7 +529,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
     // Datetime presets
     if (presetsByType.datetime.length > 0) {
-      containerEl.createEl('h4', { text: this.t('settings.presets.dateTimeFormats') });
+      new Setting(containerEl).setName(this.t('settings.presets.dateTimeFormats')).setHeading();
       presetsByType.datetime.forEach(preset => {
         const example = this.plugin.formatterService.getFormatExample(preset.format);
         const name = this.getPresetName(preset.id, preset.name);

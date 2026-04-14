@@ -94,6 +94,12 @@ export default class DateHelpersPlugin extends Plugin {
   /**
    * Register action-based commands (Phase 7.2)
    * Three separate commands, each using UnifiedDatePickerModal with a specific action
+   *
+   * No default hotkeys are registered (Obsidian community plugin policy).
+   * Users can invoke these commands via:
+   *   - The command palette (Cmd/Ctrl+P)
+   *   - A custom hotkey (Settings → Hotkeys)
+   *   - The configurable trigger character in the editor (default "@@", see settings)
    */
   private registerActionCommands() {
     // Command 1: Insert text (formatted date)
@@ -103,27 +109,24 @@ export default class DateHelpersPlugin extends Plugin {
       editorCallback: (editor: Editor) => {
         this.showUnifiedPicker(editor, 'insert-text');
       },
-      hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 't' }],
     });
 
     // Command 2: Insert Daily Note wikilink
     this.addCommand({
       id: 'insert-date-daily-note',
-      name: 'Insert Daily Note link',
+      name: 'Insert daily note link',
       editorCallback: (editor: Editor) => {
         this.showUnifiedPicker(editor, 'insert-daily-note');
       },
-      hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'd' }],
     });
 
     // Command 3: Open Daily Note (no text insertion)
     this.addCommand({
       id: 'open-daily-note',
-      name: 'Open Daily Note',
+      name: 'Open daily note',
       editorCallback: (editor: Editor) => {
         this.showUnifiedPicker(editor, 'open-daily-note');
       },
-      hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'o' }],
     });
 
     // Command 4: Convert selection (Phase 7.2)

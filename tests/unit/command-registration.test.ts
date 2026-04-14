@@ -122,10 +122,10 @@ describe('Command Registration (Phase 7.2)', () => {
 
       // Date presets
       expect(commands).toContain('Insert date: ISO 8601');
-      expect(commands).toContain('Insert date: Locale Short');
-      expect(commands).toContain('Insert date: Locale Long');
+      expect(commands).toContain('Insert date: Locale short');
+      expect(commands).toContain('Insert date: Locale long');
       expect(commands).toContain('Insert date: Verbose');
-      expect(commands).toContain('Insert date: Short Month');
+      expect(commands).toContain('Insert date: Short month');
 
       // Time presets
       expect(commands).toContain('Insert time: 24-hour');
@@ -133,7 +133,7 @@ describe('Command Registration (Phase 7.2)', () => {
       expect(commands).toContain('Insert time: 24-hour with seconds');
 
       // Datetime presets
-      expect(commands).toContain('Insert datetime: ISO DateTime');
+      expect(commands).toContain('Insert datetime: ISO datetime');
       expect(commands).toContain('Insert datetime: Readable');
       expect(commands).toContain('Insert datetime: Standard');
     });

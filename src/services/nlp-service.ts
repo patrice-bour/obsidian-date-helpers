@@ -138,7 +138,7 @@ export class NLPService {
       }
 
       return results;
-    } catch (error) {
+    } catch {
       return null;
     }
   }

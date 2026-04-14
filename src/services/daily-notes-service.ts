@@ -193,7 +193,8 @@ export class DailyNotesService {
 
     // Check if already exists
     if (this.dailyNoteExists(date)) {
-      return this.app.vault.getAbstractFileByPath(fullPath) as TFile;
+      const existing = this.app.vault.getAbstractFileByPath(fullPath);
+      return existing instanceof TFile ? existing : null;
     }
 
     try {
@@ -203,13 +204,10 @@ export class DailyNotesService {
 
       if (config.template) {
         const templateFile = this.app.vault.getAbstractFileByPath(`${config.template}.md`);
-        // Check if templateFile exists, is a file (has 'path'), and ends with .md
-        // We don't use instanceof TFile to avoid test mocking issues
-        // We check extension to ensure it's not a folder (folders can have 'path' too)
-        if (templateFile && 'path' in templateFile && templateFile.path.endsWith('.md')) {
+        if (templateFile instanceof TFile && templateFile.path.endsWith('.md')) {
           // Copy template as-is, NO variable processing
           // Daily Notes plugin or Templater handles variable substitution
-          content = await this.app.vault.read(templateFile as TFile);
+          content = await this.app.vault.read(templateFile);
         }
       }
 

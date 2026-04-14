@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { moment } from 'obsidian';
 import { DEFAULT_LOCALE } from './constants';
 
 /**
@@ -6,8 +7,7 @@ import { DEFAULT_LOCALE } from './constants';
  */
 export function detectObsidianLocale(): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const locale = (window as any).moment?.locale();
+    const locale = moment.locale();
     return locale || DEFAULT_LOCALE;
   } catch (error) {
     console.warn('Failed to detect Obsidian locale:', error);

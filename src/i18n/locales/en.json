@@ -110,18 +110,18 @@
       "description": "List of all format presets available for use in commands and settings.",
       "dateFormats": "Date Formats",
       "timeFormats": "Time Formats",
-      "dateTimeFormats": "DateTime Formats",
+      "dateTimeFormats": "Datetime formats",
       "example": "Example",
       "formats": {
         "iso8601": { "name": "ISO 8601", "desc": "Standard ISO format" },
-        "locale-short": { "name": "Locale Short", "desc": "Short date in your locale" },
-        "locale-long": { "name": "Locale Long", "desc": "Long date in your locale" },
+        "locale-short": { "name": "Locale short", "desc": "Short date in your locale" },
+        "locale-long": { "name": "Locale long", "desc": "Long date in your locale" },
         "date-verbose": { "name": "Verbose", "desc": "Full weekday and month" },
-        "date-short-month": { "name": "Short Month", "desc": "Locale-aware with abbreviated month" },
+        "date-short-month": { "name": "Short month", "desc": "Locale-aware with abbreviated month" },
         "time-24h": { "name": "24-hour", "desc": "24-hour time format" },
         "time-12h": { "name": "12-hour", "desc": "12-hour time with AM/PM" },
         "time-24h-seconds": { "name": "24-hour with seconds", "desc": "24-hour time with seconds" },
-        "datetime-iso": { "name": "ISO DateTime", "desc": "ISO format with time" },
+        "datetime-iso": { "name": "ISO datetime", "desc": "ISO format with time" },
         "datetime-readable": { "name": "Readable", "desc": "Locale-aware readable format" },
         "datetime-standard": { "name": "Standard", "desc": "Standard datetime format" }
       }
