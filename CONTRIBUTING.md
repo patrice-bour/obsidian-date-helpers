@@ -156,6 +156,14 @@ This project follows the [Contributor Covenant Code of Conduct](./CODE_OF_CONDUC
 
 Please do **not** open public issues for security vulnerabilities. See [SECURITY.md](./SECURITY.md) for the private reporting process.
 
+## Local pre-scan against Community Portal rules
+
+The Obsidian Community Portal re-scans every release. [`eslint-plugin-obsidianmd`](https://github.com/obsidianmd/eslint-plugin) runs the same rules locally, but it requires **ESLint >= 9 with flat config** (`eslint.config.js`), incompatible with the current ESLint 8 / `.eslintrc.json` setup. Enabling it is a deliberate follow-up: bump ESLint, migrate to `eslint.config.js`, then add `plugin:obsidianmd/recommended`.
+
+## Unblocking a transient `npm audit` advisory
+
+The CI and release workflows run `npm audit --audit-level=moderate`. If a freshly-published advisory blocks a merge or release, the supported escape hatches are: `npm audit fix` (when a non-breaking patch exists), bumping the offending parent dep manually, or — strictly as a temporary measure — running with `--omit=dev` if the advisory only affects dev tooling. Document any exception in the PR or release notes.
+
 ## Questions?
 
 - **Issues**: [GitHub Issues](https://github.com/patrice-bour/obsidian-date-helpers/issues)

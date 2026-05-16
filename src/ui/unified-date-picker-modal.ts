@@ -894,7 +894,7 @@ export class UnifiedDatePickerModal extends Modal {
     // 'T' for Today (only if not typing in NLP field)
     this.scope.register([], 't', () => {
       // Don't trigger if NLP input has focus
-      if (this.nlpInputEl && document.activeElement === this.nlpInputEl) {
+      if (this.nlpInputEl && activeDocument.activeElement === this.nlpInputEl) {
         return true; // Let the keystroke pass through
       }
       this.jumpToToday();
@@ -950,9 +950,10 @@ export class UnifiedDatePickerModal extends Modal {
       // Text just became available - add "Original Text" option at the beginning
       const text = this.getOriginalText();
       const originalTextLabel = text ? `Original Text (${text})` : 'Original Text';
-      const option = document.createElement('option');
-      option.value = 'original-text';
-      option.text = originalTextLabel;
+      const option = this.formatSelectorEl.createEl('option', {
+        value: 'original-text',
+        text: originalTextLabel,
+      });
 
       this.formatSelectorEl.insertBefore(option, this.formatSelectorEl.options[0]);
 

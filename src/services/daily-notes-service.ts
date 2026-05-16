@@ -2,6 +2,7 @@ import { App, TFile } from 'obsidian';
 import { DateTime } from 'luxon';
 import type { FormatterService } from './formatter-service';
 import type { DateHelpersSettings } from '../types/settings';
+import { DailyNotesPluginAdapter } from './daily-notes-plugin-adapter';
 
 /**
  * Daily Notes configuration from Obsidian
@@ -31,15 +32,18 @@ export class DailyNotesService {
   private app: App;
   private formatterService: FormatterService;
   private settings: DateHelpersSettings;
+  private pluginAdapter: DailyNotesPluginAdapter;
 
   constructor(
     app: App,
     formatterService: FormatterService,
-    settings: DateHelpersSettings
+    settings: DateHelpersSettings,
+    pluginAdapter?: DailyNotesPluginAdapter
   ) {
     this.app = app;
     this.formatterService = formatterService;
     this.settings = settings;
+    this.pluginAdapter = pluginAdapter ?? new DailyNotesPluginAdapter(app);
   }
 
   /**
@@ -51,19 +55,18 @@ export class DailyNotesService {
    * @returns Daily Notes configuration
    */
   getDailyNotesConfig(): DailyNotesConfig {
-    // @ts-expect-error - Access internal Daily Notes plugin (not in public API)
-    const dailyNotesPlugin = this.app.internalPlugins.getPluginById('daily-notes');
+    const dailyNotesPlugin = this.pluginAdapter.getRef();
 
     if (!dailyNotesPlugin || !dailyNotesPlugin.enabled) {
       return DEFAULT_DAILY_NOTES_CONFIG;
     }
 
-    const config = dailyNotesPlugin.instance?.options || {};
+    const options = dailyNotesPlugin.instance?.options ?? {};
 
     return {
-      format: config.format || 'YYYY-MM-DD',
-      folder: config.folder || '',
-      template: config.template || '',
+      format: options.format || 'YYYY-MM-DD',
+      folder: options.folder || '',
+      template: options.template || '',
     };
   }
 

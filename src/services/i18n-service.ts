@@ -102,9 +102,10 @@ export class I18nService {
   private interpolate(template: string, params?: Record<string, unknown>): string {
     if (!params) return template;
 
-    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      const value = params[key]?.toString() || match;
-      return this.escapeHtml(value);
+    return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
+      const value = params[key];
+      const stringValue = value === undefined || value === null ? match : String(value);
+      return this.escapeHtml(stringValue);
     });
   }
 

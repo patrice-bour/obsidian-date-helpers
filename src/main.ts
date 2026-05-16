@@ -352,13 +352,17 @@ export default class DateHelpersPlugin extends Plugin {
   }
 
   async loadSettings() {
-    const loadedData = await this.loadData();
+    const raw: unknown = await this.loadData();
+    const loadedData: Partial<DateHelpersSettings> =
+      typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+        ? (raw as Partial<DateHelpersSettings>)
+        : {};
 
     // Phase 6: Migrate settings from Phase 5 to Phase 6 if needed
-    const migratedData = migrateSettings(loadedData || {});
+    const migratedData = migrateSettings(loadedData);
 
     // Check if migration occurred
-    if (loadedData && 'enableDailyNotesIntegration' in loadedData) {
+    if ('enableDailyNotesIntegration' in loadedData) {
       new Notice(
         'Date Helpers: Settings updated to Phase 6. Please reload the plugin (Cmd/Ctrl+R) to see updated commands.'
       );

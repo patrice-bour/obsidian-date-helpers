@@ -4,7 +4,7 @@ import { isValidLocale, normalizeLocale } from '@/utils/locale';
 
 export class DateHelpersSettingTab extends PluginSettingTab {
   plugin: DateHelpersPlugin;
-  private localeDebounceTimer: NodeJS.Timeout | null = null;
+  private localeDebounceTimer: number | null = null;
 
   constructor(app: App, plugin: DateHelpersPlugin) {
     super(app, plugin);
@@ -17,8 +17,8 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
   display(): void {
     // Clear any pending timers from previous display to prevent memory leaks
-    if (this.localeDebounceTimer) {
-      clearTimeout(this.localeDebounceTimer);
+    if (this.localeDebounceTimer !== null) {
+      activeWindow.clearTimeout(this.localeDebounceTimer);
       this.localeDebounceTimer = null;
     }
 
@@ -58,11 +58,11 @@ export class DateHelpersSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.locale)
           .onChange(value => {
             // Debounce locale changes to avoid validation on every keystroke
-            if (this.localeDebounceTimer) {
-              clearTimeout(this.localeDebounceTimer);
+            if (this.localeDebounceTimer !== null) {
+              activeWindow.clearTimeout(this.localeDebounceTimer);
             }
 
-            this.localeDebounceTimer = setTimeout(() => {
+            this.localeDebounceTimer = activeWindow.setTimeout(() => {
               void (async () => {
                 const newLocale = value || 'auto';
                 this.plugin.settings.locale = newLocale;
