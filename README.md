@@ -2,11 +2,12 @@
 
 [![CI](https://github.com/patrice-bour/obsidian-date-helpers/actions/workflows/ci.yml/badge.svg)](https://github.com/patrice-bour/obsidian-date-helpers/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](./CHANGELOG.md)
+[![Community Portal](https://img.shields.io/badge/Obsidian-community-7c3aed)](https://community.obsidian.md/plugins/date-helpers)
 
 An Obsidian plugin that centralizes date-related tools with keyboard-first interaction, natural language parsing, and full internationalization support.
 
-> **Pre-1.0 notice:** This is the initial public release. The settings API may still evolve based on user feedback before reaching 1.0.
+> **Pre-1.0 notice:** The settings API may still evolve before reaching 1.0. See [CHANGELOG.md](./CHANGELOG.md) for what changed between releases.
 
 ## Installation
 
@@ -207,6 +208,7 @@ Change **Week starts on** in Settings → General Settings
 
 - **Issues**: [GitHub Issues](https://github.com/patrice-bour/obsidian-date-helpers/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/patrice-bour/obsidian-date-helpers/discussions)
+- **Community Portal**: [date-helpers on community.obsidian.md](https://community.obsidian.md/plugins/date-helpers)
 
 ## Documentation
 
