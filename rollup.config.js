@@ -5,11 +5,10 @@ import json from '@rollup/plugin-json';
 import alias from '@rollup/plugin-alias';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import builtinModulesPackage from 'builtin-modules';
+import { builtinModules } from 'node:module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const builtinModules = builtinModulesPackage;
 
 export default {
   input: 'src/main.ts',

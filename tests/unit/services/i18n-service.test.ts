@@ -66,6 +66,38 @@ describe('I18nService', () => {
       const result = service.t('errors.invalidDate', { date: 'A & B' });
       expect(result).toBe('Invalid date: A &amp; B');
     });
+
+    // The following cases exercise interpolate()'s runtime behaviour for
+    // non-string param values. The public `t()` signature is typed to accept
+    // string params only; we call through `unknown` to bypass the type check
+    // on purpose.
+    const callT = (params: Record<string, unknown>): string =>
+      (
+        service.t as unknown as (
+          key: 'errors.invalidDate',
+          params: Record<string, unknown>
+        ) => string
+      ).call(service, 'errors.invalidDate', params);
+
+    it('should emit empty string when param is empty string', () => {
+      expect(callT({ date: '' })).toBe('Invalid date: ');
+    });
+
+    it('should emit "0" when param is the number zero', () => {
+      expect(callT({ date: 0 })).toBe('Invalid date: 0');
+    });
+
+    it('should emit "false" when param is the boolean false', () => {
+      expect(callT({ date: false })).toBe('Invalid date: false');
+    });
+
+    it('should preserve placeholder when param value is null', () => {
+      expect(callT({ date: null })).toBe('Invalid date: {{date}}');
+    });
+
+    it('should preserve placeholder when param key is missing', () => {
+      expect(callT({ other: 'x' })).toBe('Invalid date: {{date}}');
+    });
   });
 
   describe('getCurrentLocale()', () => {

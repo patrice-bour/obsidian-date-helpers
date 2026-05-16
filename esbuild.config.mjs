@@ -1,5 +1,5 @@
 import esbuild from 'esbuild';
-import { builtinModules } from 'builtin-modules';
+import { builtinModules } from 'node:module';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 

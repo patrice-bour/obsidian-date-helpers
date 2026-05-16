@@ -71,6 +71,26 @@ export class TFile {
 // Also ensure global availability for instanceof checks
 (global as any).TFile = TFile;
 
+// Popout-window globals exposed by Obsidian at runtime.
+// Under jsdom they default to the main `document` / `window`.
+if (typeof (global as any).activeDocument === 'undefined') {
+  Object.defineProperty(global, 'activeDocument', {
+    get() {
+      return document;
+    },
+    configurable: true,
+  });
+}
+
+if (typeof (global as any).activeWindow === 'undefined') {
+  Object.defineProperty(global, 'activeWindow', {
+    get() {
+      return window;
+    },
+    configurable: true,
+  });
+}
+
 // Helper to create mock HTMLElement
 function createMockElement(): any {
   const element: any = {
