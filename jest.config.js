@@ -7,13 +7,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^obsidian$': '<rootDir>/tests/mocks/obsidian.ts'
   },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/main.ts',
-    '!src/ui/**/*.ts',
-    '!src/i18n/index.ts'
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/i18n/index.ts'],
   coverageThreshold: {
     global: {
       branches: 80,

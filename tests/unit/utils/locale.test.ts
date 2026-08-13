@@ -1,4 +1,10 @@
-import { detectObsidianLocale, isValidLocale, normalizeLocale } from '@/utils/locale';
+import {
+  detectObsidianLocale,
+  isValidLocale,
+  normalizeLocale,
+  resolveLocale,
+  getLanguageCode,
+} from '@/utils/locale';
 
 describe('Locale utilities', () => {
   describe('detectObsidianLocale()', () => {
@@ -85,6 +91,32 @@ describe('Locale utilities', () => {
 
     it('should handle multiple underscores', () => {
       expect(normalizeLocale('en_US_POSIX')).toBe('en-US-POSIX');
+    });
+  });
+
+  describe('resolveLocale()', () => {
+    it('should resolve "auto" via Obsidian detection', () => {
+      // setup.ts mocks window.moment.locale() as 'en'
+      expect(resolveLocale('auto')).toBe('en');
+    });
+
+    it('should pass through explicit locales unchanged', () => {
+      expect(resolveLocale('fr-FR')).toBe('fr-FR');
+      expect(resolveLocale('en-US')).toBe('en-US');
+      expect(resolveLocale('de')).toBe('de');
+    });
+  });
+
+  describe('getLanguageCode()', () => {
+    it('should extract the language part from a full locale', () => {
+      expect(getLanguageCode('fr-FR')).toBe('fr');
+      expect(getLanguageCode('en-US')).toBe('en');
+      expect(getLanguageCode('zh-Hans-CN')).toBe('zh');
+    });
+
+    it('should return bare language codes unchanged', () => {
+      expect(getLanguageCode('fr')).toBe('fr');
+      expect(getLanguageCode('en')).toBe('en');
     });
   });
 });

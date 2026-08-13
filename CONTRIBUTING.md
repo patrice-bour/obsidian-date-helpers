@@ -158,7 +158,31 @@ Please do **not** open public issues for security vulnerabilities. See [SECURITY
 
 ## Local pre-scan against Community Portal rules
 
-The Obsidian Community Portal re-scans every release. [`eslint-plugin-obsidianmd`](https://github.com/obsidianmd/eslint-plugin) runs the same rules locally, but it requires **ESLint >= 9 with flat config** (`eslint.config.js`), incompatible with the current ESLint 8 / `.eslintrc.json` setup. Enabling it is a deliberate follow-up: bump ESLint, migrate to `eslint.config.js`, then add `plugin:obsidianmd/recommended`.
+The Obsidian Community Portal re-scans every release, and `npm run lint` is configured to report what that scan reports. No extra command, no config edit: **if the portal can flag it, `npm run lint` flags it too.**
+
+Two pieces make that true, and both must stay in place:
+
+- [`eslint-plugin-obsidianmd`](https://github.com/obsidianmd/eslint-plugin) is installed and wired into `eslint.config.mjs` via `obsidianmd.configs.recommended`. It supplies the popout-window, DOM-helper and settings-API rules.
+- The `@typescript-eslint/no-unsafe-*` family is left at its `recommendedTypeChecked` default. **Do not disable it.** It used to be switched off, which is exactly how v0.1.0 shipped 16 portal findings that the local pipeline never reported.
+
+Two gotchas worth knowing:
+
+- **The portal's advice changes over time.** `activeWindow.setTimeout()` was the recommended form when v0.1.0 was scanned; the plugin now forbids it in favour of `window.setTimeout()`. Trust the current linter over any older finding — including older sections of this file.
+- **Warnings do not fail the build.** `eslint src` exits 0 with warnings, so a clean exit code is not a clean scan. Read the output.
+
+## Release verification
+
+Release assets are attested automatically by `.github/workflows/release.yml` (`actions/attest-build-provenance`). To verify after publishing:
+
+```bash
+gh release view <tag> -R <owner>/<repo> --json assets -q '.assets[] | "\(.name)  \(.digest)"'
+gh api /repos/<owner>/<repo>/attestations/sha256:<digest>
+```
+
+Check each asset individually. An unchanged file keeps its digest across releases, so it can inherit an attestation issued for a *different* release and look covered when the release it belongs to was never attested at all. That is what made the v0.1.0 scorecard diagnosis subtle: `styles.css` was attested, `main.js` and `manifest.json` were not.
+
+After publishing, check the Community Portal scorecard. The portal re-runs its review scan **only on release publication** — there is no on-demand re-scan, so a finding fixed but never re-released stays visible indefinitely.
+
 
 ## Unblocking a transient `npm audit` advisory
 

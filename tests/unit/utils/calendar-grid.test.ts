@@ -356,6 +356,16 @@ describe('calculateCalendarGrid', () => {
       expect(isToday(tomorrow)).toBe(false);
     });
 
+    it('should return true for today even when the date carries a different locale', () => {
+      // Regression: grid days carry the plugin locale; Luxon's equals()
+      // compares locale metadata and broke the is-today highlight when
+      // the plugin locale differed from the system locale
+      const todayWithPluginLocale = DateTime.now().setLocale('en-US').startOf('day');
+      expect(isToday(todayWithPluginLocale)).toBe(true);
+      const todayOtherLocale = DateTime.now().setLocale('fr-FR').startOf('day');
+      expect(isToday(todayOtherLocale)).toBe(true);
+    });
+
     it('should return true for today at different times', () => {
       const todayMorning = DateTime.now().set({ hour: 9, minute: 0 });
       const todayEvening = DateTime.now().set({ hour: 20, minute: 30 });

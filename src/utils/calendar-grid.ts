@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { WeekStart } from './constants';
 
 /**
  * Calculate the days to display in a month view calendar grid.
@@ -16,10 +17,7 @@ import { DateTime } from 'luxon';
  * // Returns grid starting Oct 27 (Monday) through Dec 7 (Sunday)
  * ```
  */
-export function calculateCalendarGrid(
-  monthStart: DateTime,
-  weekStart: 0 | 1 | 6
-): DateTime[][] {
+export function calculateCalendarGrid(monthStart: DateTime, weekStart: WeekStart): DateTime[][] {
   const grid: DateTime[][] = [];
 
   // Get first day of month (ensure it's at start of day)
@@ -68,10 +66,7 @@ export function calculateCalendarGrid(
  * getLocalizedDayLabels('fr-FR', 1); // ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.']
  * ```
  */
-export function getLocalizedDayLabels(
-  locale: string,
-  weekStart: 0 | 1 | 6
-): string[] {
+export function getLocalizedDayLabels(locale: string, weekStart: WeekStart): string[] {
   const labels: string[] = [];
 
   // Start from a known Monday (Jan 6, 2025 is a Monday)
@@ -113,9 +108,10 @@ export function isInMonth(date: DateTime, month: number, year: number): boolean 
  * @returns True if date is today
  */
 export function isToday(date: DateTime): boolean {
-  const today = DateTime.now().startOf('day');
-  const checkDate = date.startOf('day');
-  return checkDate.equals(today);
+  // Field-based comparison: Luxon's equals() also requires identical
+  // locale/zone metadata, which breaks when the plugin locale differs
+  // from the system locale (grid days carry the plugin locale).
+  return isSameDay(date, DateTime.now());
 }
 
 /**
@@ -126,9 +122,5 @@ export function isToday(date: DateTime): boolean {
  * @returns True if both dates represent the same day
  */
 export function isSameDay(date1: DateTime, date2: DateTime): boolean {
-  return (
-    date1.year === date2.year &&
-    date1.month === date2.month &&
-    date1.day === date2.day
-  );
+  return date1.year === date2.year && date1.month === date2.month && date1.day === date2.day;
 }

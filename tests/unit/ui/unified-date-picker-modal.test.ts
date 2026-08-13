@@ -589,9 +589,10 @@ describe('UnifiedDatePickerModal', () => {
 
       // Format should update to DN alias format
       // When dailyNotesAliasPresetId is 'original-text' but no initialNLPText, use fallback
-      const expectedPresetId = settings.dailyNotesAliasPresetId === 'original-text'
-        ? settings.dailyNotesAliasFallbackPresetId
-        : settings.dailyNotesAliasPresetId;
+      const expectedPresetId =
+        settings.dailyNotesAliasPresetId === 'original-text'
+          ? settings.dailyNotesAliasFallbackPresetId
+          : settings.dailyNotesAliasPresetId;
       expect(modal.getSelectedPreset().id).toBe(expectedPresetId);
     });
   });

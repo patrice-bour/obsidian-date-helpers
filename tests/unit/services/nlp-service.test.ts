@@ -18,7 +18,6 @@ describe('NLPService', () => {
 
     settings = {
       locale: 'en-US',
-      defaultFormat: 'yyyy-MM-dd',
       weekStart: 1,
       triggerCharacters: ['@@'],
       enableNLP: true,
@@ -53,11 +52,11 @@ describe('NLPService', () => {
     });
 
     it('should initialize chrono instance based on locale', () => {
-      const frService = new NLPService(
-        new DateService('fr-FR'),
-        new I18nService('fr-FR'),
-        { ...settings, locale: 'fr-FR', nlpLanguages: ['fr'] }
-      );
+      const frService = new NLPService(new DateService('fr-FR'), new I18nService('fr-FR'), {
+        ...settings,
+        locale: 'fr-FR',
+        nlpLanguages: ['fr'],
+      });
       expect(frService).toBeInstanceOf(NLPService);
     });
   });
@@ -204,7 +203,7 @@ describe('NLPService', () => {
 
     it('should parse "aujourd\'hui" (today)', () => {
       const referenceDate = DateTime.fromISO('2025-11-04', { zone: 'Europe/Paris' });
-      const result = nlpService.parse('aujourd\'hui', referenceDate);
+      const result = nlpService.parse("aujourd'hui", referenceDate);
 
       expect(result).not.toBeNull();
       expect(result?.date.toISODate()).toBe('2025-11-04');

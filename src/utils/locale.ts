@@ -37,10 +37,7 @@ export function isValidLocale(locale: string): boolean {
   try {
     // Test if Luxon can actually format with this locale
     // Use toLocaleString which throws on truly invalid locales
-    const testDate = DateTime.fromObject(
-      { year: 2025, month: 1, day: 1 },
-      { locale }
-    );
+    const testDate = DateTime.fromObject({ year: 2025, month: 1, day: 1 }, { locale });
 
     // This will throw if the locale is invalid
     testDate.toLocaleString(DateTime.DATE_SHORT);
@@ -55,4 +52,23 @@ export function isValidLocale(locale: string): boolean {
  */
 export function normalizeLocale(locale: string): string {
   return locale.replace(/_/g, '-');
+}
+
+/**
+ * Resolve a locale setting to a concrete locale.
+ * 'auto' inherits from Obsidian; anything else passes through.
+ * Single source of truth for the 'auto' resolution used across services.
+ */
+export function resolveLocale(localeSetting: string): string {
+  if (localeSetting === 'auto') {
+    return detectObsidianLocale();
+  }
+  return localeSetting;
+}
+
+/**
+ * Extract the language code from a locale (e.g., 'fr-FR' -> 'fr')
+ */
+export function getLanguageCode(locale: string): string {
+  return locale.split('-')[0];
 }

@@ -11,7 +11,7 @@ import { NLPService } from '@/services/nlp-service';
 import { DailyNotesService } from '@/services/daily-notes-service';
 import { validateSettings } from '@/utils/settings-validator';
 import { migrateSettings } from '@/utils/settings-migration';
-import { detectObsidianLocale } from '@/utils/locale';
+import { resolveLocale } from '@/utils/locale';
 
 export default class DateHelpersPlugin extends Plugin {
   settings!: DateHelpersSettings;
@@ -21,7 +21,6 @@ export default class DateHelpersPlugin extends Plugin {
   nlpService!: NLPService;
   dailyNotesService!: DailyNotesService;
   private commandsRegistered = false;
-
 
   async onload() {
     try {
@@ -47,8 +46,7 @@ export default class DateHelpersPlugin extends Plugin {
 
   private initializeServices() {
     // Determine locale (auto = inherit from Obsidian)
-    const locale =
-      this.settings.locale === 'auto' ? detectObsidianLocale() : this.settings.locale;
+    const locale = resolveLocale(this.settings.locale);
 
     this.i18n = new I18nService(locale);
     this.dateService = new DateService(locale);
@@ -70,7 +68,7 @@ export default class DateHelpersPlugin extends Plugin {
 
     // Dynamic preset commands (registered at plugin load time)
     // Note: Changes to format presets require plugin reload to update commands
-    this.settings.formatPresets.forEach((preset) => {
+    this.settings.formatPresets.forEach(preset => {
       // Use appropriate prefix based on preset type
       let commandPrefix = 'Insert date';
       if (preset.type === 'time') {
@@ -172,7 +170,7 @@ export default class DateHelpersPlugin extends Plugin {
     initialDate?: DateTime,
     initialNLPText?: string
   ) {
-    const datePresets = this.settings.formatPresets.filter((p) => p.type === 'date');
+    const datePresets = this.settings.formatPresets.filter(p => p.type === 'date');
 
     if (datePresets.length === 0) {
       console.error('No date presets available for date picker');
@@ -247,7 +245,7 @@ export default class DateHelpersPlugin extends Plugin {
    * Uses lastUsedAction to determine insertion behavior
    */
   private insertFormattedDate(editor: Editor, presetId: string) {
-    const preset = this.settings.formatPresets.find((p) => p.id === presetId);
+    const preset = this.settings.formatPresets.find(p => p.id === presetId);
     if (!preset) {
       console.error(`Format preset not found: ${presetId}`);
       return;
@@ -269,7 +267,6 @@ export default class DateHelpersPlugin extends Plugin {
     }
   }
 
-
   /**
    * Show unified date picker from trigger character detection
    * Phase 7.2: Replaces trigger characters with selected date, cleans up on cancel
@@ -281,7 +278,7 @@ export default class DateHelpersPlugin extends Plugin {
     end: EditorPosition,
     initialDate?: DateTime | null
   ) {
-    const datePresets = this.settings.formatPresets.filter((p) => p.type === 'date');
+    const datePresets = this.settings.formatPresets.filter(p => p.type === 'date');
 
     if (datePresets.length === 0) {
       console.error('No date presets available for date picker');
@@ -347,16 +344,12 @@ export default class DateHelpersPlugin extends Plugin {
     modal.open();
   }
 
-
-  onunload() {
-  }
+  onunload() {}
 
   async loadSettings() {
     const raw: unknown = await this.loadData();
     const loadedData: Partial<DateHelpersSettings> =
-      typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-        ? (raw as Partial<DateHelpersSettings>)
-        : {};
+      typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? raw : {};
 
     // Phase 6: Migrate settings from Phase 5 to Phase 6 if needed
     const migratedData = migrateSettings(loadedData);
@@ -385,8 +378,7 @@ export default class DateHelpersPlugin extends Plugin {
     await this.saveData(this.settings);
 
     // Update services with new locale if initialized
-    const locale =
-      this.settings.locale === 'auto' ? detectObsidianLocale() : this.settings.locale;
+    const locale = resolveLocale(this.settings.locale);
 
     if (this.i18n) {
       this.i18n.setLocale(locale);

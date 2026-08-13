@@ -1,4 +1,5 @@
 import { FormatPreset } from './format-preset';
+import { WeekStart } from '@/utils/constants';
 
 /**
  * Plugin settings interface
@@ -11,17 +12,10 @@ export interface DateHelpersSettings {
   locale: string;
 
   /**
-   * Default date format for insertions (Phase 0 - kept for backward compatibility)
-   * @default 'yyyy-MM-dd'
-   * @deprecated Use defaultDatePresetId instead
-   */
-  defaultFormat: string;
-
-  /**
    * First day of week (0 = Sunday, 1 = Monday, 6 = Saturday)
    * @default 1 (Monday)
    */
-  weekStart: 0 | 1 | 6;
+  weekStart: WeekStart;
 
   /**
    * Trigger characters for date picker
@@ -169,8 +163,7 @@ export interface DateHelpersSettings {
  */
 export const DEFAULT_SETTINGS_BASE = {
   locale: 'auto',
-  defaultFormat: 'yyyy-MM-dd',
-  weekStart: 1 as 0 | 1 | 6,
+  weekStart: 1 as WeekStart,
   triggerCharacters: ['@@'],
   enableNLP: true,
   nlpLanguages: ['en'],

@@ -890,7 +890,11 @@ describe('DailyNotesService', () => {
 
         await service.openDailyNote(date);
 
-        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith('', 'Journal/2025-11-12.md', false);
+        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith(
+          '',
+          'Journal/2025-11-12.md',
+          false
+        );
         expect(mockApp.vault.create).not.toHaveBeenCalled();
       });
 
@@ -951,13 +955,14 @@ describe('DailyNotesService', () => {
         await service.openDailyNote(date);
 
         // Should create note
-        expect(mockApp.vault.create).toHaveBeenCalledWith(
-          'Journal/2025-11-12.md',
-          ''
-        );
+        expect(mockApp.vault.create).toHaveBeenCalledWith('Journal/2025-11-12.md', '');
 
         // Should open the newly created note
-        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith('', 'Journal/2025-11-12.md', false);
+        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith(
+          '',
+          'Journal/2025-11-12.md',
+          false
+        );
       });
 
       it('should throw error if creation fails', async () => {
@@ -985,7 +990,11 @@ describe('DailyNotesService', () => {
 
         // Should create note (folder creation is handled by createDailyNote)
         expect(mockApp.vault.create).toHaveBeenCalled();
-        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith('', 'Journal/2025-11-12.md', false);
+        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith(
+          '',
+          'Journal/2025-11-12.md',
+          false
+        );
       });
     });
 
@@ -1065,7 +1074,11 @@ describe('DailyNotesService', () => {
 
         await service.openDailyNote(date);
 
-        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith('', 'Daily/2025/11/12.md', false);
+        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith(
+          '',
+          'Daily/2025/11/12.md',
+          false
+        );
       });
 
       it('should handle dates with time components (time should be ignored)', async () => {
@@ -1077,7 +1090,11 @@ describe('DailyNotesService', () => {
         await service.openDailyNote(dateWithTime);
 
         // Should open note based on date only (time ignored)
-        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith('', 'Journal/2025-11-12.md', false);
+        expect(mockApp.workspace.openLinkText).toHaveBeenCalledWith(
+          '',
+          'Journal/2025-11-12.md',
+          false
+        );
       });
     });
   });

@@ -7,7 +7,6 @@ describe('Settings', () => {
   describe('DEFAULT_SETTINGS', () => {
     it('should have correct default values', () => {
       expect(DEFAULT_SETTINGS.locale).toBe('auto');
-      expect(DEFAULT_SETTINGS.defaultFormat).toBe('yyyy-MM-dd');
       expect(DEFAULT_SETTINGS.weekStart).toBe(1);
       expect(DEFAULT_SETTINGS.triggerCharacters).toEqual(['@@']);
       expect(DEFAULT_SETTINGS.enableNLP).toBe(true);
@@ -30,13 +29,13 @@ describe('Settings', () => {
     });
 
     it('should have unique preset IDs', () => {
-      const ids = DEFAULT_SETTINGS.formatPresets.map((p) => p.id);
+      const ids = DEFAULT_SETTINGS.formatPresets.map(p => p.id);
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(ids.length);
     });
 
     it('should have valid preset structures', () => {
-      DEFAULT_SETTINGS.formatPresets.forEach((preset) => {
+      DEFAULT_SETTINGS.formatPresets.forEach(preset => {
         expect(preset.id).toBeTruthy();
         expect(preset.name).toBeTruthy();
         expect(preset.format).toBeTruthy();
@@ -59,7 +58,6 @@ describe('Settings', () => {
       };
       const validated = validateSettings(partial);
       expect(validated.locale).toBe('fr-FR');
-      expect(validated.defaultFormat).toBe('yyyy-MM-dd');
       expect(validated.weekStart).toBe(1);
     });
 
@@ -100,7 +98,6 @@ describe('Settings', () => {
     it('should preserve valid custom values', () => {
       const custom: DateHelpersSettings = {
         locale: 'de-DE',
-        defaultFormat: 'DD.MM.YYYY',
         weekStart: 0,
         triggerCharacters: ['##', '@@'],
         enableNLP: false,
@@ -195,7 +192,7 @@ describe('Settings', () => {
         formatPresets: [...DEFAULT_SETTINGS.formatPresets, duplicatePreset],
       };
       const validated = validateSettings(settings);
-      const ids = validated.formatPresets.map((p) => p.id);
+      const ids = validated.formatPresets.map(p => p.id);
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(ids.length); // All IDs should be unique
     });
@@ -209,7 +206,7 @@ describe('Settings', () => {
         formatPresets: [...DEFAULT_SETTINGS.formatPresets, invalidPreset],
       };
       const validated = validateSettings(settings);
-      expect(validated.formatPresets.every((p) => p.id && p.name && p.format)).toBe(true);
+      expect(validated.formatPresets.every(p => p.id && p.name && p.format)).toBe(true);
     });
 
     it('should validate default date preset ID', () => {
@@ -249,7 +246,7 @@ describe('Settings', () => {
         defaultDatePresetId: 'custom-format',
       };
       const validated = validateSettings(settings);
-      expect(validated.formatPresets.some((p) => p.id === 'custom-format')).toBe(true);
+      expect(validated.formatPresets.some(p => p.id === 'custom-format')).toBe(true);
       expect(validated.defaultDatePresetId).toBe('custom-format');
     });
 
