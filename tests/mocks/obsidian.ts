@@ -23,12 +23,42 @@ export class PluginSettingTab {
   app: any;
   plugin: any;
   containerEl: any;
+  settingItems: any[] = [];
 
   constructor(app: any, plugin: any) {
     this.app = app;
     this.plugin = plugin;
     this.containerEl =
       typeof document !== 'undefined' ? document.createElement('div') : createMockElement();
+  }
+
+  getSettingDefinitions(): any[] {
+    return [];
+  }
+
+  /**
+   * Stores the definitions and re-renders. Mocked as a spy: tests assert that a
+   * structural change asks for a rebuild, not what the rebuild draws.
+   */
+  update = jest.fn((): void => {
+    this.settingItems = this.getSettingDefinitions();
+  });
+
+  /** Re-evaluates `visible`/`disabled` predicates in place. */
+  refreshDomState = jest.fn((): void => {});
+
+  /**
+   * Obsidian's default reads from `plugin.settings` and persists with
+   * `saveData()` — deliberately mirrored here, so a subclass that forgets to
+   * override and route through its own save path fails a test.
+   */
+  getControlValue(key: string): unknown {
+    return this.plugin?.settings?.[key];
+  }
+
+  setControlValue(key: string, value: unknown): void | Promise<void> {
+    this.plugin.settings[key] = value;
+    return this.plugin.saveData(this.plugin.settings);
   }
 
   display(): void {}

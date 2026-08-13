@@ -28,9 +28,8 @@ export default tseslint.config(
       // The no-unsafe-* family is deliberately left at its recommendedTypeChecked
       // default. It used to be disabled here, which is how v0.1.0 shipped 16
       // Community Portal findings that `npm run lint` never reported: the portal
-      // runs these rules, we did not. Do not re-disable — see the
-      // "Local Lint Parity With the Portal Scan" requirement in
-      // openspec/specs/community-portal-compliance/spec.md
+      // runs these rules, we did not. Do not re-disable: `npm run lint` has to
+      // report what the portal's review scan reports.
       '@typescript-eslint/ban-ts-comment': [
         'error',
         { 'ts-expect-error': 'allow-with-description' },

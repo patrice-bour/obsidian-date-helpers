@@ -161,8 +161,8 @@ You can override any of these in **Settings → Hotkeys**.
 
 ### Date picker
 
-- **Enable trigger character** — on/off.
-- **Trigger character(s)** — default `@@`.
+- **Enable date picker** — on/off, under **Features**.
+- **Trigger characters** — the list of sequences that open the picker, `@@` by default. Add one with **+**, remove one with the delete button on its row. At least one trigger always remains.
 
 ### NLP
 
@@ -213,7 +213,7 @@ Formatted dates work with Dataview date parsing. For DataviewJS, prefer ISO 8601
 Check that NLP is enabled in settings, that your target language is in the **Enabled languages** list, and try toggling **Auto-detect language**.
 
 **The date picker doesn't open when I type `@@`.**
-Verify the trigger character is enabled in settings and check it's not intercepted by another plugin. You can change the trigger character or disable it and use the command palette instead.
+Verify the date picker is enabled in settings and check the trigger is not intercepted by another plugin. You can add a different trigger with **+** and delete the one that clashes — as long as one remains — or disable the picker and use the command palette instead.
 
 **Wrong week start day.**
 Change **Week starts on** in **Settings → General**.

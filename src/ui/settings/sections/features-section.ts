@@ -1,75 +1,58 @@
-import { Setting } from 'obsidian';
-import { SettingsSectionContext } from '../section-context';
+import type { SettingDefinitionGroup } from 'obsidian';
+import { SettingsKey, SettingsSectionContext } from '../section-context';
 
 /**
  * Feature toggles section: date picker, NLP, and (when NLP is on)
  * auto-detect / strict mode / parsing warning sub-settings.
+ *
+ * The sub-settings declare a `visible` predicate rather than being omitted from
+ * the tree: Obsidian re-evaluates it on `refreshDomState()`, so toggling NLP
+ * shows or hides them in place, without rebuilding the tab and stealing focus
+ * from the toggle the user just clicked.
  */
-export function renderFeaturesSection(containerEl: HTMLElement, ctx: SettingsSectionContext): void {
+export function buildFeaturesSection(ctx: SettingsSectionContext): SettingDefinitionGroup<SettingsKey> {
   const { plugin, t } = ctx;
+  const nlpEnabled = (): boolean => plugin.settings.enableNLP;
 
-  new Setting(containerEl).setName(t('settings.sections.features')).setHeading();
-
-  // Enable date picker toggle
-  new Setting(containerEl)
-    .setName(t('settings.features.enableDatePicker.name'))
-    .setDesc(t('settings.features.enableDatePicker.desc'))
-    .addToggle(toggle =>
-      toggle.setValue(plugin.settings.enableDatePicker).onChange(async value => {
-        plugin.settings.enableDatePicker = value;
-        await plugin.saveSettings();
-      })
-    );
-
-  // Enable NLP toggle
-  new Setting(containerEl)
-    .setName(t('settings.features.enableNLP.name'))
-    .setDesc(t('settings.features.enableNLP.desc'))
-    .addToggle(toggle =>
-      toggle.setValue(plugin.settings.enableNLP).onChange(async value => {
-        plugin.settings.enableNLP = value;
-        await plugin.saveSettings();
-        ctx.refresh(); // Refresh to show/hide NLP sub-settings
-      })
-    );
-
-  // NLP sub-settings (conditional on NLP enabled)
-  if (plugin.settings.enableNLP) {
-    // Auto-detect language
-    new Setting(containerEl)
-      .setName(t('settings.features.nlpAutoDetect.name'))
-      .setDesc(t('settings.features.nlpAutoDetect.desc'))
-      .addToggle(toggle =>
-        toggle.setValue(plugin.settings.nlpAutoDetectLanguage).onChange(async value => {
-          plugin.settings.nlpAutoDetectLanguage = value;
-          await plugin.saveSettings();
-        })
-      );
-
-    // NLP strict mode
-    new Setting(containerEl)
-      .setName(t('settings.features.nlpStrictMode.name'))
-      .setDesc(t('settings.features.nlpStrictMode.desc'))
-      .addDropdown(dropdown =>
-        dropdown
-          .addOption('false', t('settings.features.nlpStrictMode.casual'))
-          .addOption('true', t('settings.features.nlpStrictMode.strict'))
-          .setValue(String(plugin.settings.nlpStrictMode))
-          .onChange(async value => {
-            plugin.settings.nlpStrictMode = value === 'true';
-            await plugin.saveSettings();
-          })
-      );
-
-    // Show parsing warning toggle
-    new Setting(containerEl)
-      .setName(t('settings.features.nlpShowWarning.name'))
-      .setDesc(t('settings.features.nlpShowWarning.desc'))
-      .addToggle(toggle =>
-        toggle.setValue(plugin.settings.showParsingWarning).onChange(async value => {
-          plugin.settings.showParsingWarning = value;
-          await plugin.saveSettings();
-        })
-      );
-  }
+  return {
+    type: 'group',
+    heading: t('settings.sections.features'),
+    items: [
+      {
+        name: t('settings.features.enableDatePicker.name'),
+        desc: t('settings.features.enableDatePicker.desc'),
+        control: { type: 'toggle', key: 'enableDatePicker' },
+      },
+      {
+        name: t('settings.features.enableNLP.name'),
+        desc: t('settings.features.enableNLP.desc'),
+        control: { type: 'toggle', key: 'enableNLP' },
+      },
+      {
+        name: t('settings.features.nlpAutoDetect.name'),
+        desc: t('settings.features.nlpAutoDetect.desc'),
+        visible: nlpEnabled,
+        control: { type: 'toggle', key: 'nlpAutoDetectLanguage' },
+      },
+      {
+        name: t('settings.features.nlpStrictMode.name'),
+        desc: t('settings.features.nlpStrictMode.desc'),
+        visible: nlpEnabled,
+        control: {
+          type: 'dropdown',
+          key: 'nlpStrictMode',
+          options: {
+            false: t('settings.features.nlpStrictMode.casual'),
+            true: t('settings.features.nlpStrictMode.strict'),
+          },
+        },
+      },
+      {
+        name: t('settings.features.nlpShowWarning.name'),
+        desc: t('settings.features.nlpShowWarning.desc'),
+        visible: nlpEnabled,
+        control: { type: 'toggle', key: 'showParsingWarning' },
+      },
+    ],
+  };
 }

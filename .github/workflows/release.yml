@@ -39,6 +39,30 @@ jobs:
             manifest.json
             styles.css
 
+      # The Community Portal scans a release the moment it is published and
+      # reported v0.1.2's main.js and styles.css as unattested, although the
+      # GitHub API returns an attestation for both asset digests. The scan may
+      # have raced the attestation index. Blocking here until every subject is
+      # queryable removes that possibility: if the finding comes back anyway,
+      # the cause is on the portal's side and this step is the evidence.
+      - name: Verify attestations are queryable before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for file in main.js manifest.json styles.css; do
+            for attempt in $(seq 1 10); do
+              if gh attestation verify "$file" --repo "${{ github.repository }}"; then
+                echo "$file: attestation verified (attempt $attempt)"
+                continue 2
+              fi
+              echo "$file: not queryable yet, retrying in 15s (attempt $attempt/10)"
+              sleep 15
+            done
+            echo "::error::$file has no queryable attestation after 10 attempts"
+            exit 1
+          done
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:

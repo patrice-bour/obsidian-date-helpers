@@ -20,6 +20,7 @@ export default class DateHelpersPlugin extends Plugin {
   formatterService!: FormatterService;
   nlpService!: NLPService;
   dailyNotesService!: DailyNotesService;
+  private settingTab?: DateHelpersSettingTab;
   private commandsRegistered = false;
 
   async onload() {
@@ -31,7 +32,8 @@ export default class DateHelpersPlugin extends Plugin {
       this.initializeServices();
 
       // Register settings tab
-      this.addSettingTab(new DateHelpersSettingTab(this.app, this));
+      this.settingTab = new DateHelpersSettingTab(this.app, this);
+      this.addSettingTab(this.settingTab);
 
       // Register Phase 1 commands
       this.registerCommands();
@@ -344,7 +346,13 @@ export default class DateHelpersPlugin extends Plugin {
     modal.open();
   }
 
-  onunload() {}
+  onunload() {
+    // Obsidian calls hide() when the user leaves the settings tab, but not when
+    // the plugin is unloaded with the tab still open — a BRAT update or a
+    // "reload plugins" does exactly that, and would leave the tab's pending
+    // rebuild timer to fire against services that no longer exist.
+    this.settingTab?.dispose();
+  }
 
   async loadSettings() {
     const raw: unknown = await this.loadData();

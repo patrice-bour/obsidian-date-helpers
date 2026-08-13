@@ -1,72 +1,264 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, PluginSettingTab } from 'obsidian';
+import type { SettingDefinitionItem } from 'obsidian';
 import DateHelpersPlugin from '@/main';
-import { SettingsSectionContext } from './settings/section-context';
-import { renderDailyNotesSection } from './settings/sections/daily-notes-section';
-import { renderTextFormatsSection } from './settings/sections/text-formats-section';
-import { renderGeneralSection } from './settings/sections/general-section';
-import { renderFeaturesSection } from './settings/sections/features-section';
-import { renderTriggersSection } from './settings/sections/triggers-section';
-import { renderPresetsListSection } from './settings/sections/presets-list-section';
+import { DEFAULT_SETTINGS } from '@/settings/defaults';
+import { normalizeLocale } from '@/utils/locale';
+import { LOCALE_REFRESH_DEBOUNCE_MS, MAX_TRIGGER_LENGTH } from '@/utils/constants';
+import { SettingsKey, SettingsSectionContext } from './settings/section-context';
+import { AddTriggerModal } from './settings/add-trigger-modal';
+import { buildDailyNotesSection } from './settings/sections/daily-notes-section';
+import { buildTextFormatsSection } from './settings/sections/text-formats-section';
+import { buildGeneralSection } from './settings/sections/general-section';
+import { buildFeaturesSection } from './settings/sections/features-section';
+import { buildTriggersSection } from './settings/sections/triggers-section';
+import { buildPresetsListSection } from './settings/sections/presets-list-section';
 
 /**
- * Settings tab orchestrator: builds the section context and renders the
- * sections in order. Each section lives in src/ui/settings/sections/.
+ * Dropdown controls hand back strings; these settings are not stored as such.
+ *
+ * `locale` normalizes here rather than only in the control's `validate` hook:
+ * validation accepts a value if its *normalized* form is a known locale, so
+ * `fr_CA` passes. Storing the raw form would then hand `fr_CA` to Luxon, which
+ * throws on it — every format example and every inserted date would read
+ * "[Invalid format: …]" until the next restart, where the loader normalizes.
+ * What is validated must be what is stored.
+ */
+const CONTROL_COERCIONS: Partial<Record<SettingsKey, (raw: string) => unknown>> = {
+  // Options are keyed '0' | '1' | '6', the three WeekStart values.
+  weekStart: raw => Number(raw),
+  nlpStrictMode: raw => raw === 'true',
+  // An emptied field means "follow Obsidian", which is stored as `auto`.
+  locale: raw => (raw.trim() === '' ? 'auto' : normalizeLocale(raw.trim())),
+};
+
+/**
+ * The read side of the same funnel. Dropdown controls are typed
+ * `SettingControlBase<string>`, so a stored number or boolean has to be handed
+ * back as the string its options are keyed by — today the DOM stringifies it
+ * anyway, but `validate` and `defaultValue` would not.
+ */
+const CONTROL_DECODERS: Partial<Record<SettingsKey, (value: unknown) => unknown>> = {
+  weekStart: value => String(value),
+  nlpStrictMode: value => String(value),
+};
+
+/** True when `key` names an actual setting, which also rules out `__proto__`. */
+function isSettingsKey(key: string): key is SettingsKey {
+  return Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key);
+}
+
+/**
+ * Settings tab: declares its settings, Obsidian renders and indexes them.
+ *
+ * Persistence is routed through `plugin.saveSettings()` instead of the
+ * inherited `saveData()` write, because saving is not just a write here — it
+ * re-resolves the locale into the i18n, date, formatter, NLP and Daily Notes
+ * services. That override is also the only hook a declarative control offers
+ * for reacting to a change, so the side effects are dispatched from it.
  */
 export class DateHelpersSettingTab extends PluginSettingTab {
   plugin: DateHelpersPlugin;
-  /** Cleanup for the previous render (pending debounce timers, etc.) */
-  private disposeSections: ((flush?: boolean) => void) | null = null;
+  /** Pending rebuild after a locale edit. Holds no user data. */
+  private localeRefreshTimer: number | null = null;
+  /**
+   * Set once the tab is torn down. Every rebuild scheduled across an `await`
+   * has to check it: cancelling the timer is not enough, because a continuation
+   * already parked on `saveSettings()` resumes afterwards and would rebuild a
+   * container that is gone.
+   */
+  private disposed = false;
 
   constructor(app: App, plugin: DateHelpersPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
 
-  display(): void {
-    // Clear any pending timers from previous display to prevent memory leaks
-    this.disposeSections?.();
-    this.disposeSections = null;
-
-    const { containerEl } = this;
-    containerEl.empty();
+  getSettingDefinitions(): SettingDefinitionItem<SettingsKey>[] {
+    // Obsidian calls this on every display, so it is where a tab comes back to
+    // life after a previous teardown.
+    this.disposed = false;
 
     const ctx: SettingsSectionContext = {
       plugin: this.plugin,
       t: key => this.plugin.i18n.t(key),
-      refresh: () => this.display(),
     };
 
-    new Setting(containerEl).setName(ctx.t('settings.title')).setHeading();
-    containerEl.createEl('p', {
-      text: ctx.t('settings.description'),
-      cls: 'setting-item-description',
-    });
+    return [
+      buildDailyNotesSection(ctx),
+      buildTextFormatsSection(ctx),
+      buildGeneralSection(ctx),
+      buildFeaturesSection(ctx),
+      ...buildTriggersSection(ctx, {
+        onAdd: () => this.openAddTriggerDialog(),
+        onDelete: trigger => void this.removeTrigger(trigger),
+      }),
+      buildPresetsListSection(ctx),
+    ];
+  }
 
-    renderDailyNotesSection(containerEl, ctx);
-    renderTextFormatsSection(containerEl, ctx);
-    this.disposeSections = renderGeneralSection(containerEl, ctx);
-    renderFeaturesSection(containerEl, ctx);
-    renderTriggersSection(containerEl, ctx);
-    renderPresetsListSection(containerEl, ctx);
+  getControlValue(key: string): unknown {
+    if (!isSettingsKey(key)) return undefined;
+
+    const stored = this.plugin.settings[key];
+    const decode = CONTROL_DECODERS[key];
+    return decode ? decode(stored) : stored;
+  }
+
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    // Definitions are typed against `keyof DateHelpersSettings`, so a bad key
+    // cannot come from our own tree. This guards the framework's side of the
+    // contract: an unknown key would otherwise be written into `settings` and
+    // then carried forward by every later load, invisibly.
+    if (!isSettingsKey(key)) return;
+
+    const coerce = CONTROL_COERCIONS[key];
+    const stored = coerce && typeof value === 'string' ? coerce(value) : value;
+    const previous = this.plugin.settings[key];
+
+    (this.plugin.settings as Record<SettingsKey, unknown>)[key] = stored;
+
+    try {
+      await this.plugin.saveSettings();
+    } catch (error) {
+      // Nothing reached disk and the services were never updated, so keeping
+      // the new value in memory would leave the tab disagreeing with both.
+      (this.plugin.settings as Record<SettingsKey, unknown>)[key] = previous;
+      this.reportFailure(error);
+      return;
+    }
+
+    this.applySideEffect(key, previous, stored);
   }
 
   /**
-   * Obsidian's teardown hook: "Any registered components should be unloaded
-   * when the view is hidden."
-   *
-   * Without this, a pending debounce survives the tab being hidden and is only
-   * cleaned up by the *next* display() — which may never come. Since the timer
-   * is scoped to `window` it outlives a popped-out settings window, so its
-   * callback would then refresh a containerEl whose document is gone.
-   *
-   * Flushes rather than discards. Obsidian calls hide() whenever the user
-   * switches to another settings tab, so discarding would silently drop a
-   * locale the user had just typed — a common path, unlike the popout close
-   * this teardown was added for.
+   * Obsidian's teardown hook. The pending rebuild is dropped: the value it would
+   * have refreshed the display for is already persisted, so nothing is lost —
+   * unlike the debounce this replaced, which held unsaved input.
    */
   hide(): void {
-    this.disposeSections?.(true);
-    this.disposeSections = null;
+    this.dispose();
     super.hide();
+  }
+
+  /**
+   * Release everything scheduled by this tab. Called from `hide()`, and from the
+   * plugin's `onunload`, which `hide()` does not cover: a BRAT update or a
+   * "reload plugins" while the tab is open would otherwise leave a timer that
+   * fires against unloaded services.
+   */
+  dispose(): void {
+    this.disposed = true;
+    this.clearLocaleRefresh();
+  }
+
+  private applySideEffect(key: SettingsKey, previous: unknown, stored: unknown): void {
+    // Changing the locale changes rendered *content* — translated labels and the
+    // format examples baked into dropdown option labels — so predicates are not
+    // enough and the definitions must be rebuilt.
+    if (key === 'locale') {
+      // A keystroke that lands on the same stored value (typing over a selection,
+      // re-entering what was already there) must not re-arm the rebuild, or the
+      // field is refilled under a user who is still editing.
+      if (previous !== stored) this.scheduleLocaleRefresh();
+      return;
+    }
+
+    // Toggling NLP only flips `visible` on its sub-settings. Re-evaluating the
+    // predicates in place avoids rebuilding the tab under the user's cursor.
+    if (key === 'enableNLP') {
+      this.refreshDomState();
+    }
+  }
+
+  /**
+   * Defer the rebuild: a control that reports on every keystroke would otherwise
+   * tear down the very field being typed into.
+   *
+   * Timers are armed on `window`, never `activeWindow`, which follows focus and
+   * would let a timer be armed on one window and cleared on another.
+   */
+  private scheduleLocaleRefresh(): void {
+    this.clearLocaleRefresh();
+    this.localeRefreshTimer = window.setTimeout(() => {
+      this.localeRefreshTimer = null;
+      this.refresh();
+    }, LOCALE_REFRESH_DEBOUNCE_MS);
+  }
+
+  private clearLocaleRefresh(): void {
+    if (this.localeRefreshTimer !== null) {
+      window.clearTimeout(this.localeRefreshTimer);
+      this.localeRefreshTimer = null;
+    }
+  }
+
+  /** Rebuild, unless the tab was torn down while the work was in flight. */
+  private refresh(): void {
+    if (!this.disposed) this.update();
+  }
+
+  private openAddTriggerDialog(): void {
+    new AddTriggerModal(this.app, {
+      existing: [...this.plugin.settings.triggerCharacters],
+      t: key => this.plugin.i18n.t(key),
+      onSubmit: trigger => void this.addTrigger(trigger),
+    }).open();
+  }
+
+  /**
+   * Append a trigger.
+   *
+   * The invariants are re-asserted here and not left to the dialog: the dialog
+   * validates against a list captured when it opened, and validation that lives
+   * only in a dialog is validation the next caller can bypass.
+   */
+  async addTrigger(trigger: string): Promise<void> {
+    const triggers = this.plugin.settings.triggerCharacters;
+    if (trigger === '' || trigger.length > MAX_TRIGGER_LENGTH || triggers.includes(trigger)) {
+      return;
+    }
+
+    triggers.push(trigger);
+    await this.persistTriggers();
+  }
+
+  /**
+   * Remove a trigger by value.
+   *
+   * By value, not by index: the rendered rows keep their original indices until
+   * `update()` rebuilds the tree, which only happens after an `await`. A second
+   * click — or the Delete key repeating — lands in that window carrying an index
+   * that has since come to mean a different trigger.
+   */
+  async removeTrigger(trigger: string): Promise<void> {
+    const triggers = this.plugin.settings.triggerCharacters;
+    // At least one trigger must remain. The list withholds the affordance when
+    // only one is left, but that is decided when the tree is built; two quick
+    // deletes on a two-item list would otherwise empty it — and an empty list
+    // survives `validateSettings`, silently disabling the picker for good.
+    if (triggers.length <= 1) return;
+
+    const at = triggers.indexOf(trigger);
+    if (at === -1) return; // already removed by an earlier click
+
+    triggers.splice(at, 1);
+    await this.persistTriggers();
+  }
+
+  private async persistTriggers(): Promise<void> {
+    try {
+      await this.plugin.saveSettings();
+    } catch (error) {
+      this.reportFailure(error);
+      return;
+    }
+    // A row was added or removed: the definitions themselves changed, so
+    // predicates are not enough — the tree has to be rebuilt.
+    this.refresh();
+  }
+
+  private reportFailure(error: unknown): void {
+    console.error('Date Helpers: failed to save settings', error);
+    new Notice(this.plugin.i18n.t('settings.saveFailed'));
   }
 }
