@@ -16,11 +16,7 @@ export class DatePickerSuggest extends EditorSuggest<null> {
   private plugin: DateHelpersPlugin;
   private triggerChars: string[];
 
-  constructor(
-    app: App,
-    plugin: DateHelpersPlugin,
-    triggerChars: string[],
-  ) {
+  constructor(app: App, plugin: DateHelpersPlugin, triggerChars: string[]) {
     super(app);
     this.plugin = plugin;
     this.triggerChars = triggerChars;
@@ -61,11 +57,7 @@ export class DatePickerSuggest extends EditorSuggest<null> {
    */
   getSuggestions(context: EditorSuggestContext): null[] {
     // Open date picker modal
-    this.plugin.showDatePickerFromTrigger(
-      context.editor,
-      context.start,
-      context.end,
-    );
+    this.plugin.showDatePickerFromTrigger(context.editor, context.start, context.end);
 
     return [];
   }

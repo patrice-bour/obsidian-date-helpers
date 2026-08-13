@@ -44,6 +44,15 @@ interface Phase6Settings {
 export function migrateSettings(
   settings: Partial<DateHelpersSettings>
 ): Partial<DateHelpersSettings> {
+  // Purge the deprecated Phase 0 'defaultFormat' key (replaced by presets).
+  // Runs before the Phase 7.2 early return so already-migrated data is
+  // cleaned too; loadSettings re-saves after validation, so users'
+  // data.json self-cleans on next load.
+  if ('defaultFormat' in settings) {
+    settings = { ...settings };
+    delete (settings as Record<string, unknown>).defaultFormat;
+  }
+
   const phase5 = settings as Phase5Settings;
   const phase6 = settings as Phase6Settings;
 

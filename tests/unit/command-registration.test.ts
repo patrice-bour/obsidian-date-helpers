@@ -23,7 +23,7 @@ function getRegisteredCommandNames(settings: Partial<DateHelpersSettings>): stri
   commands.push('Convert selection to date');
 
   // Preset commands (always registered)
-  fullSettings.formatPresets.forEach((preset) => {
+  fullSettings.formatPresets.forEach(preset => {
     let prefix = 'Insert date';
     if (preset.type === 'time') {
       prefix = 'Insert time';
@@ -50,7 +50,7 @@ function getRegisteredCommandIds(settings: Partial<DateHelpersSettings>): string
   ids.push('convert-selection');
 
   // Preset command IDs
-  fullSettings.formatPresets.forEach((preset) => {
+  fullSettings.formatPresets.forEach(preset => {
     ids.push(`insert-date-${preset.id}`);
   });
 
@@ -150,8 +150,18 @@ describe('Command Registration (Phase 7.2)', () => {
       const insertDNCommands = getRegisteredCommandNames(insertDNSettings);
 
       // Both should have same preset commands
-      const insertTextPresets = insertTextCommands.filter((cmd) => cmd.startsWith('Insert date:') || cmd.startsWith('Insert time:') || cmd.startsWith('Insert datetime:'));
-      const insertDNPresets = insertDNCommands.filter((cmd) => cmd.startsWith('Insert date:') || cmd.startsWith('Insert time:') || cmd.startsWith('Insert datetime:'));
+      const insertTextPresets = insertTextCommands.filter(
+        cmd =>
+          cmd.startsWith('Insert date:') ||
+          cmd.startsWith('Insert time:') ||
+          cmd.startsWith('Insert datetime:')
+      );
+      const insertDNPresets = insertDNCommands.filter(
+        cmd =>
+          cmd.startsWith('Insert date:') ||
+          cmd.startsWith('Insert time:') ||
+          cmd.startsWith('Insert datetime:')
+      );
 
       expect(insertTextPresets).toEqual(insertDNPresets);
       expect(insertTextPresets.length).toBe(11); // 5 date + 3 time + 3 datetime
@@ -177,18 +187,20 @@ describe('Command Registration (Phase 7.2)', () => {
       expect(commands.length).toBe(15);
 
       // Count by category
-      const actionCommands = commands.filter((cmd) =>
-        cmd === 'Insert date as text' ||
-        cmd === 'Insert Daily Note link' ||
-        cmd === 'Open Daily Note' ||
-        cmd === 'Convert selection to date'
+      const actionCommands = commands.filter(
+        cmd =>
+          cmd === 'Insert date as text' ||
+          cmd === 'Insert Daily Note link' ||
+          cmd === 'Open Daily Note' ||
+          cmd === 'Convert selection to date'
       );
       expect(actionCommands.length).toBe(4);
 
-      const presetCommands = commands.filter((cmd) =>
-        cmd.startsWith('Insert date:') ||
-        cmd.startsWith('Insert time:') ||
-        cmd.startsWith('Insert datetime:')
+      const presetCommands = commands.filter(
+        cmd =>
+          cmd.startsWith('Insert date:') ||
+          cmd.startsWith('Insert time:') ||
+          cmd.startsWith('Insert datetime:')
       );
       expect(presetCommands.length).toBe(11);
     });
@@ -198,8 +210,8 @@ describe('Command Registration (Phase 7.2)', () => {
       const commands = getRegisteredCommandNames(settings);
 
       // Phase 7.2 removed mode prefixes like "[Text]" and "Daily Notes:"
-      const textPrefixCommands = commands.filter((cmd) => cmd.startsWith('[Text]'));
-      const dnPrefixCommands = commands.filter((cmd) => cmd.startsWith('Daily Notes:'));
+      const textPrefixCommands = commands.filter(cmd => cmd.startsWith('[Text]'));
+      const dnPrefixCommands = commands.filter(cmd => cmd.startsWith('Daily Notes:'));
 
       expect(textPrefixCommands.length).toBe(0);
       expect(dnPrefixCommands.length).toBe(0);
@@ -260,13 +272,13 @@ describe('Command Registration (Phase 7.2)', () => {
         'open-daily-note',
       ];
 
-      const commandSets = actions.map((action) => {
+      const commandSets = actions.map(action => {
         return getRegisteredCommandNames({ lastUsedAction: action });
       });
 
       // All command sets should be identical
       const firstSet = commandSets[0];
-      commandSets.forEach((commandSet) => {
+      commandSets.forEach(commandSet => {
         expect(commandSet).toEqual(firstSet);
       });
     });

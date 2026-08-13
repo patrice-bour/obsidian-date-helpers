@@ -1,6 +1,7 @@
 import { DateHelpersSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
 import { isValidLocale, normalizeLocale } from './locale';
+import { VALID_WEEK_STARTS } from './constants';
 import { FormatPreset } from '@/types/format-preset';
 
 /**
@@ -8,9 +9,7 @@ import { FormatPreset } from '@/types/format-preset';
  * @param settings - Partial or complete settings object
  * @returns Validated settings with defaults applied
  */
-export function validateSettings(
-  settings: Partial<DateHelpersSettings>
-): DateHelpersSettings {
+export function validateSettings(settings: Partial<DateHelpersSettings>): DateHelpersSettings {
   // Migration: nlpFallbackBehavior → showParsingWarning
   const rawSettings = settings as Record<string, unknown>;
   if ('nlpFallbackBehavior' in rawSettings && !('showParsingWarning' in rawSettings)) {
@@ -24,7 +23,7 @@ export function validateSettings(
   };
 
   // Validate weekStart (must be 0, 1, or 6)
-  if (![0, 1, 6].includes(validated.weekStart)) {
+  if (!(VALID_WEEK_STARTS as readonly number[]).includes(validated.weekStart)) {
     console.warn(`Invalid weekStart value: ${validated.weekStart}, resetting to default`);
     validated.weekStart = DEFAULT_SETTINGS.weekStart;
   }
@@ -113,13 +112,13 @@ export function validateSettings(
     }
 
     // Update builtin presets to latest version and add missing ones (for plugin updates)
-    const existingPresetsMap = new Map(validated.formatPresets.map((p) => [p.id, p]));
+    const existingPresetsMap = new Map(validated.formatPresets.map(p => [p.id, p]));
     const updatedPresets: FormatPreset[] = [];
     const addedPresets: string[] = [];
     const updatedPresetIds: string[] = [];
 
     // Process all default builtin presets
-    DEFAULT_FORMAT_PRESETS.forEach((defaultPreset) => {
+    DEFAULT_FORMAT_PRESETS.forEach(defaultPreset => {
       if (!defaultPreset.builtin) return;
 
       const existing = existingPresetsMap.get(defaultPreset.id);
@@ -146,7 +145,7 @@ export function validateSettings(
     });
 
     // Keep user's custom presets (non-builtin or not in defaults)
-    existingPresetsMap.forEach((preset) => {
+    existingPresetsMap.forEach(preset => {
       updatedPresets.push(preset);
     });
 
@@ -156,7 +155,7 @@ export function validateSettings(
   }
 
   // Validate default preset IDs exist
-  const presetIds = new Set(validated.formatPresets.map((p) => p.id));
+  const presetIds = new Set(validated.formatPresets.map(p => p.id));
 
   if (!validated.defaultDatePresetId || !presetIds.has(validated.defaultDatePresetId)) {
     console.warn(
@@ -172,10 +171,7 @@ export function validateSettings(
     validated.defaultTimePresetId = DEFAULT_SETTINGS.defaultTimePresetId;
   }
 
-  if (
-    !validated.defaultDateTimePresetId ||
-    !presetIds.has(validated.defaultDateTimePresetId)
-  ) {
+  if (!validated.defaultDateTimePresetId || !presetIds.has(validated.defaultDateTimePresetId)) {
     console.warn(
       `Invalid defaultDateTimePresetId: ${validated.defaultDateTimePresetId}, resetting to default`
     );
@@ -207,9 +203,7 @@ export function validateSettings(
   if (validated.lastUsedAction !== undefined) {
     const validActions = ['insert-text', 'insert-daily-note', 'open-daily-note'];
     if (!validActions.includes(validated.lastUsedAction)) {
-      console.warn(
-        `Invalid lastUsedAction value: ${validated.lastUsedAction}, clearing`
-      );
+      console.warn(`Invalid lastUsedAction value: ${validated.lastUsedAction}, clearing`);
       validated.lastUsedAction = undefined;
     }
   }
@@ -240,9 +234,7 @@ export function validateSettings(
 
   // Validate dailyNotesAliasFallbackPresetId (cannot be 'original-text', must be a valid preset)
   if (validated.dailyNotesAliasFallbackPresetId === 'original-text') {
-    console.warn(
-      'dailyNotesAliasFallbackPresetId cannot be "original-text", resetting to default'
-    );
+    console.warn('dailyNotesAliasFallbackPresetId cannot be "original-text", resetting to default');
     validated.dailyNotesAliasFallbackPresetId = DEFAULT_SETTINGS.dailyNotesAliasFallbackPresetId;
   } else if (!presetIds.has(validated.dailyNotesAliasFallbackPresetId)) {
     console.warn(

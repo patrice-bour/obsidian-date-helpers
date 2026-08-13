@@ -8,8 +8,8 @@ import { DailyNotesPluginAdapter } from './daily-notes-plugin-adapter';
  * Daily Notes configuration from Obsidian
  */
 export interface DailyNotesConfig {
-  format: string;   // Date format (Moment.js style)
-  folder: string;   // Folder path (empty = vault root)
+  format: string; // Date format (Moment.js style)
+  folder: string; // Folder path (empty = vault root)
   template: string; // Template file path (without .md)
 }
 
@@ -143,9 +143,8 @@ export class DailyNotesService {
     const presetId = options?.presetId || this.settings.dailyNotesAliasPresetId;
 
     // Handle 'original-text' preset when no custom alias - use fallback
-    const effectivePresetId = presetId === 'original-text'
-      ? this.settings.dailyNotesAliasFallbackPresetId
-      : presetId;
+    const effectivePresetId =
+      presetId === 'original-text' ? this.settings.dailyNotesAliasFallbackPresetId : presetId;
 
     // Look up the preset from settings
     const preset = this.settings.formatPresets.find(p => p.id === effectivePresetId);
@@ -275,26 +274,26 @@ export class DailyNotesService {
   private convertToLuxonFormat(momentFormat: string): string {
     // Common conversions (extend as needed)
     const conversions: Record<string, string> = {
-      'YYYY': 'yyyy',
-      'YY': 'yy',
-      'MMMM': 'LLLL',
-      'MMM': 'LLL',
-      'MM': 'MM',
-      'M': 'M',
-      'dddd': 'cccc',
-      'ddd': 'ccc',
-      'DD': 'dd',
-      'D': 'd',
-      'HH': 'HH',
-      'H': 'H',
-      'hh': 'hh',
-      'h': 'h',
-      'mm': 'mm',
-      'm': 'm',
-      'ss': 'ss',
-      's': 's',
-      'A': 'a',
-      'a': 'a',
+      YYYY: 'yyyy',
+      YY: 'yy',
+      MMMM: 'LLLL',
+      MMM: 'LLL',
+      MM: 'MM',
+      M: 'M',
+      dddd: 'cccc',
+      ddd: 'ccc',
+      DD: 'dd',
+      D: 'd',
+      HH: 'HH',
+      H: 'H',
+      hh: 'hh',
+      h: 'h',
+      mm: 'mm',
+      m: 'm',
+      ss: 'ss',
+      s: 's',
+      A: 'a',
+      a: 'a',
     };
 
     // Sort by length (descending) to replace longer patterns first
@@ -349,7 +348,9 @@ export class DailyNotesService {
     } else {
       // Don't auto-create - show error
       const formattedDate = date.toFormat('yyyy-MM-dd');
-      throw new Error(`Daily note does not exist: ${formattedDate}. Enable "Auto-create" in settings to create automatically.`);
+      throw new Error(
+        `Daily note does not exist: ${formattedDate}. Enable "Auto-create" in settings to create automatically.`
+      );
     }
   }
 

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-08-13
+
+Maintenance release. No new features and no settings changes: an internal UI refactor, three bug fixes, and a clean dependency tree.
+
+### Fixed
+
+- Today's date was not highlighted in the calendar whenever the plugin locale differed from the system locale. `isToday()` compared Luxon `DateTime` objects with `.equals()`, which also compares locale metadata, so the highlight silently vanished. Now compared field by field.
+- Editing the locale and switching windows or settings tabs could lose the entry, or leave a save running against a closed window. Timers are now scoped to `window` rather than `activeWindow` (which follows focus, so a timer could be cleared against a different window than the one that armed it), the settings tab flushes pending edits when it is hidden instead of discarding them, and a save still in flight can no longer refresh a settings pane that has already been torn down.
+- Format selector and calendar rendering no longer depend on `activeWindow` timers in popped-out windows.
+
+### Changed
+
+- The unified date picker modal and the settings tab were split into focused modules (`src/ui/date-picker/`, `src/ui/settings/sections/`). Behaviour is unchanged — this is groundwork for the upcoming declarative settings migration.
+- Removed the deprecated `defaultFormat` setting field, which had no runtime reads since the preset system replaced it with `defaultDatePresetId`. The settings migration purges the key from stored data; downgrading re-adds it from the older version's defaults.
+- `npm run lint` now reports what the Community Portal's review scan reports: `eslint-plugin-obsidianmd` is installed and active, and the `@typescript-eslint/no-unsafe-*` rule family is no longer disabled. See `CONTRIBUTING.md`.
+- Migrated to ESLint 9 flat config (`eslint.config.mjs`), replacing `.eslintrc.json`.
+- Resolved every advisory in the dependency tree; `npm audit --audit-level=moderate` reports zero.
+
+### Added
+
+- Test coverage raised to 531 tests across 21 suites, with coverage thresholds now enforced on `main.ts` and the UI layer.
+
+### Notes
+
+Known limitation: Obsidian does not guarantee that a settings tab's `hide()` hook runs when a host window is destroyed abruptly, so a locale edit made in the last few hundred milliseconds before force-closing a popped-out settings window may not persist.
+
 ## [0.1.1] - 2026-05-16
 
 Cleanup release addressing the warnings reported by the Obsidian Community Portal scorecard on v0.1.0 (https://community.obsidian.md/plugins/date-helpers).

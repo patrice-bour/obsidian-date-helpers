@@ -78,6 +78,32 @@ describe('Settings Migration (Phase 5 → Phase 7.2)', () => {
       expect(result.weekStart).toBe(0);
     });
 
+    it('should strip the deprecated defaultFormat key from legacy data', () => {
+      const legacySettings = {
+        defaultFormat: 'yyyy-MM-dd',
+        locale: 'auto',
+        enableDailyNotesIntegration: true,
+      } as Partial<DateHelpersSettings>;
+
+      const result = migrateSettings(legacySettings);
+
+      expect(result).not.toHaveProperty('defaultFormat');
+      expect(result.lastUsedAction).toBe('insert-daily-note');
+    });
+
+    it('should strip defaultFormat even from already-migrated (Phase 7.2) data', () => {
+      const phase72Settings = {
+        defaultFormat: 'yyyy-MM-dd',
+        locale: 'auto',
+        lastUsedAction: 'insert-text',
+      } as Partial<DateHelpersSettings>;
+
+      const result = migrateSettings(phase72Settings);
+
+      expect(result).not.toHaveProperty('defaultFormat');
+      expect(result.lastUsedAction).toBe('insert-text');
+    });
+
     it('should not migrate when neither mode nor Phase 5 settings exist (new user)', () => {
       const incompleteSettings = {
         locale: 'auto',

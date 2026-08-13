@@ -40,12 +40,8 @@ describe('FormatterService', () => {
     });
 
     it('should format datetime with combined format strings', () => {
-      expect(service.format(testDate, "yyyy-MM-dd'T'HH:mm:ss")).toBe(
-        '2025-11-02T14:30:45'
-      );
-      expect(service.format(testDate, 'MMM d, yyyy h:mm a')).toBe(
-        'Nov 2, 2025 2:30 PM'
-      );
+      expect(service.format(testDate, "yyyy-MM-dd'T'HH:mm:ss")).toBe('2025-11-02T14:30:45');
+      expect(service.format(testDate, 'MMM d, yyyy h:mm a')).toBe('Nov 2, 2025 2:30 PM');
     });
 
     it('should respect locale for month and day names', () => {
@@ -256,10 +252,7 @@ describe('FormatterService', () => {
 
   describe('edge cases', () => {
     it('should handle leap year dates', () => {
-      const leapDate = DateTime.fromObject(
-        { year: 2024, month: 2, day: 29 },
-        { locale: 'en-US' }
-      );
+      const leapDate = DateTime.fromObject({ year: 2024, month: 2, day: 29 }, { locale: 'en-US' });
       expect(service.format(leapDate, 'yyyy-MM-dd')).toBe('2024-02-29');
     });
 

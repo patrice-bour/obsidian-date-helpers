@@ -1,5 +1,5 @@
 import { FALLBACK_LOCALE } from '@/utils/constants';
-import { detectObsidianLocale } from '@/utils/locale';
+import { resolveLocale, getLanguageCode } from '@/utils/locale';
 import { TranslationKey, TranslationParams } from '@/i18n/types';
 import enTranslations from '@/i18n/locales/en.json';
 import frTranslations from '@/i18n/locales/fr.json';
@@ -9,7 +9,7 @@ export class I18nService {
   private translations: Record<string, unknown>;
 
   constructor(locale: string = 'auto') {
-    this.locale = this.resolveLocale(locale);
+    this.locale = resolveLocale(locale);
     this.translations = this.loadTranslations(this.locale);
   }
 
@@ -41,18 +41,8 @@ export class I18nService {
    * Set locale and reload translations
    */
   setLocale(locale: string): void {
-    this.locale = this.resolveLocale(locale);
+    this.locale = resolveLocale(locale);
     this.translations = this.loadTranslations(this.locale);
-  }
-
-  /**
-   * Resolve locale from 'auto' or specific value
-   */
-  private resolveLocale(locale: string): string {
-    if (locale === 'auto') {
-      return detectObsidianLocale();
-    }
-    return locale;
   }
 
   /**
@@ -61,12 +51,12 @@ export class I18nService {
   private loadTranslations(locale: string): Record<string, unknown> {
     try {
       // Get language code (e.g., 'en' from 'en-US', 'fr' from 'fr-FR')
-      const normalizedLocale = locale.split('-')[0];
+      const normalizedLocale = getLanguageCode(locale);
 
       // Map of supported locales to their translation files
       const translationMap: Record<string, Record<string, unknown>> = {
-        en: enTranslations as Record<string, unknown>,
-        fr: frTranslations as Record<string, unknown>,
+        en: enTranslations,
+        fr: frTranslations,
       };
 
       // Return translations for the locale, or fall back to English
@@ -78,10 +68,10 @@ export class I18nService {
       console.warn(
         `Translations not found for locale: ${locale}, falling back to ${FALLBACK_LOCALE}`
       );
-      return enTranslations as Record<string, unknown>;
+      return enTranslations;
     } catch (error) {
       console.error('Failed to load translations:', error);
-      return enTranslations as Record<string, unknown>;
+      return enTranslations;
     }
   }
 
@@ -104,7 +94,11 @@ export class I18nService {
 
     return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
       const value = params[key];
-      const stringValue = value === undefined || value === null ? match : String(value);
+      // Only primitives interpolate meaningfully; objects would render '[object Object]'
+      const stringValue =
+        typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+          ? String(value)
+          : match;
       return this.escapeHtml(stringValue);
     });
   }

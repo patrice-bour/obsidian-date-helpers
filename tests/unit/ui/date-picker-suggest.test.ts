@@ -175,7 +175,7 @@ describe('DatePickerSuggest', () => {
       expect(mockPlugin.showDatePickerFromTrigger).toHaveBeenCalledWith(
         mockEditor,
         { line: 0, ch: 0 },
-        { line: 0, ch: 2 },
+        { line: 0, ch: 2 }
       );
       expect(result).toEqual([]); // Returns empty array
     });

@@ -3,6 +3,8 @@ import { DateTime } from 'luxon';
 import { DateService } from './date-service';
 import { I18nService } from './i18n-service';
 import { DateHelpersSettings } from '@/types/settings';
+import { getLanguageCode } from '@/utils/locale';
+import { NLP_MIN_COVERAGE_RATIO } from '@/utils/constants';
 
 /**
  * Parse result with additional metadata
@@ -41,11 +43,7 @@ export class NLPService {
   private settings: DateHelpersSettings;
   private chronoInstances: Map<string, chrono.Chrono>;
 
-  constructor(
-    dateService: DateService,
-    i18nService: I18nService,
-    settings: DateHelpersSettings
-  ) {
+  constructor(dateService: DateService, i18nService: I18nService, settings: DateHelpersSettings) {
     this.dateService = dateService;
     this.i18nService = i18nService;
     this.settings = settings;
@@ -76,26 +74,19 @@ export class NLPService {
   private getLocaleLanguage(): string {
     let locale = this.settings.locale;
     if (locale === 'auto') {
+      // Deliberately resolved through I18nService (not resolveLocale):
+      // it tracks setLocale() changes made after initialization
       locale = this.i18nService.getCurrentLocale();
     }
-    return locale.split('-')[0];
+    return getLanguageCode(locale);
   }
 
   /**
    * Try parsing with a specific language
    * Returns null if no results or if the match quality is too poor
    *
-   * Match Quality Filter:
-   * - Calculates coverage ratio: (matched text length) / (input length)
-   * - Requires ≥50% coverage to accept the match
-   * - Rationale: Prevents partial matches from wrong-language parsers
-   *   Example: French parser matching "9am" (16.7% coverage) in "next Monday at 9am"
-   *   would return today at 9am (incorrect). The 50% threshold rejects this,
-   *   allowing the English parser to match the full expression (100% coverage).
-   * - 50% chosen as optimal balance:
-   *   * Too low (e.g., 30%): Accepts time-only partial matches
-   *   * Too high (e.g., 80%): Rejects valid abbreviated expressions
-   *   * 50%: Ensures substantial portion of input is recognized
+   * Match Quality Filter: requires NLP_MIN_COVERAGE_RATIO coverage of the
+   * input to accept a match (see constants.ts for the full rationale).
    *
    * @param text - Natural language expression to parse
    * @param language - Language code (en, fr, de, ja, pt, nl)
@@ -131,9 +122,7 @@ export class NLPService {
       const inputLength = text.trim().length;
       const coverageRatio = matchedLength / inputLength;
 
-      // Require at least 50% coverage to accept the match
-      // This prevents partial matches from being accepted
-      if (coverageRatio < 0.5) {
+      if (coverageRatio < NLP_MIN_COVERAGE_RATIO) {
         return null;
       }
 
@@ -217,9 +206,7 @@ export class NLPService {
 
       // Convert to DateTime
       const jsDate = result.start.date();
-      const dt = DateTime.fromJSDate(jsDate).setLocale(
-        this.i18nService.getCurrentLocale()
-      );
+      const dt = DateTime.fromJSDate(jsDate).setLocale(this.i18nService.getCurrentLocale());
 
       return {
         date: dt,
@@ -306,7 +293,7 @@ export class NLPService {
     ];
 
     const lowerText = normalizedText.toLowerCase();
-    return dateKeywords.some((keyword) => lowerText.includes(keyword));
+    return dateKeywords.some(keyword => lowerText.includes(keyword));
   }
 
   /**
