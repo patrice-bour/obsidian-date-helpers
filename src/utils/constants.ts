@@ -39,6 +39,10 @@ export type WeekStart = (typeof VALID_WEEK_STARTS)[number];
 export const MAX_TRIGGER_LENGTH = 5;
 
 /**
- * Debounce delay (ms) for locale input validation in settings
+ * Debounce delay (ms) before rebuilding the settings tab after a locale change.
+ *
+ * The value itself is persisted immediately — this delay only defers the
+ * rebuild that refreshes translated labels and format examples, so that
+ * rebuilding does not steal focus from the field being typed into.
  */
-export const LOCALE_INPUT_DEBOUNCE_MS = 500;
+export const LOCALE_REFRESH_DEBOUNCE_MS = 500;

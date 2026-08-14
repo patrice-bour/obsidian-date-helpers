@@ -1,43 +1,38 @@
-import { Setting } from 'obsidian';
 import { FormatterService } from '@/services/formatter-service';
 import { FormatPreset } from '@/types/format-preset';
 
-export interface PresetDropdownOptions {
+export interface PresetOptionsInput {
   presets: FormatPreset[];
   formatterService: FormatterService;
-  /** Currently selected value */
-  value: string;
-  /** Label for the disabled placeholder when no presets exist */
+  /** Label for the placeholder shown when no preset of this type exists */
   noPresetsLabel: string;
   /** When set, an "original-text" option is added first with this label */
   originalTextLabel?: string;
-  onChange(value: string): void | Promise<void>;
 }
+
+/** Placeholder key used when the preset list is empty. */
+const NO_PRESETS_OPTION = 'none';
 
 /**
- * Add a preset dropdown to a Setting: "Name (example)" per preset, a
- * disabled placeholder when the preset list is empty, and an optional
- * "Original Text" first option. Collapses the five duplicated dropdown
- * blocks of the settings tab.
+ * Build the option map of a preset dropdown: "Name (example)" per preset, an
+ * optional "Original Text" first entry, and a lone placeholder when there is
+ * nothing to choose from (the caller disables the control in that case).
  */
-export function addPresetDropdown(setting: Setting, opts: PresetDropdownOptions): Setting {
-  return setting.addDropdown(dropdown => {
-    if (opts.presets.length === 0) {
-      dropdown.addOption('none', opts.noPresetsLabel);
-      dropdown.setDisabled(true);
-      return;
-    }
+export function buildPresetOptions(input: PresetOptionsInput): Record<string, string> {
+  if (input.presets.length === 0) {
+    return { [NO_PRESETS_OPTION]: input.noPresetsLabel };
+  }
 
-    if (opts.originalTextLabel !== undefined) {
-      dropdown.addOption('original-text', opts.originalTextLabel);
-    }
+  const options: Record<string, string> = {};
+  if (input.originalTextLabel !== undefined) {
+    options['original-text'] = input.originalTextLabel;
+  }
 
-    opts.presets.forEach(preset => {
-      const example = opts.formatterService.getFormatExample(preset.format);
-      dropdown.addOption(preset.id, `${preset.name} (${example})`);
-    });
-
-    dropdown.setValue(opts.value);
-    dropdown.onChange(value => void opts.onChange(value));
+  input.presets.forEach(preset => {
+    const example = input.formatterService.getFormatExample(preset.format);
+    options[preset.id] = `${preset.name} (${example})`;
   });
+
+  return options;
 }
+

@@ -14,8 +14,6 @@
     }
   },
   "settings": {
-    "title": "Paramètres Date Helpers",
-    "description": "Configurez comment les dates sont insérées et formatées.",
     "sections": {
       "general": "Paramètres généraux",
       "features": "Fonctionnalités",
@@ -27,8 +25,10 @@
     "locale": {
       "name": "Locale",
       "desc": "Langue et région pour le formatage des dates (ex. : en, fr, de, es). Utilisez 'auto' pour hériter d'Obsidian.",
-      "placeholder": "auto (utiliser la langue d'Obsidian)"
+      "placeholder": "auto (utiliser la langue d'Obsidian)",
+      "invalid": "Code de langue inconnu. Utilisez un code comme en, fr ou fr-CA, ou laissez vide pour suivre Obsidian."
     },
+    "saveFailed": "Impossible d'enregistrer les paramètres. Votre modification n'a pas été appliquée.",
     "weekStart": {
       "name": "La semaine commence le",
       "desc": "Premier jour de la semaine pour l'affichage du calendrier",
@@ -63,7 +63,6 @@
     "dailyNotes": {
       "description": "Configurez la génération des liens wikilinks vers les Daily Notes (notes quotidiennes). Ces paramètres s'appliquent aux actions « Insérer un lien Daily Note » et « Ouvrir la Daily Note ».",
       "aliasFormat": {
-        "name": "Format de l'alias du wikilink",
         "desc": "Format pour le texte affiché (alias) dans les liens Daily Note",
         "withText": "Format (avec texte)",
         "withoutText": "Format (sans texte)",
@@ -97,8 +96,8 @@
         "desc": "Séquences qui ouvrent le sélecteur de date (ex. : @@, //d)",
         "placeholder": "Entrez un déclencheur (ex. : ;;)"
       },
+      "addTitle": "Ajouter un déclencheur",
       "add": "Ajouter",
-      "remove": "Supprimer",
       "validation": {
         "empty": "Le déclencheur ne peut pas être vide",
         "tooLong": "Le déclencheur doit faire 5 caractères maximum",

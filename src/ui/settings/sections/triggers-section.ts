@@ -1,113 +1,56 @@
-import { Notice, Setting } from 'obsidian';
-import { MAX_TRIGGER_LENGTH } from '@/utils/constants';
-import { SettingsSectionContext } from '../section-context';
+import type { SettingDefinitionItem, SettingDefinitionList } from 'obsidian';
+import { SettingsKey, SettingsSectionContext, descriptionRow } from '../section-context';
 
-/**
- * Trigger characters section: current trigger list with remove buttons
- * and the add-new-trigger input with validation.
- */
-export function renderTriggersSection(containerEl: HTMLElement, ctx: SettingsSectionContext): void {
-  const { plugin, t } = ctx;
-
-  new Setting(containerEl).setName(t('settings.sections.triggers')).setHeading();
-  containerEl.createEl('p', {
-    text: t('settings.triggers.description'),
-    cls: 'setting-item-description',
-  });
-
-  // Display current triggers
-  const triggersContainer = containerEl.createDiv({ cls: 'date-helpers-triggers-container' });
-  renderTriggersList(triggersContainer, ctx);
-
-  // Add new trigger input
-  let newTriggerValue = '';
-  new Setting(containerEl)
-    .setName(t('settings.triggers.characters.name'))
-    .setDesc(t('settings.triggers.characters.desc'))
-    .addText(text =>
-      text.setPlaceholder(t('settings.triggers.characters.placeholder')).onChange(value => {
-        newTriggerValue = value;
-      })
-    )
-    .addButton(button =>
-      button.setButtonText(t('settings.triggers.add')).onClick(async () => {
-        const validation = validateTrigger(newTriggerValue, ctx);
-        if (validation) {
-          new Notice(validation);
-          return;
-        }
-
-        plugin.settings.triggerCharacters.push(newTriggerValue);
-        await plugin.saveSettings();
-        ctx.refresh(); // Refresh to show new trigger
-      })
-    );
+export interface TriggerListActions {
+  /** Open the add-trigger dialog. */
+  onAdd: () => void;
+  /**
+   * Remove this trigger. Identified by value rather than by index: the rows
+   * carry the indices they were built with until the tree is rebuilt, and that
+   * happens after an `await`.
+   */
+  onDelete: (trigger: string) => void;
 }
 
 /**
- * Render the list of current triggers with remove buttons
+ * Trigger characters section: the configured sequences as a mutable list.
+ *
+ * The section description is emitted as a sibling row rather than as the list's
+ * first item on purpose — every item of a list carries the delete affordance
+ * and counts towards the indices handed to `onDelete`, so a prose row inside it
+ * would both offer a nonsensical delete button and shift every trigger index by
+ * one.
  */
-function renderTriggersList(container: HTMLElement, ctx: SettingsSectionContext): void {
+export function buildTriggersSection(
+  ctx: SettingsSectionContext,
+  actions: TriggerListActions
+): SettingDefinitionItem<SettingsKey>[] {
   const { plugin, t } = ctx;
-  const triggers = plugin.settings.triggerCharacters;
+  // The row order this list is built with, frozen. Obsidian hands `onDelete` an
+  // index into *these* rows, and the live array may already have moved on.
+  const rendered = [...plugin.settings.triggerCharacters];
+  const isLastTrigger = rendered.length <= 1;
 
-  container.empty();
+  const list: SettingDefinitionList<SettingsKey> = {
+    type: 'list',
+    heading: t('settings.sections.triggers'),
+    emptyState: t('settings.triggers.validation.minRequired'),
+    items: rendered.map(trigger => ({
+      name: trigger,
+      // Explains why the row offers no delete affordance.
+      ...(isLastTrigger ? { desc: t('settings.triggers.validation.minRequired') } : {}),
+    })),
+    addItem: {
+      name: t('settings.triggers.addTitle'),
+      action: () => actions.onAdd(),
+    },
+    // At least one trigger must remain, so the affordance is withheld rather
+    // than offered and then refused. This is decided at build time, so the
+    // mutation side enforces the same rule again.
+    ...(isLastTrigger
+      ? {}
+      : { onDelete: (index: number) => actions.onDelete(rendered[index]) }),
+  };
 
-  if (triggers.length === 0) {
-    container.createEl('p', {
-      text: t('settings.triggers.validation.minRequired'),
-      cls: 'setting-item-description mod-warning',
-    });
-    return;
-  }
-
-  const listEl = container.createDiv({ cls: 'date-helpers-triggers-list' });
-
-  triggers.forEach((trigger, index) => {
-    const triggerEl = listEl.createDiv({ cls: 'date-helpers-trigger-item' });
-
-    triggerEl.createSpan({ text: trigger, cls: 'date-helpers-trigger-text' });
-
-    const removeBtn = triggerEl.createEl('button', {
-      text: '×',
-      cls: 'date-helpers-trigger-remove',
-      attr: {
-        'aria-label': t('settings.triggers.remove'),
-      },
-    });
-
-    // Disable remove if only one trigger
-    if (triggers.length <= 1) {
-      removeBtn.disabled = true;
-      removeBtn.title = t('settings.triggers.validation.minRequired');
-    } else {
-      removeBtn.addEventListener('click', () => {
-        void (async () => {
-          plugin.settings.triggerCharacters.splice(index, 1);
-          await plugin.saveSettings();
-          ctx.refresh();
-        })();
-      });
-    }
-  });
-}
-
-/**
- * Validate a new trigger value
- * @returns Error message if invalid, undefined if valid
- */
-function validateTrigger(value: string, ctx: SettingsSectionContext): string | undefined {
-  if (!value || value.trim() === '') {
-    return ctx.t('settings.triggers.validation.empty');
-  }
-
-  if (value.length > MAX_TRIGGER_LENGTH) {
-    return ctx.t('settings.triggers.validation.tooLong');
-  }
-
-  if (ctx.plugin.settings.triggerCharacters.includes(value)) {
-    return ctx.t('settings.triggers.validation.duplicate');
-  }
-
-  return undefined;
+  return [descriptionRow(t('settings.triggers.description')), list];
 }

@@ -183,7 +183,6 @@ Check each asset individually. An unchanged file keeps its digest across release
 
 After publishing, check the Community Portal scorecard. The portal re-runs its review scan **only on release publication** — there is no on-demand re-scan, so a finding fixed but never re-released stays visible indefinitely.
 
-
 ## Unblocking a transient `npm audit` advisory
 
 The CI and release workflows run `npm audit --audit-level=moderate`. If a freshly-published advisory blocks a merge or release, the supported escape hatches are: `npm audit fix` (when a non-breaking patch exists), bumping the offending parent dep manually, or — strictly as a temporary measure — running with `--omit=dev` if the advisory only affects dev tooling. Document any exception in the PR or release notes.

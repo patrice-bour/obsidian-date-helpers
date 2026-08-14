@@ -14,8 +14,6 @@
     }
   },
   "settings": {
-    "title": "Date Helpers Settings",
-    "description": "Configure how dates are inserted and formatted.",
     "sections": {
       "general": "General Settings",
       "features": "Features",
@@ -27,8 +25,10 @@
     "locale": {
       "name": "Locale",
       "desc": "Language and region for date formatting (e.g., en, fr, de, es). Use 'auto' to inherit from Obsidian.",
-      "placeholder": "auto (use Obsidian language)"
+      "placeholder": "auto (use Obsidian language)",
+      "invalid": "Unknown locale code. Use a code like en, fr or fr-CA, or leave empty to follow Obsidian."
     },
+    "saveFailed": "Could not save settings. Your change was not applied.",
     "weekStart": {
       "name": "Week starts on",
       "desc": "First day of the week for calendar displays",
@@ -63,7 +63,6 @@
     "dailyNotes": {
       "description": "Configure how Daily Note wikilinks are generated. These settings apply when using the \"Insert Daily Note link\" or \"Open Daily Note\" actions.",
       "aliasFormat": {
-        "name": "Wikilink alias format",
         "desc": "Format preset for the display text (alias) in Daily Note wikilinks",
         "withText": "Format (with text)",
         "withoutText": "Format (no text)",
@@ -97,8 +96,8 @@
         "desc": "Character sequences that open the date picker (e.g., @@, //d)",
         "placeholder": "Enter trigger (e.g., ;;)"
       },
+      "addTitle": "Add trigger",
       "add": "Add",
-      "remove": "Remove",
       "validation": {
         "empty": "Trigger cannot be empty",
         "tooLong": "Trigger must be 5 characters or less",
