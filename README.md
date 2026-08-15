@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/patrice-bour/obsidian-date-helpers/actions/workflows/ci.yml/badge.svg)](https://github.com/patrice-bour/obsidian-date-helpers/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.4-blue.svg)](./CHANGELOG.md)
 [![Community Portal](https://img.shields.io/badge/Obsidian-community-7c3aed)](https://community.obsidian.md/plugins/date-helpers)
 
 An Obsidian plugin that centralizes date-related tools with keyboard-first interaction, natural language parsing, and full internationalization support.
