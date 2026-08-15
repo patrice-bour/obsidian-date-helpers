@@ -1,0 +1,7 @@
+# Ownership of every path in the plugin, which is what the "main protection"
+# ruleset enforces against: a pull request touching any path requests
+# @patrice-bour as a reviewer and cannot merge without their approval.
+# Releases are gated separately by the "release tags" ruleset — only the
+# maintainer can push the tag that triggers release.yml.
+
+* @patrice-bour

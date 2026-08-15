@@ -143,6 +143,21 @@ docs(readme): update installation instructions
    - How to test the changes
    - Any breaking changes
 
+### Review and merge policy
+
+`main` is protected, and nothing reaches it — or a release — without the
+maintainer's review:
+
+- Every pull request needs an approving review from the code owner
+  (`.github/CODEOWNERS`) before it can be merged. A new push to the branch
+  dismisses the previous approval.
+- CI (`validate` on Ubuntu and macOS) must be green, and every review
+  conversation resolved.
+- Pull requests from a fork do not run CI automatically. A maintainer approves
+  the workflow run first, so expect the checks to sit as pending until then.
+- Release tags are restricted to the maintainer. Since `release.yml` triggers on
+  a version tag, no contribution can publish a release on its own.
+
 ## Documentation
 
 - **User Guide**: [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md) — end-user workflows and configuration
