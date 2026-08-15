@@ -15,9 +15,7 @@ Obsidian **1.13.0** or later, since the settings tab is rendered through Obsidia
 
 ## Installation
 
-### Community Plugins (once listed)
-
-Date Helpers is not in Obsidian's community plugin directory yet, so **Browse** will not find it. Use BRAT or the manual install below in the meantime. Once it is listed:
+### Community Plugins (Recommended)
 
 1. Open Obsidian Settings
 2. Navigate to **Community Plugins** and disable Safe Mode if needed
