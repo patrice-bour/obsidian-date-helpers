@@ -3,6 +3,11 @@ name: Release
 on:
   push:
     tags:
+      # Obsidian resolves a plugin's assets under releases/download/<version>/,
+      # taking <version> verbatim from the manifest or versions.json — so a tag
+      # has to be the bare version. The v-prefixed form is kept because
+      # v0.1.1 to v0.1.3 were published that way.
+      - '[0-9]+.[0-9]+.[0-9]+'
       - 'v*'
 
 permissions:
