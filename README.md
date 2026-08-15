@@ -15,7 +15,9 @@ Obsidian **1.13.0** or later, since the settings tab is rendered through Obsidia
 
 ## Installation
 
-### Community Plugins (Recommended)
+### Community Plugins (once listed)
+
+Date Helpers is not in Obsidian's community plugin directory yet, so **Browse** will not find it. Use BRAT or the manual install below in the meantime. Once it is listed:
 
 1. Open Obsidian Settings
 2. Navigate to **Community Plugins** and disable Safe Mode if needed
@@ -24,9 +26,9 @@ Obsidian **1.13.0** or later, since the settings tab is rendered through Obsidia
 
 ### Manual Installation
 
-1. Download `main.js` and `manifest.json` from the [latest release](https://github.com/patrice-bour/obsidian-date-helpers/releases)
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/patrice-bour/obsidian-date-helpers/releases)
 2. Create folder `.obsidian/plugins/date-helpers/` in your vault
-3. Copy both files into the folder
+3. Copy the three files into the folder
 4. Reload Obsidian and enable the plugin in Settings → Community Plugins
 
 ### Using BRAT

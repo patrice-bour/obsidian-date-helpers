@@ -17,7 +17,9 @@ This guide walks you through **Date Helpers** in detail. For a quick overview, s
 
 ## Installation
 
-### Community Plugins (recommended once listed)
+### Community Plugins (once listed)
+
+Date Helpers is not in Obsidian's community plugin directory yet, so **Browse** will not find it. Use BRAT or the manual install below in the meantime. Once it is listed:
 
 1. Open **Settings → Community Plugins** and disable Safe Mode if needed.
 2. Click **Browse** and search for `Date Helpers`.
