@@ -47,7 +47,7 @@
       },
       "nlpAutoDetect": {
         "name": "Détection automatique de la langue",
-        "desc": "Détecte et analyse automatiquement les expressions de date. Langues supportées : anglais, français, allemand, japonais, portugais, néerlandais, chinois."
+        "desc": "Détecte et analyse automatiquement les expressions de date. Langues supportées : anglais, français, allemand, japonais, portugais, néerlandais."
       },
       "nlpStrictMode": {
         "name": "Mode d'analyse",

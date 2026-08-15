@@ -9,9 +9,10 @@ This guide walks you through **Date Helpers** in detail. For a quick overview, s
 3. [Core workflows](#core-workflows)
 4. [Natural language parsing](#natural-language-parsing)
 5. [Keyboard shortcuts & commands](#keyboard-shortcuts--commands)
-6. [Settings reference](#settings-reference)
-7. [Integrations](#integrations)
-8. [Troubleshooting & FAQ](#troubleshooting--faq)
+6. [Format presets](#format-presets)
+7. [Settings reference](#settings-reference)
+8. [Integrations](#integrations)
+9. [Troubleshooting & FAQ](#troubleshooting--faq)
 
 ---
 
@@ -36,17 +37,22 @@ This guide walks you through **Date Helpers** in detail. For a quick overview, s
 3. Copy the three files into that folder.
 4. Reload Obsidian and enable the plugin in **Settings → Community Plugins**.
 
+Date Helpers requires **Obsidian 1.13.0 or later**. Earlier versions are served 0.1.2 by the community store.
+
 ---
 
 ## Getting started
 
-After enabling the plugin, you have three ways to trigger the date picker:
+There are two ways to open the date picker:
 
-- **Trigger character**: type `@@` anywhere in a note.
-- **Command palette**: press `Cmd/Ctrl+P` and search for `Date Helpers: …`.
-- **Keyboard shortcut**: use one of the default shortcuts (see [below](#keyboard-shortcuts--commands)).
+- **Trigger character**: type `@@` anywhere in a note. The trigger is replaced by whatever you insert.
+- **Command palette**: press `Cmd/Ctrl+P` and search for `Date Helpers`.
 
-The picker opens a calendar modal with a natural-language input field and format selector. Navigate with the keyboard, press `Enter` to confirm, `Escape` to cancel.
+The plugin registers **no default keyboard shortcuts** — Obsidian's community plugin policy leaves the choice to you. Assign your own in **Settings → Hotkeys**, filtering on `Date Helpers`.
+
+![The picker's three action tabs and its layout](media/modal-tabs-overview.png)
+
+The picker opens a calendar modal with a natural-language field and a format selector. Navigate with the keyboard, press `Enter` to confirm, `Escape` to cancel.
 
 ---
 
@@ -55,12 +61,18 @@ The picker opens a calendar modal with a natural-language input field and format
 ### 1. Insert a date as plain text
 
 1. Place the cursor where you want the date.
-2. Type `@@` (or run the command `Insert date as text`).
+2. Type `@@`, or run **Insert date as text**.
 3. Pick a date in the calendar, or type an expression like `next Friday`.
-4. Choose a format preset (ISO, Locale Long, etc.).
+4. Choose a format preset.
 5. Press `Enter`.
 
-Result: `2026-04-17` or `April 17, 2026` depending on the selected preset.
+Result: `2026-04-17`, or `April 17, 2026`, depending on the preset.
+
+![Typing @@ opens the picker; confirming replaces the trigger with the date](media/trigger-at-insert.gif)
+
+The format you pick is remembered, so the next insertion starts from the same one.
+
+![The format selector keeps the last format used](media/format-selector-persistence.gif)
 
 ### 2. Insert a Daily Note wikilink
 
@@ -68,27 +80,39 @@ Result: `2026-04-17` or `April 17, 2026` depending on the selected preset.
 2. Pick a date.
 3. Press `Enter`.
 
-Result: `[[Journal/2026-04-17|April 17, 2026]]` (path and alias configurable).
+Result: `[[Journal/2026-04-17|April 17, 2026]]`. The path comes from the core Daily Notes plugin; the alias comes from the preset you choose in the settings.
 
-### 3. Convert an existing selection
+One alias preset is special: **Original Text** reuses what you typed rather than a formatted date, so `tomorrow` stays `tomorrow` in the link text.
 
-1. Select a date-like text in your note (`tomorrow`, `2025-11-11`, `demain`).
-2. Open the command palette and run `Convert selection to date`.
-3. Confirm the replacement.
+![Typing "tomorrow" produces a wikilink whose alias is the original text](media/daily-note-original-text.gif)
 
-### 4. Cycle through formats
+### 3. Open a Daily Note by date
 
-With a date selected, run `Cycle date format` to rotate through the available presets without re-opening the picker.
+Run **Open daily note**, pick any date, and the plugin opens the matching note — creating it first if **Create Daily Note if missing** is enabled.
 
-### 5. Open a Daily Note by date
+### 4. Convert an existing selection
 
-Run `Open Daily Note`, pick any date, and the plugin opens (or creates) the matching daily note.
+1. Select date-like text in your note (`tomorrow`, `2025-11-11`, `demain`).
+2. Run **Convert selection to date**.
+3. The picker opens with that date already parsed; confirm to replace the selection.
+
+The command only appears in the palette when text is selected.
+
+### 5. Insert a specific format directly
+
+Every format preset also gets its own command — **Insert date: ISO 8601**, **Insert time: 24-hour**, **Insert datetime: Readable**, and so on. These insert immediately at the cursor, with no modal.
+
+![Running a preset command inserts the date without opening the picker](media/commands-preset-insert.gif)
+
+These commands are registered when the plugin loads, so **reload the plugin after changing your presets** for the command list to match.
 
 ---
 
 ## Natural language parsing
 
-The NLP field accepts relative expressions, weekdays, and time expressions. The plugin uses [chrono-node](https://github.com/wanasit/chrono) under the hood.
+The NLP field accepts relative expressions, weekdays and time expressions, and previews the result live as you type. Parsing is powered by [chrono-node](https://github.com/wanasit/chrono).
+
+![Typing "next month" updates the preview and moves the calendar](media/nlp-preview-next-month.gif)
 
 ### Examples by language
 
@@ -97,93 +121,122 @@ The NLP field accepts relative expressions, weekdays, and time expressions. The 
 | English | `today`, `tomorrow`, `3 days ago`, `in 2 weeks` | `next Monday`, `last Friday`, `this Wednesday` | `tomorrow at 2pm`, `Monday 14:30` |
 | French | `aujourd'hui`, `demain`, `il y a 3 jours`, `dans 2 semaines` | `lundi prochain`, `vendredi dernier` | `demain à 14h`, `lundi à 14h30` |
 | German | `heute`, `morgen`, `vor 3 Tagen` | `nächsten Montag`, `letzten Freitag` | `morgen um 14 Uhr` |
-| Japanese | Basic via chrono-node |  |  |
-| Portuguese | Basic via chrono-node |  |  |
-| Dutch | Basic via chrono-node |  |  |
+| Japanese | Basic, via chrono-node | | |
+| Portuguese | Basic, via chrono-node | | |
+| Dutch | Basic, via chrono-node | | |
 
-### Auto-detect
-
-Enable **Auto-detect language** in settings and the plugin will infer the language from each expression. Useful if your notes mix languages.
+All six languages are always available — there is no per-language toggle. **Auto-detect language** decides which one to apply to each expression, which is what you want if your notes mix languages. With auto-detect off, expressions are parsed in the language of your configured locale.
 
 ### Parsing modes
 
-- **Casual** (default) — lenient. Accepts partial or ambiguous expressions and picks the most likely interpretation.
-- **Strict** — conservative. Rejects anything that cannot be unambiguously parsed.
+**Parsing mode** switches chrono between two behaviours:
 
-### Fallback behavior
+- **Casual** (default) — lenient. Accepts partial or ambiguous expressions and picks the most likely reading.
+- **Strict** — conservative. Rejects anything it cannot parse unambiguously.
 
-When an expression cannot be parsed, you can choose to:
-- insert the raw text unchanged,
-- show an error notice,
-- leave the cursor in place with no insertion.
+### When an expression cannot be parsed
+
+Your text is left untouched — the plugin never replaces input it did not understand. Enable **Show parsing warning** if you also want a notice when that happens.
 
 ---
 
 ## Keyboard shortcuts & commands
 
-### Default shortcuts
-
-| Command | Shortcut |
-|---|---|
-| Insert date as text | `Cmd/Ctrl+Shift+T` |
-| Insert Daily Note link | `Cmd/Ctrl+Shift+D` |
-| Open Daily Note | `Cmd/Ctrl+Shift+O` |
-
-You can override any of these in **Settings → Hotkeys**.
-
 ### Date picker navigation
 
 | Key | Action |
 |---|---|
-| `←` `→` `↑` `↓` | Navigate days |
-| `Cmd/Ctrl + ←/→` | Previous / next month |
-| `Cmd/Ctrl + ↑/↓` | Previous / next year |
-| `Enter` | Confirm selection |
+| `←` `→` `↑` `↓` | Move by day |
+| `PageUp` / `PageDown` | Previous / next month |
+| `Mod + ↑` / `Mod + ↓` | Previous / next month |
+| `Mod + ←` / `Mod + →` | Previous / next year |
+| `Home` | Jump to today |
+| `t` | Jump to today, from the calendar |
+| `Enter` | Confirm |
 | `Escape` | Cancel |
-| `Tab` | Move between calendar / NLP field / format selector |
 
-### Full command list
+`Mod` is `Cmd` on macOS and `Ctrl` elsewhere.
 
-- `Date Helpers: Insert date as text`
-- `Date Helpers: Insert Daily Note link`
-- `Date Helpers: Open Daily Note`
-- `Date Helpers: Convert selection to date`
-- `Date Helpers: Cycle date format`
+### Commands
+
+| Command | Available |
+|---|---|
+| **Insert date as text** | Always |
+| **Insert daily note link** | Always |
+| **Open daily note** | Always |
+| **Convert selection to date** | Only with an active selection |
+| **Insert date: …**, **Insert time: …**, **Insert datetime: …** | One per format preset |
+
+![The full command list in the palette](media/date-helpers-commands.png)
+
+None of them has a default shortcut; assign your own in **Settings → Hotkeys**.
+
+---
+
+## Format presets
+
+Eleven presets ship with the plugin. Examples are rendered for 2 November 2025, 14:30:45, in an English locale — locale-aware presets follow your **Locale** setting.
+
+| Type | Preset | Example |
+|---|---|---|
+| Date | ISO 8601 | `2025-11-02` |
+| Date | Locale short | `11/2/2025` |
+| Date | Locale long | `November 2, 2025` |
+| Date | Verbose | `Sunday 2 November 2025` |
+| Date | Short month | `Nov 2, 2025` |
+| Time | 24-hour | `14:30` |
+| Time | 12-hour | `2:30 PM` |
+| Time | 24-hour with seconds | `14:30:45` |
+| DateTime | ISO datetime | `2025-11-02T14:30:45` |
+| DateTime | Readable | `Nov 2, 2025 14:30` |
+| DateTime | Standard | `2025-11-02 14:30:45` |
+
+Presets are read-only in this version: the settings tab lists them so you can see what each one produces, and the three **Default … format** dropdowns choose which is used. Custom presets are not implemented yet.
 
 ---
 
 ## Settings reference
 
+Open **Settings → Date Helpers**. Every setting is indexed by Obsidian's settings search since 0.1.3, so you can also find it by name from the search field.
+
 ### General
 
-- **Locale** — format locale for all dates. Defaults to Obsidian's language; override here if needed.
-- **Week starts on** — Sunday, Monday, or Saturday.
+| Setting | What it does |
+|---|---|
+| **Locale** | Language and region for date formatting (`en`, `fr`, `fr-CA`, …). Leave empty to follow Obsidian. |
+| **Week starts on** | First column of the calendar. |
 
-### Date picker
+Format examples in the settings re-render as soon as you change the locale.
 
-- **Enable date picker** — on/off, under **Features**.
-- **Trigger characters** — the list of sequences that open the picker, `@@` by default. Add one with **+**, remove one with the delete button on its row. At least one trigger always remains.
+![Changing the locale re-renders the examples immediately](media/settings-locale-live.gif)
 
-### NLP
+### Features
 
-- **Enable NLP parsing** — on/off.
-- **Auto-detect language** — on/off.
-- **Parsing mode** — Casual / Strict.
-- **Enabled languages** — check the languages you want to accept.
-- **Fallback behavior** — what to do on unparseable input.
+| Setting | What it does |
+|---|---|
+| **Enable date picker** | Shows the calendar picker. Turning it off leaves the commands working. |
+| **Enable natural language parsing** | Parses expressions such as `tomorrow` or `next Monday`. |
+| **Auto-detect language** | Detects the language of each expression instead of using your locale. |
+| **Parsing mode** | Casual or Strict, see [above](#parsing-modes). |
+| **Show parsing warning** | Notifies you when an expression cannot be parsed. Your text is preserved either way. |
+
+### Text formats
+
+**Default date format**, **Default time format** and **Default datetime format** pick the preset used by the corresponding preset commands.
 
 ### Daily Notes
 
-- **Folder** — where Daily Notes are stored (inherits from core Daily Notes plugin if enabled).
-- **Date format** — file naming pattern (e.g. `YYYY-MM-DD`).
-- **Alias format** — preset for the wikilink alias.
-- **Auto-create missing notes** — on/off.
+| Setting | What it does |
+|---|---|
+| **Format (with text)** | Alias preset used when the picker has natural-language text to reuse. |
+| **Format (no text)** | Alias preset used otherwise. |
+| **Create Daily Note if missing** | Creates the note from your Daily Notes template when it does not exist. |
 
-### Formats
+The note's folder and filename format are **not** plugin settings — they come from the core Daily Notes plugin.
 
-- **Default date format** — preset for Insert date as text.
-- **Default time format** — preset for time insertion.
-- **Default datetime format** — preset for datetime insertion.
+### Trigger characters
+
+The list of sequences that open the picker, `@@` by default. Add one with **+**, remove one with the delete button on its row or the `Delete`/`Backspace` shortcut. At least one trigger always remains.
 
 ---
 
@@ -191,41 +244,44 @@ You can override any of these in **Settings → Hotkeys**.
 
 ### Daily Notes (core plugin)
 
-Date Helpers reads the Daily Notes folder and format from the core Daily Notes plugin when enabled. Insert Daily Note link produces wikilinks that resolve correctly in preview.
-
-### Templater
-
-Date Helpers commands can be invoked from Templater templates via the command palette API. See Templater's documentation on executing commands from templates.
+Date Helpers reads the folder and filename format from the core Daily Notes plugin, so the wikilinks it inserts resolve like the ones you write by hand.
 
 ### Tasks
 
-Dates inserted by this plugin are standard ISO or locale strings — the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) plugin parses them natively when used in task lines.
+Inserted dates are plain ISO or locale strings, which the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) plugin parses natively in task lines. Use the ISO 8601 preset for due dates.
 
 ### Dataview
 
-Formatted dates work with Dataview date parsing. For DataviewJS, prefer ISO 8601 format for reliable parsing.
+Formatted dates work with Dataview's date parsing. Prefer ISO 8601 in DataviewJS, where parsing is strictest.
+
+### Templater
+
+Date Helpers exposes Obsidian commands, so a Templater template can invoke them through `app.commands.executeCommandById()` — for example `date-helpers:insert-date-iso8601`. Commands that open the picker wait for your confirmation, which makes them a poor fit for unattended templates; the preset commands, which insert straight away, work better.
 
 ---
 
 ## Troubleshooting & FAQ
 
 **Natural language parsing doesn't work.**
-Check that NLP is enabled in settings, that your target language is in the **Enabled languages** list, and try toggling **Auto-detect language**.
+Check that **Enable natural language parsing** is on. If your expression is in a language other than your locale, turn on **Auto-detect language**. If it is a partial expression, **Parsing mode** may be set to Strict.
 
 **The date picker doesn't open when I type `@@`.**
-Verify the date picker is enabled in settings and check the trigger is not intercepted by another plugin. You can add a different trigger with **+** and delete the one that clashes — as long as one remains — or disable the picker and use the command palette instead.
+Verify **Enable date picker** is on, and that no other plugin intercepts the sequence. You can add a different trigger with **+** and delete the one that clashes — as long as one remains — or ignore the trigger entirely and use the command palette.
+
+**My preset commands don't match my presets.**
+Preset commands are registered when the plugin loads. Reload the plugin after changing presets.
 
 **Wrong week start day.**
-Change **Week starts on** in **Settings → General**.
+Change **Week starts on** in the plugin settings. It is independent of your locale.
 
 **Daily Notes links are broken.**
-Make sure the core Daily Notes plugin is enabled and that the folder / format match what you configured there.
+Make sure the core Daily Notes plugin is enabled: the folder and filename format come from it, not from Date Helpers.
 
-**Format selector is missing.**
-It's only shown in **Insert date as text** and **Insert Daily Note link** modes. The **Open Daily Note** command hides it because it only needs navigation.
+**The format selector is missing.**
+It appears in **Insert Text** and **Insert Daily Note**. The **Open Note** tab hides it, since opening a note needs no format.
 
 **I want a custom format preset.**
-Custom presets are planned for a future release. For now, ISO 8601 + locale presets cover most use cases. Let us know your preferred formats via [Discussions](https://github.com/patrice-bour/obsidian-date-helpers/discussions).
+Not implemented yet. Tell us which format you need in [Discussions](https://github.com/patrice-bour/obsidian-date-helpers/discussions).
 
 ---
 
