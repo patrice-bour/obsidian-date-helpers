@@ -168,7 +168,7 @@ Two pieces make that true, and both must stay in place:
 Two gotchas worth knowing:
 
 - **The portal's advice changes over time.** `activeWindow.setTimeout()` was the recommended form when v0.1.0 was scanned; the plugin now forbids it in favour of `window.setTimeout()`. Trust the current linter over any older finding — including older sections of this file.
-- **Warnings do not fail the build.** `eslint src` exits 0 with warnings, so a clean exit code is not a clean scan. Read the output.
+- **Warnings fail the build since 0.1.3.** `npm run lint` runs `eslint src --max-warnings 0`, so any warning is an error. This section previously said the opposite, which stopped being true when the gate was hardened.
 
 ## Release tag names
 

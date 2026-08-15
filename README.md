@@ -19,27 +19,9 @@ Obsidian **1.13.0** or later, since the settings tab is rendered through Obsidia
 
 ## Installation
 
-### Community Plugins (Recommended)
+Open **Settings → Community Plugins → Browse**, search for `Date Helpers`, install and enable.
 
-1. Open Obsidian Settings
-2. Navigate to **Community Plugins** and disable Safe Mode if needed
-3. Click **Browse** and search for "Date Helpers"
-4. Click **Install**, then **Enable**
-
-### Manual Installation
-
-1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/patrice-bour/obsidian-date-helpers/releases)
-2. Create folder `.obsidian/plugins/date-helpers/` in your vault
-3. Copy the three files into the folder
-4. Reload Obsidian and enable the plugin in Settings → Community Plugins
-
-### Using BRAT
-
-For beta testing with automatic updates:
-
-1. Install [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat)
-2. Add beta plugin: `patrice-bour/obsidian-date-helpers`
-3. Enable Date Helpers in Settings → Community Plugins
+BRAT and manual installation are covered in the [User Guide](./docs/USER_GUIDE.md#installation).
 
 ---
 
@@ -61,7 +43,7 @@ The picker's text field understands relative expressions, weekdays and times, an
 
 ![Typing "next month" updates the preview and moves the calendar](./docs/media/nlp-preview-next-month.gif)
 
-Six languages are parsed: English, French, German, Japanese, Portuguese and Dutch — the first three in depth, the rest through [chrono-node](https://github.com/wanasit/chrono) defaults. **Auto-detect language** picks the right one per expression, which matters when a vault mixes languages. Text the plugin cannot parse is never replaced.
+Six languages are parsed — English, French, German, Japanese, Portuguese and Dutch — through [chrono-node](https://github.com/wanasit/chrono). **Auto-detect language** extends your locale to the other five, which matters when a vault mixes languages. Text the plugin cannot parse is never replaced.
 
 ## Formats
 
@@ -76,8 +58,6 @@ The plugin registers **no default shortcuts** — Obsidian's community plugin po
 ## Settings
 
 Locale and week start, feature toggles for the picker and for parsing, default presets, Daily Note alias formats, and the list of trigger characters. Every setting is reachable from Obsidian's settings search.
-
-![Changing the locale re-renders the examples immediately](./docs/media/settings-locale-live.gif)
 
 The [settings reference](./docs/USER_GUIDE.md#settings-reference) documents each one.
 

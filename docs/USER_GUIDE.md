@@ -76,7 +76,7 @@ The format you pick is remembered, so the next insertion starts from the same on
 
 ### 2. Insert a Daily Note wikilink
 
-1. Type `@@` and switch to the **Insert Daily Note** tab.
+1. Type `@@` and switch to the **Link to Daily Note** tab.
 2. Pick a date.
 3. Press `Enter`.
 
@@ -104,6 +104,8 @@ Every format preset also gets its own command — **Insert date: ISO 8601**, **I
 
 ![Running a preset command inserts the date without opening the picker](media/commands-preset-insert.gif)
 
+They follow the picker's last used action, which is not obvious: after you last confirmed something from the **Link to Daily Note** or **Open Daily Note** tab, these commands insert a wikilink to today's note rather than plain text, until you use the **Insert as Text** tab again.
+
 These commands are registered when the plugin loads, so **reload the plugin after changing your presets** for the command list to match.
 
 ---
@@ -125,7 +127,9 @@ The NLP field accepts relative expressions, weekdays and time expressions, and p
 | Portuguese | Basic, via chrono-node | | |
 | Dutch | Basic, via chrono-node | | |
 
-All six languages are always available — there is no per-language toggle. **Auto-detect language** decides which one to apply to each expression, which is what you want if your notes mix languages. With auto-detect off, expressions are parsed in the language of your configured locale.
+All six languages are always available — there is no per-language toggle. Coverage beyond English, French and German is whatever chrono-node provides; the plugin adds nothing on top.
+
+**Auto-detect language** does not replace your locale, it extends it: the language of your locale is tried first, and the other five only if that yields nothing. With it off, only your locale's language is tried — so if your locale is not one of the six, leave auto-detect on, or nothing will parse at all.
 
 ### Parsing modes
 
@@ -136,7 +140,9 @@ All six languages are always available — there is no per-language toggle. **Au
 
 ### When an expression cannot be parsed
 
-Your text is left untouched — the plugin never replaces input it did not understand. Enable **Show parsing warning** if you also want a notice when that happens.
+Your text is left untouched — the plugin never replaces input it did not understand.
+
+**Convert selection to date** is the exception to the silence: it always shows a notice, whether it parsed the selection or not.
 
 ---
 
@@ -146,7 +152,8 @@ Your text is left untouched — the plugin never replaces input it did not under
 
 | Key | Action |
 |---|---|
-| `←` `→` `↑` `↓` | Move by day |
+| `←` `→` | Previous / next day |
+| `↑` `↓` | Previous / next week |
 | `PageUp` / `PageDown` | Previous / next month |
 | `Mod + ↑` / `Mod + ↓` | Previous / next month |
 | `Mod + ←` / `Mod + →` | Previous / next year |
@@ -155,21 +162,19 @@ Your text is left untouched — the plugin never replaces input it did not under
 | `Enter` | Confirm |
 | `Escape` | Cancel |
 
-`Mod` is `Cmd` on macOS and `Ctrl` elsewhere.
+`Mod` is `Cmd` on macOS and `Ctrl` elsewhere. The picker also has a **Today** button, next to the confirm and cancel buttons.
 
 ### Commands
 
 | Command | Available |
 |---|---|
-| **Insert date as text** | Always |
-| **Insert daily note link** | Always |
-| **Open daily note** | Always |
-| **Convert selection to date** | Only with an active selection |
+| **Insert date as text** | With a note open in the editor |
+| **Insert daily note link** | With a note open in the editor |
+| **Open daily note** | With a note open in the editor |
+| **Convert selection to date** | With a note open and text selected |
 | **Insert date: …**, **Insert time: …**, **Insert datetime: …** | One per format preset |
 
-![The full command list in the palette](media/date-helpers-commands.png)
-
-None of them has a default shortcut; assign your own in **Settings → Hotkeys**.
+In the palette they are prefixed with the plugin name — `Date Helpers: Insert date: ISO 8601`.
 
 ---
 
@@ -191,7 +196,7 @@ Eleven presets ship with the plugin. Examples are rendered for 2 November 2025, 
 | DateTime | Readable | `Nov 2, 2025 14:30` |
 | DateTime | Standard | `2025-11-02 14:30:45` |
 
-Presets are read-only in this version: the settings tab lists them so you can see what each one produces, and the three **Default … format** dropdowns choose which is used. Custom presets are not implemented yet.
+Presets are read-only in this version: the settings tab lists them so you can see what each one produces. Custom presets are not implemented yet.
 
 ---
 
@@ -199,16 +204,16 @@ Presets are read-only in this version: the settings tab lists them so you can se
 
 Open **Settings → Date Helpers**. Every setting is indexed by Obsidian's settings search since 0.1.3, so you can also find it by name from the search field.
 
-### General
+The tab renders its groups in this order: **Daily Note Link Settings**, **Text Insertion Settings**, **General Settings**, **Features**, **Trigger Characters**, and a read-only list of the format presets.
+
+### General Settings
 
 | Setting | What it does |
 |---|---|
-| **Locale** | Language and region for date formatting (`en`, `fr`, `fr-CA`, …). Leave empty to follow Obsidian. |
-| **Week starts on** | First column of the calendar. |
+| **Locale** | Language and region for date formatting (`en`, `fr`, `fr-CA`, …). Leave empty to follow Obsidian. It also sets the language of the plugin's own settings and messages, which ship in English and French. |
+| **Week starts on** | First column of the calendar. Independent of the locale. |
 
 Format examples in the settings re-render as soon as you change the locale.
-
-![Changing the locale re-renders the examples immediately](media/settings-locale-live.gif)
 
 ### Features
 
@@ -218,13 +223,13 @@ Format examples in the settings re-render as soon as you change the locale.
 | **Enable natural language parsing** | Parses expressions such as `tomorrow` or `next Monday`. |
 | **Auto-detect language** | Detects the language of each expression instead of using your locale. |
 | **Parsing mode** | Casual or Strict, see [above](#parsing-modes). |
-| **Show parsing warning** | Notifies you when an expression cannot be parsed. Your text is preserved either way. |
+| **Show parsing warning** | Currently has no effect — the setting is stored but never read. Your text is preserved either way. |
 
-### Text formats
+### Text Insertion Settings
 
-**Default date format**, **Default time format** and **Default datetime format** pick the preset used by the corresponding preset commands.
+**Default date format** is the preset the picker starts from for *Insert as Text*, and what the format selector remembers between insertions. **Default time format** and **Default datetime format** are currently inert: each preset command carries its own preset, and nothing else reads these two.
 
-### Daily Notes
+### Daily Note Link Settings
 
 | Setting | What it does |
 |---|---|
@@ -234,7 +239,7 @@ Format examples in the settings re-render as soon as you change the locale.
 
 The note's folder and filename format are **not** plugin settings — they come from the core Daily Notes plugin.
 
-### Trigger characters
+### Trigger Characters
 
 The list of sequences that open the picker, `@@` by default. Add one with **+**, remove one with the delete button on its row or the `Delete`/`Backspace` shortcut. At least one trigger always remains.
 
@@ -278,7 +283,7 @@ Change **Week starts on** in the plugin settings. It is independent of your loca
 Make sure the core Daily Notes plugin is enabled: the folder and filename format come from it, not from Date Helpers.
 
 **The format selector is missing.**
-It appears in **Insert Text** and **Insert Daily Note**. The **Open Note** tab hides it, since opening a note needs no format.
+It appears in **Insert as Text** and **Link to Daily Note**. The **Open Daily Note** tab hides it, since opening a note needs no format.
 
 **I want a custom format preset.**
 Not implemented yet. Tell us which format you need in [Discussions](https://github.com/patrice-bour/obsidian-date-helpers/discussions).
