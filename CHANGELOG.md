@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-08-15
+
+No code changes. This release exists to restore distribution.
+
+Since 0.1.1, releases were tagged `v0.1.1`, `v0.1.2` and `v0.1.3`, while Obsidian downloads a plugin from `releases/download/<version>/`, taking the version verbatim from `manifest.json`. Nothing matched, so the community portal could neither scan nor distribute the plugin, and its review stayed pinned to the 0.1.0 scan of 7 May. Every version since is unaffected in itself — it was simply unreachable.
+
+0.1.1, 0.1.2 and 0.1.3 have been republished under bare-version tags, with the same artifacts and the same build provenance attestations. This release is the first cut with the corrected tooling.
+
+### Fixed
+
+- Release tags are now the bare version, which is the path Obsidian requests.
+- `npm version` bumps `manifest.json` and `versions.json` again: the hook it called had never been committed, so every release was bumped by hand.
+- Installation instructions no longer tell you to search for the plugin in **Browse**, which finds nothing until the directory listing goes through, and the manual install now lists `styles.css` alongside `main.js` and `manifest.json` — without it the date picker and settings render unstyled.
+
 ## [0.1.3] - 2026-08-13
 
 The settings tab is now rendered by Obsidian itself, through the declarative settings API. Every Date Helpers setting is therefore reachable from Obsidian's settings search, which the previous renderer did not index.
