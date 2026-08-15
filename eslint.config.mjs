@@ -21,7 +21,25 @@ export default tseslint.config(
       },
     },
     rules: {
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // `ignoreRestSiblings` is what lets a destructuring rest drop properties
+      // (`const { name, ...rest } = preset`) without naming the dropped ones as
+      // used — the idiom the preset-label migration relies on.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
+      // Translated strings are inserted verbatim: I18nService.interpolate does no
+      // HTML escaping because every consumer assigns textContent. These sinks
+      // would make that assumption false without anyone noticing.
+      'no-restricted-properties': [
+        'error',
+        { property: 'innerHTML', message: 'Assign text, not HTML: translations are not escaped.' },
+        { property: 'outerHTML', message: 'Assign text, not HTML: translations are not escaped.' },
+        {
+          property: 'insertAdjacentHTML',
+          message: 'Build elements with createEl/createDiv instead.',
+        },
+      ],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',

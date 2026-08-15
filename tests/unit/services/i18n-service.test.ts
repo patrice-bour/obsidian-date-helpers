@@ -42,29 +42,31 @@ describe('I18nService', () => {
     });
 
     it('should interpolate parameters', () => {
-      const result = service.t('errors.invalidDate', { date: '2025-13-01' });
-      expect(result).toBe('Invalid date: 2025-13-01');
+      const result = service.t('errors.parseFailed', { text: 'lundi prochain' });
+      expect(result).toBe('Could not parse date from: lundi prochain');
     });
 
     it('should handle interpolation with multiple parameters', () => {
-      // Add a translation with multiple params for testing
-      const result = service.t('errors.invalidDate', { date: 'test' });
-      expect(result).toContain('test');
+      const result = service.t('notices.parsed', { text: 'tomorrow', date: '2026-08-16 00:00' });
+      expect(result).toBe('Parsed: tomorrow → 2026-08-16 00:00');
     });
 
     it('should return original template if params are missing', () => {
-      const result = service.t('errors.invalidDate' as any);
-      expect(result).toBe('Invalid date: {{date}}');
+      const result = service.t('errors.parseFailed' as any);
+      expect(result).toBe('Could not parse date from: {{text}}');
     });
 
-    it('should escape HTML characters in interpolated parameters', () => {
-      const result = service.t('errors.invalidDate', { date: '<script>alert("xss")</script>' });
-      expect(result).toBe('Invalid date: &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+    // Interpolated values are shown as text, never as HTML: Notice, setText and
+    // setName all assign textContent. Escaping them would show the entity to
+    // the user — an apostrophe is common in the selected text these carry.
+    it('should insert the value verbatim, entities included', () => {
+      const result = service.t('errors.parseFailed', { text: "l'année prochaine" });
+      expect(result).toBe("Could not parse date from: l'année prochaine");
     });
 
-    it('should escape ampersands in interpolated parameters', () => {
-      const result = service.t('errors.invalidDate', { date: 'A & B' });
-      expect(result).toBe('Invalid date: A &amp; B');
+    it('should not escape angle brackets or ampersands', () => {
+      const result = service.t('errors.parseFailed', { text: '<b> A & B' });
+      expect(result).toBe('Could not parse date from: <b> A & B');
     });
 
     // The following cases exercise interpolate()'s runtime behaviour for
@@ -74,29 +76,29 @@ describe('I18nService', () => {
     const callT = (params: Record<string, unknown>): string =>
       (
         service.t as unknown as (
-          key: 'errors.invalidDate',
+          key: 'errors.parseFailed',
           params: Record<string, unknown>
         ) => string
-      ).call(service, 'errors.invalidDate', params);
+      ).call(service, 'errors.parseFailed', params);
 
     it('should emit empty string when param is empty string', () => {
-      expect(callT({ date: '' })).toBe('Invalid date: ');
+      expect(callT({ text: '' })).toBe('Could not parse date from: ');
     });
 
     it('should emit "0" when param is the number zero', () => {
-      expect(callT({ date: 0 })).toBe('Invalid date: 0');
+      expect(callT({ text: 0 })).toBe('Could not parse date from: 0');
     });
 
     it('should emit "false" when param is the boolean false', () => {
-      expect(callT({ date: false })).toBe('Invalid date: false');
+      expect(callT({ text: false })).toBe('Could not parse date from: false');
     });
 
     it('should preserve placeholder when param value is null', () => {
-      expect(callT({ date: null })).toBe('Invalid date: {{date}}');
+      expect(callT({ text: null })).toBe('Could not parse date from: {{text}}');
     });
 
     it('should preserve placeholder when param key is missing', () => {
-      expect(callT({ other: 'x' })).toBe('Invalid date: {{date}}');
+      expect(callT({ other: 'x' })).toBe('Could not parse date from: {{text}}');
     });
   });
 

@@ -37,10 +37,16 @@ describe('Settings', () => {
     it('should have valid preset structures', () => {
       DEFAULT_SETTINGS.formatPresets.forEach(preset => {
         expect(preset.id).toBeTruthy();
-        expect(preset.name).toBeTruthy();
         expect(preset.format).toBeTruthy();
         expect(['date', 'time', 'datetime']).toContain(preset.type);
         expect(typeof preset.builtin).toBe('boolean');
+      });
+    });
+
+    it('should carry no label on built-in presets', () => {
+      DEFAULT_SETTINGS.formatPresets.forEach(preset => {
+        expect(preset.name).toBeUndefined();
+        expect(preset.description).toBeUndefined();
       });
     });
   });
@@ -206,7 +212,117 @@ describe('Settings', () => {
         formatPresets: [...DEFAULT_SETTINGS.formatPresets, invalidPreset],
       };
       const validated = validateSettings(settings);
-      expect(validated.formatPresets.every(p => p.id && p.name && p.format)).toBe(true);
+      expect(validated.formatPresets.every(p => p.id && p.format)).toBe(true);
+    });
+
+    describe('built-in preset labels', () => {
+      /** data.json as 0.1.4 and earlier wrote it: English labels on every preset. */
+      const storedByV014: FormatPreset[] = [
+        {
+          id: 'iso8601',
+          name: 'ISO 8601',
+          format: 'yyyy-MM-dd',
+          type: 'date',
+          builtin: true,
+          description: 'Standard ISO format (2025-11-02)',
+        },
+        {
+          id: 'time-24h',
+          name: '24-hour',
+          format: 'HH:mm',
+          type: 'time',
+          builtin: true,
+          description: '24-hour time (14:30)',
+        },
+      ];
+
+      it('should strip name and description from stored built-in presets', () => {
+        const validated = validateSettings({ formatPresets: storedByV014 });
+
+        const iso = validated.formatPresets.find(p => p.id === 'iso8601');
+        expect(iso).toBeDefined();
+        expect(iso?.name).toBeUndefined();
+        expect(iso?.description).toBeUndefined();
+      });
+
+      it('should preserve every other stored value while stripping labels', () => {
+        const validated = validateSettings({ formatPresets: storedByV014 });
+
+        expect(validated.formatPresets.find(p => p.id === 'time-24h')).toEqual({
+          id: 'time-24h',
+          format: 'HH:mm',
+          type: 'time',
+          builtin: true,
+        });
+      });
+
+      it('should leave a fresh install without labels', () => {
+        const validated = validateSettings({});
+
+        validated.formatPresets.forEach(preset => {
+          expect(preset.name).toBeUndefined();
+          expect(preset.description).toBeUndefined();
+        });
+      });
+
+      it('should keep the labels of a user-defined preset', () => {
+        const userPreset: FormatPreset = {
+          id: 'mon-format',
+          name: 'Mon format',
+          description: 'Le format que je préfère',
+          format: 'dd/MM',
+          type: 'date',
+          builtin: false,
+        };
+
+        const validated = validateSettings({
+          formatPresets: [...DEFAULT_SETTINGS.formatPresets, userPreset],
+        });
+
+        expect(validated.formatPresets.find(p => p.id === 'mon-format')).toEqual(userPreset);
+      });
+
+      it('should drop a preset whose type is not one the plugin knows', () => {
+        const rogue = {
+          id: 'duration',
+          format: 'hh:mm',
+          type: 'duration',
+          builtin: false,
+        } as unknown as FormatPreset;
+
+        const validated = validateSettings({
+          formatPresets: [...DEFAULT_SETTINGS.formatPresets, rogue],
+        });
+
+        // Its command name would be built from `commands.prefix.duration`,
+        // a key that does not exist, and the palette would show the key
+        expect(validated.formatPresets.find(p => p.id === 'duration')).toBeUndefined();
+      });
+
+      it('should keep the labels of a preset the locale files cannot name', () => {
+        // What a built-in retired in a later version looks like on load
+        const retired: FormatPreset = {
+          id: 'legacy-format',
+          name: 'Legacy',
+          description: 'Kept from an older version',
+          format: 'dd-MM',
+          type: 'date',
+          builtin: true,
+        };
+
+        const validated = validateSettings({
+          formatPresets: [...DEFAULT_SETTINGS.formatPresets, retired],
+        });
+
+        expect(validated.formatPresets.find(p => p.id === 'legacy-format')).toEqual(retired);
+      });
+
+      it('should not rewrite the stored settings object', () => {
+        const stored = [{ ...storedByV014[0] }];
+        validateSettings({ formatPresets: stored });
+
+        expect(stored[0].name).toBe('ISO 8601');
+      });
     });
 
     it('should validate default date preset ID', () => {

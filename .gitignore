@@ -18,7 +18,9 @@ Temporary Items
 .apdisk
 
 # Node.js
-node_modules/
+# Sans barre oblique finale : un worktree monte souvent node_modules en lien
+# symbolique, que le motif « node_modules/ » ne couvre pas.
+node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

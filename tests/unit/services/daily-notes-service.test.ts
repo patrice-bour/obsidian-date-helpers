@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { DailyNotesService, DEFAULT_DAILY_NOTES_CONFIG } from '@/services/daily-notes-service';
 import { FormatterService } from '@/services/formatter-service';
+import { I18nService } from '@/services/i18n-service';
 import { DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
 import { DEFAULT_SETTINGS_BASE } from '@/types/settings';
 import type { DateHelpersSettings } from '@/types/settings';
@@ -15,6 +16,7 @@ function createMockFile(path: string): TFile {
 describe('DailyNotesService', () => {
   let mockApp: any; // Use 'any' to allow access to internalPlugins (runtime-only property)
   let formatterService: FormatterService;
+  let i18n: I18nService;
   let settings: DateHelpersSettings;
   let service: DailyNotesService;
 
@@ -34,6 +36,7 @@ describe('DailyNotesService', () => {
 
     // Create real service instances
     formatterService = new FormatterService('en-US');
+    i18n = new I18nService('en');
     settings = {
       ...DEFAULT_SETTINGS_BASE,
       formatPresets: DEFAULT_FORMAT_PRESETS,
@@ -42,7 +45,7 @@ describe('DailyNotesService', () => {
       dailyNotesAliasFallbackPresetId: 'locale-long',
       dailyNotesCreateIfMissing: false,
     };
-    service = new DailyNotesService(mockApp, formatterService, settings);
+    service = new DailyNotesService(mockApp, formatterService, i18n, settings);
   });
 
   describe('getDailyNotesConfig', () => {

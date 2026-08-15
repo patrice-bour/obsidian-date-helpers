@@ -275,6 +275,11 @@ export class Modal {
     if (typeof document !== 'undefined') {
       this.containerEl = document.createElement('div');
       this.contentEl = document.createElement('div');
+      // Attached, as an open modal is. A detached subtree cannot hold the DOM
+      // focus, so anything asserting on `document.activeElement` would pass
+      // against a modal that never focuses anything.
+      this.containerEl.appendChild(this.contentEl);
+      document.body.appendChild(this.containerEl);
     } else {
       this.containerEl = createMockElement();
       this.contentEl = createMockElement();
@@ -285,13 +290,19 @@ export class Modal {
   }
 
   open(): void {}
-  close(): void {}
+  close(): void {
+    this.containerEl.remove?.();
+  }
 }
 
 export class Notice {
+  /** Every message raised since the last reset — a test reads what the user saw */
+  static messages: string[] = [];
+
   message: string;
   constructor(message?: string) {
     this.message = message ?? '';
+    Notice.messages.push(this.message);
   }
   hide(): void {}
 }

@@ -1,7 +1,13 @@
 import type { SettingDefinitionGroup, SettingGroupItem } from 'obsidian';
 import { TranslationKey } from '@/i18n/types';
+import { presetDescription, presetName } from '@/i18n/preset-labels';
 import { FormatPreset } from '@/types/format-preset';
-import { SettingsKey, SettingsSectionContext, descriptionRow, headingRow } from '../section-context';
+import {
+  SettingsKey,
+  SettingsSectionContext,
+  descriptionRow,
+  headingRow,
+} from '../section-context';
 
 /**
  * Read-only reference section listing the available format presets by type,
@@ -14,7 +20,9 @@ import { SettingsKey, SettingsSectionContext, descriptionRow, headingRow } from 
  * The per-type sub-headings are description rows rather than nested groups —
  * a group's items may only be settings or pages, not further groups.
  */
-export function buildPresetsListSection(ctx: SettingsSectionContext): SettingDefinitionGroup<SettingsKey> {
+export function buildPresetsListSection(
+  ctx: SettingsSectionContext
+): SettingDefinitionGroup<SettingsKey> {
   const { plugin, t } = ctx;
   const presets = plugin.settings.formatPresets;
 
@@ -44,24 +52,16 @@ function presetGroup(
     headingRow(t(headingKey)),
     ...ofType.map(preset => {
       const example = plugin.formatterService.getFormatExample(preset.format);
-      const desc = translatedOr(ctx, `${preset.id}.desc`, preset.description || preset.format);
 
       return {
-        name: translatedOr(ctx, `${preset.id}.name`, preset.name),
-        desc: `${desc} → ${t('settings.presets.example')}: ${example}`,
+        name: presetName(preset, t),
+        // The whole row is one translation: French puts a space before the colon
+        desc: t('settings.presets.exampleRow', {
+          desc: presetDescription(preset, t),
+          example,
+        }),
         searchable: false,
       };
     }),
   ];
-}
-
-/**
- * Presets are user-extensible, so most have no translation entry. A missing key
- * comes back as the key itself, which is the signal to fall back to the
- * preset's own metadata.
- */
-function translatedOr(ctx: SettingsSectionContext, suffix: string, fallback: string): string {
-  const key = `settings.presets.formats.${suffix}` as TranslationKey;
-  const translated = ctx.t(key);
-  return translated === key ? fallback : translated;
 }

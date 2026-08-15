@@ -61,10 +61,16 @@ export class DateHelpersSettingTab extends PluginSettingTab {
   /** Pending rebuild after a locale edit. Holds no user data. */
   private localeRefreshTimer: number | null = null;
   /**
-   * Set once the tab is torn down. Every rebuild scheduled across an `await`
-   * has to check it: cancelling the timer is not enough, because a continuation
-   * already parked on `saveSettings()` resumes afterwards and would rebuild a
-   * container that is gone.
+   * Set once the plugin unloads. Every rebuild scheduled across an `await` has
+   * to check it: cancelling the timer is not enough, because a continuation
+   * already parked on `saveSettings()` resumes afterwards and would rebuild
+   * against services that no longer exist.
+   *
+   * Hiding the tab must not set this. `getSettingDefinitions()` does clear it,
+   * and `update()` does call it — but `update()` is exactly what the latch
+   * blocks, so the reset is unreachable once set. Obsidian itself calls the
+   * hook only when the tab is registered: `display()`, which would call it
+   * again, never runs while the definitions are non-empty.
    */
   private disposed = false;
 
@@ -74,13 +80,12 @@ export class DateHelpersSettingTab extends PluginSettingTab {
   }
 
   getSettingDefinitions(): SettingDefinitionItem<SettingsKey>[] {
-    // Obsidian calls this on every display, so it is where a tab comes back to
-    // life after a previous teardown.
-    this.disposed = false;
-
     const ctx: SettingsSectionContext = {
       plugin: this.plugin,
-      t: key => this.plugin.i18n.t(key),
+      // Bound per rebuild, not once: `initializeServices()` replaces
+      // `plugin.i18n`, so a binding captured earlier would translate against a
+      // dead instance. `main.ts` uses an arrow for the same reason.
+      t: this.plugin.i18n.t.bind(this.plugin.i18n),
     };
 
     return [
@@ -130,21 +135,23 @@ export class DateHelpersSettingTab extends PluginSettingTab {
     this.applySideEffect(key, previous, stored);
   }
 
-  /**
-   * Obsidian's teardown hook. The pending rebuild is dropped: the value it would
-   * have refreshed the display for is already persisted, so nothing is lost —
-   * unlike the debounce this replaced, which held unsaved input.
-   */
-  hide(): void {
-    this.dispose();
-    super.hide();
-  }
+  // No `hide()` override. Cancelling the pending rebuild there looks free —
+  // the value is already persisted — but the rebuild exists for the *display*,
+  // and nothing else would run it: what Obsidian renders on the next open is
+  // whatever `update()` last stored. Closing the window inside the debounce
+  // would leave the tab in the previous language for the rest of the session,
+  // which is the defect this class was just fixed for, one door over.
+  //
+  // Letting the timer fire against a hidden tab is safe: `update()` is what
+  // Obsidian documents for a tab whose data changed, on screen or not.
 
   /**
-   * Release everything scheduled by this tab. Called from `hide()`, and from the
-   * plugin's `onunload`, which `hide()` does not cover: a BRAT update or a
-   * "reload plugins" while the tab is open would otherwise leave a timer that
-   * fires against unloaded services.
+   * Retire the tab for good. Called from the plugin's `onunload` — a BRAT
+   * update or a "reload plugins" would otherwise leave a timer that fires
+   * against unloaded services, and a continuation parked on `saveSettings()`
+   * that rebuilds from them.
+   *
+   * Not called when the tab is merely hidden: see the note on `disposed`.
    */
   dispose(): void {
     this.disposed = true;
@@ -178,6 +185,9 @@ export class DateHelpersSettingTab extends PluginSettingTab {
    * would let a timer be armed on one window and cleared on another.
    */
   private scheduleLocaleRefresh(): void {
+    // A continuation parked on `saveSettings()` can resume after `onunload`,
+    // and would otherwise arm a timer no `dispose()` will ever clear.
+    if (this.disposed) return;
     this.clearLocaleRefresh();
     this.localeRefreshTimer = window.setTimeout(() => {
       this.localeRefreshTimer = null;
@@ -200,7 +210,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
   private openAddTriggerDialog(): void {
     new AddTriggerModal(this.app, {
       existing: [...this.plugin.settings.triggerCharacters],
-      t: key => this.plugin.i18n.t(key),
+      t: this.plugin.i18n.t.bind(this.plugin.i18n),
       onSubmit: trigger => void this.addTrigger(trigger),
     }).open();
   }

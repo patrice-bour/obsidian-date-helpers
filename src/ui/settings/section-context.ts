@@ -1,7 +1,7 @@
 import type { SettingDefinitionRender } from 'obsidian';
 import DateHelpersPlugin from '@/main';
 import { DateHelpersSettings } from '@/types/settings';
-import { TranslationKey } from '@/i18n/types';
+import { Translate } from '@/i18n/types';
 
 /**
  * Every control binds to a real setting. Typing the definition tree with this
@@ -20,7 +20,7 @@ export type SettingsKey = keyof DateHelpersSettings;
 export interface SettingsSectionContext {
   plugin: DateHelpersPlugin;
   /** Translate a key with the plugin's i18n service */
-  t: (key: TranslationKey) => string;
+  t: Translate;
 }
 
 /**

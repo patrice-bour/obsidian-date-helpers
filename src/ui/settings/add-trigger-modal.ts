@@ -1,8 +1,6 @@
 import { App, Modal, Setting } from 'obsidian';
-import { TranslationKey } from '@/i18n/types';
+import { Translate } from '@/i18n/types';
 import { MAX_TRIGGER_LENGTH } from '@/utils/constants';
-
-type Translate = (key: TranslationKey) => string;
 
 export interface AddTriggerModalOptions {
   /** Triggers already configured, used for the duplicate check. */
@@ -73,7 +71,9 @@ export class AddTriggerModal extends Modal {
 
     new Setting(contentEl)
       .addButton(button => button.setButtonText(t('picker.cancel')).onClick(() => this.close()))
-      .addButton(button => button.setButtonText(t('settings.triggers.add')).onClick(() => this.submit()));
+      .addButton(button =>
+        button.setButtonText(t('settings.triggers.add')).onClick(() => this.submit())
+      );
   }
 
   onClose(): void {

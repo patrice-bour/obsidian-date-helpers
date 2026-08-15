@@ -4,13 +4,19 @@
       "name": "Insert date as text"
     },
     "insertDailyNote": {
-      "name": "Insert Daily Note link"
+      "name": "Insert daily note link"
     },
     "openDailyNote": {
-      "name": "Open Daily Note"
+      "name": "Open daily note"
     },
     "convertSelection": {
       "name": "Convert selection to date"
+    },
+    "presetCommand": "{{prefix}}: {{name}}",
+    "prefix": {
+      "date": "Insert date",
+      "time": "Insert time",
+      "datetime": "Insert datetime"
     }
   },
   "settings": {
@@ -65,8 +71,7 @@
       "aliasFormat": {
         "desc": "Format preset for the display text (alias) in Daily Note wikilinks",
         "withText": "Format (with text)",
-        "withoutText": "Format (no text)",
-        "originalText": "Original Text"
+        "withoutText": "Format (no text)"
       },
       "createIfMissing": {
         "name": "Create Daily Note if missing",
@@ -110,35 +115,84 @@
       "dateFormats": "Date Formats",
       "timeFormats": "Time Formats",
       "dateTimeFormats": "Datetime formats",
-      "example": "Example",
+      "exampleRow": "{{desc}} → Example: {{example}}",
       "formats": {
-        "iso8601": { "name": "ISO 8601", "desc": "Standard ISO format" },
-        "locale-short": { "name": "Locale short", "desc": "Short date in your locale" },
-        "locale-long": { "name": "Locale long", "desc": "Long date in your locale" },
-        "date-verbose": { "name": "Verbose", "desc": "Full weekday and month" },
-        "date-short-month": { "name": "Short month", "desc": "Locale-aware with abbreviated month" },
-        "time-24h": { "name": "24-hour", "desc": "24-hour time format" },
-        "time-12h": { "name": "12-hour", "desc": "12-hour time with AM/PM" },
-        "time-24h-seconds": { "name": "24-hour with seconds", "desc": "24-hour time with seconds" },
-        "datetime-iso": { "name": "ISO datetime", "desc": "ISO format with time" },
-        "datetime-readable": { "name": "Readable", "desc": "Locale-aware readable format" },
-        "datetime-standard": { "name": "Standard", "desc": "Standard datetime format" }
+        "iso8601": {
+          "name": "ISO 8601",
+          "desc": "Standard ISO format"
+        },
+        "locale-short": {
+          "name": "Locale short",
+          "desc": "Short date in your locale"
+        },
+        "locale-long": {
+          "name": "Locale long",
+          "desc": "Long date in your locale"
+        },
+        "date-verbose": {
+          "name": "Verbose",
+          "desc": "Full weekday and month"
+        },
+        "date-short-month": {
+          "name": "Short month",
+          "desc": "Locale-aware with abbreviated month"
+        },
+        "time-24h": {
+          "name": "24-hour",
+          "desc": "24-hour time format"
+        },
+        "time-12h": {
+          "name": "12-hour",
+          "desc": "12-hour time with AM/PM"
+        },
+        "time-24h-seconds": {
+          "name": "24-hour with seconds",
+          "desc": "24-hour time with seconds"
+        },
+        "datetime-iso": {
+          "name": "ISO datetime",
+          "desc": "ISO format with time"
+        },
+        "datetime-readable": {
+          "name": "Readable",
+          "desc": "Locale-aware readable format"
+        },
+        "datetime-standard": {
+          "name": "Standard",
+          "desc": "Standard datetime format"
+        }
       }
     }
   },
   "errors": {
-    "invalidDate": "Invalid date: {{date}}"
+    "parseFailed": "Could not parse date from: {{text}}",
+    "selectFailed": "Failed to select date",
+    "createDailyNoteFailed": "Failed to create daily note",
+    "openDailyNoteFailed": "Failed to open daily note",
+    "dailyNoteMissing": "Daily note does not exist: {{date}}. Enable \"Auto-create\" in settings to create automatically.",
+    "invalidFormat": "[Invalid format: {{format}}]"
+  },
+  "notices": {
+    "parsed": "Parsed: {{text}} → {{date}}",
+    "settingsMigrated": "Date Helpers: Settings updated to Phase 6. Please reload the plugin (Cmd/Ctrl+R) to see updated commands."
   },
   "picker": {
     "tabs": {
-      "insertText": "Insert Text",
-      "insertDailyNote": "Insert Daily Note",
-      "openDailyNote": "Open Note"
+      "insertText": "Insert as Text",
+      "insertDailyNote": "Link to Daily Note",
+      "openDailyNote": "Open Daily Note"
     },
-    "nlpPlaceholder": "Type a date expression (e.g., tomorrow, next Monday)",
-    "format": "Format",
-    "preview": "Preview",
-    "confirm": "Confirm",
+    "nlp": {
+      "name": "Natural language",
+      "desc": "For example: tomorrow, next monday, 3 days ago",
+      "placeholder": "Tomorrow",
+      "previewEmpty": "Enter a date expression to see preview",
+      "previewError": "Could not parse date"
+    },
+    "today": "Today",
+    "openPreview": "Open: {{date}}",
+    "originalText": "Original Text",
+    "originalTextWith": "Original Text ({{text}})",
     "cancel": "Cancel"
   }
 }
