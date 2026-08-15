@@ -170,6 +170,20 @@ Two gotchas worth knowing:
 - **The portal's advice changes over time.** `activeWindow.setTimeout()` was the recommended form when v0.1.0 was scanned; the plugin now forbids it in favour of `window.setTimeout()`. Trust the current linter over any older finding — including older sections of this file.
 - **Warnings do not fail the build.** `eslint src` exits 0 with warnings, so a clean exit code is not a clean scan. Read the output.
 
+## Release tag names
+
+The tag **is** the download path. Obsidian installs a plugin from
+`https://github.com/<repo>/releases/download/<version>/<file>`, where `<version>` comes
+verbatim from the repository's `manifest.json`, or from `versions.json` when the manifest's
+`minAppVersion` is above the running app. A `v` prefix therefore makes every asset a 404 for
+the client, however healthy the release looks on GitHub — which is what happened to v0.1.1,
+v0.1.2 and v0.1.3, republished afterwards under bare-version tags.
+
+`.npmrc` sets `tag-version-prefix=` so `npm version` produces `0.1.4`, not `v0.1.4`. The
+release workflow accepts both forms, since the prefixed tags are already published. Never
+change one without the other: dropping the prefix while the workflow only listens for `v*`
+means no release is built at all.
+
 ## Release verification
 
 Release assets are attested automatically by `.github/workflows/release.yml` (`actions/attest-build-provenance`). To verify after publishing:
