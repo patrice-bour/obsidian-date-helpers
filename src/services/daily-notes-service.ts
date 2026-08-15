@@ -1,8 +1,10 @@
 import { App, TFile } from 'obsidian';
 import { DateTime } from 'luxon';
 import type { FormatterService } from './formatter-service';
+import type { I18nService } from './i18n-service';
 import type { DateHelpersSettings } from '../types/settings';
 import { DailyNotesPluginAdapter } from './daily-notes-plugin-adapter';
+import { TranslatedError } from './translated-error';
 
 /**
  * Daily Notes configuration from Obsidian
@@ -31,17 +33,20 @@ export const DEFAULT_DAILY_NOTES_CONFIG: DailyNotesConfig = {
 export class DailyNotesService {
   private app: App;
   private formatterService: FormatterService;
+  private i18n: I18nService;
   private settings: DateHelpersSettings;
   private pluginAdapter: DailyNotesPluginAdapter;
 
   constructor(
     app: App,
     formatterService: FormatterService,
+    i18n: I18nService,
     settings: DateHelpersSettings,
     pluginAdapter?: DailyNotesPluginAdapter
   ) {
     this.app = app;
     this.formatterService = formatterService;
+    this.i18n = i18n;
     this.settings = settings;
     this.pluginAdapter = pluginAdapter ?? new DailyNotesPluginAdapter(app);
   }
@@ -343,13 +348,13 @@ export class DailyNotesService {
         await this.app.workspace.openLinkText('', newFile.path, false);
       } else {
         // Creation failed - error already logged in createDailyNote
-        throw new Error('Failed to create daily note');
+        throw new TranslatedError(this.i18n.t('errors.createDailyNoteFailed'));
       }
     } else {
-      // Don't auto-create - show error
-      const formattedDate = date.toFormat('yyyy-MM-dd');
-      throw new Error(
-        `Daily note does not exist: ${formattedDate}. Enable "Auto-create" in settings to create automatically.`
+      // Don't auto-create - show error. The message reaches the user as a
+      // Notice, so it is translated here rather than at the display site.
+      throw new TranslatedError(
+        this.i18n.t('errors.dailyNoteMissing', { date: date.toFormat('yyyy-MM-dd') })
       );
     }
   }

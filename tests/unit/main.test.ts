@@ -7,10 +7,14 @@
  */
 
 import { App } from 'obsidian';
+// The mock module is what 'obsidian' resolves to at runtime; importing it
+// directly is what types the recorded notices.
+import { Notice } from '../mocks/obsidian';
 import { createMockApp } from '../helpers/mock-app';
 import DateHelpersPlugin from '@/main';
 import { UnifiedDatePickerModal } from '@/ui/unified-date-picker-modal';
 import { DEFAULT_SETTINGS } from '@/settings/defaults';
+import { presetName } from '@/i18n/preset-labels';
 
 type PluginMock = DateHelpersPlugin & {
   addCommand: jest.Mock;
@@ -81,7 +85,18 @@ describe('DateHelpersPlugin lifecycle', () => {
             : preset.type === 'datetime'
               ? 'Insert datetime'
               : 'Insert date';
-        expect(presetCommands[i].name).toBe(`${expectedPrefix}: ${preset.name}`);
+        expect(presetCommands[i].name).toBe(
+          `${expectedPrefix}: ${presetName(preset, key => plugin.i18n.t(key))}`
+        );
+      });
+
+      // Anchored on a literal, so the loop above cannot be satisfied by a
+      // resolver that is wrong in the same way twice
+      expect(presetCommands.map(c => c.name)).toEqual(
+        expect.arrayContaining(['Insert date: ISO 8601', 'Insert time: 24-hour'])
+      );
+      plugin.settings.formatPresets.forEach((preset, i) => {
+        expect(presetCommands[i].id).toBe(`insert-date-${preset.id}`);
       });
     });
 
@@ -124,6 +139,18 @@ describe('DateHelpersPlugin lifecycle', () => {
       expect(plugin.saveData).toHaveBeenCalledTimes(1);
       expect(plugin.saveData).toHaveBeenCalledWith(plugin.settings);
       expect(plugin.settings.locale).toBe('fr-FR');
+    });
+
+    it('reports the Phase 5 migration once the services exist', async () => {
+      const plugin = createPlugin({ enableDailyNotesIntegration: true, locale: 'fr' });
+      Notice.messages = [];
+
+      await plugin.onload();
+
+      // Settings load before initializeServices, so a notice raised from
+      // loadSettings would read from an i18n service that does not exist yet
+      expect(Notice.messages).toContain(plugin.i18n.t('notices.settingsMigrated'));
+      expect(plugin.i18n.t('notices.settingsMigrated')).toContain('Date Helpers');
     });
 
     it('migrates Phase 5 data (enableDailyNotesIntegration) to the current shape', async () => {

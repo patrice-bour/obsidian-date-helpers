@@ -1,8 +1,36 @@
 import { DateHelpersSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
 import { isValidLocale, normalizeLocale } from './locale';
-import { VALID_WEEK_STARTS } from './constants';
+import { VALID_PRESET_TYPES, VALID_WEEK_STARTS } from './constants';
 import { FormatPreset } from '@/types/format-preset';
+import enTranslations from '@/i18n/locales/en.json';
+
+/**
+ * Drop `name` and `description` from a stored built-in preset.
+ *
+ * Both are resolved from the preset id through i18n at display time. Keeping
+ * the stored value would leave the obvious thing to read for anyone touching
+ * this code later, and the next naive `preset.name` would silently bring the
+ * English label back.
+ *
+ * The stored labels are only dropped when the locale files can put them back:
+ * a preset whose translation entry is gone would otherwise degrade to its raw
+ * id in the settings list, the dropdowns and the palette. And a stored preset
+ * marked `builtin: false` keeps its labels whatever its id — those are the
+ * user's words.
+ */
+function stripBuiltinLabels(preset: FormatPreset): FormatPreset {
+  if (preset.builtin === false || !hasTranslatedLabel(preset.id)) return preset;
+
+  const { name: _name, description: _description, ...withoutLabels } = preset;
+  return withoutLabels;
+}
+
+/** Does `settings.presets.formats.<id>` exist in the reference locale? */
+function hasTranslatedLabel(id: string): boolean {
+  const entry = (enTranslations.settings.presets.formats as Record<string, unknown>)[id];
+  return typeof entry === 'object' && entry !== null;
+}
 
 /**
  * Validate and sanitize settings
@@ -86,9 +114,18 @@ export function validateSettings(settings: Partial<DateHelpersSettings>): DateHe
     const seenIds = new Set<string>();
     validated.formatPresets = validated.formatPresets
       .map((preset: FormatPreset) => {
-        // Validate preset structure
-        if (!preset.id || !preset.name || !preset.format || !preset.type) {
+        // Validate preset structure. A name is not required: built-in presets
+        // are labelled from their id through i18n, and a user-defined preset
+        // without one falls back to its id.
+        if (!preset.id || !preset.format || !preset.type) {
           console.warn('Invalid preset structure, skipping:', preset);
+          return null;
+        }
+
+        // The type selects a translation key (`commands.prefix.<type>`) and a
+        // settings section, so an unknown one surfaces as a raw key
+        if (!(VALID_PRESET_TYPES as readonly string[]).includes(preset.type)) {
+          console.warn(`Invalid preset type: ${preset.type}, skipping:`, preset);
           return null;
         }
 
@@ -114,8 +151,6 @@ export function validateSettings(settings: Partial<DateHelpersSettings>): DateHe
     // Update builtin presets to latest version and add missing ones (for plugin updates)
     const existingPresetsMap = new Map(validated.formatPresets.map(p => [p.id, p]));
     const updatedPresets: FormatPreset[] = [];
-    const addedPresets: string[] = [];
-    const updatedPresetIds: string[] = [];
 
     // Process all default builtin presets
     DEFAULT_FORMAT_PRESETS.forEach(defaultPreset => {
@@ -124,23 +159,19 @@ export function validateSettings(settings: Partial<DateHelpersSettings>): DateHe
       const existing = existingPresetsMap.get(defaultPreset.id);
       if (existing) {
         // Check if builtin preset needs updating
-        if (
-          existing.format !== defaultPreset.format ||
-          existing.description !== defaultPreset.description ||
-          existing.name !== defaultPreset.name
-        ) {
+        if (existing.format !== defaultPreset.format) {
           // Update to latest version
-          updatedPresets.push(defaultPreset);
-          updatedPresetIds.push(defaultPreset.id);
+          updatedPresets.push({ ...defaultPreset });
         } else {
-          // Keep existing
-          updatedPresets.push(existing);
+          // Keep existing, minus the labels 0.1.4 and earlier wrote into
+          // data.json: a built-in preset is labelled from its id, and a stored
+          // English name would outlive every later translation.
+          updatedPresets.push(stripBuiltinLabels(existing));
         }
         existingPresetsMap.delete(defaultPreset.id);
       } else {
         // Add missing builtin preset
-        updatedPresets.push(defaultPreset);
-        addedPresets.push(defaultPreset.id);
+        updatedPresets.push({ ...defaultPreset });
       }
     });
 

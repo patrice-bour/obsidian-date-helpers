@@ -13,6 +13,8 @@ import { DateTime } from 'luxon';
 import { UnifiedDatePickerModal } from '@/ui/unified-date-picker-modal';
 import { DateService } from '@/services/date-service';
 import { FormatterService } from '@/services/formatter-service';
+import { I18nService } from '@/services/i18n-service';
+import { presetName } from '@/i18n/preset-labels';
 import { NLPService } from '@/services/nlp-service';
 import { DailyNotesService } from '@/services/daily-notes-service';
 import { DateHelpersSettings } from '@/types/settings';
@@ -26,6 +28,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
   let dateService: DateService;
   let formatterService: FormatterService;
   let nlpService: NLPService;
+  let i18n: I18nService;
   let dailyNotesService: DailyNotesService;
   let settings: DateHelpersSettings;
   let datePresets: FormatPreset[];
@@ -37,6 +40,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
     dateService = new DateService('en-US');
     formatterService = new FormatterService('en-US');
+    i18n = new I18nService('en');
     settings = { ...DEFAULT_SETTINGS };
 
     const mockI18nService = {
@@ -46,10 +50,17 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
     };
 
     nlpService = new NLPService(dateService, mockI18nService as never, settings);
-    dailyNotesService = new DailyNotesService(app, formatterService, settings);
+    dailyNotesService = new DailyNotesService(app, formatterService, i18n, settings);
     datePresets = DEFAULT_FORMAT_PRESETS.filter(p => p.type === 'date');
     onSelect = jest.fn();
     saveSettings = jest.fn().mockResolvedValue(undefined);
+  });
+
+  // The Modal mock attaches its container to the body, and no test calls
+  // close(); without this, every file accumulates containers and any later
+  // assertion on document.activeElement would depend on test order.
+  afterEach(() => {
+    document.body.replaceChildren();
   });
 
   function createModal(
@@ -61,6 +72,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       dateService,
       formatterService,
       nlpService,
+      i18n,
       dailyNotesService,
       datePresets,
       settings,
@@ -120,7 +132,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
   const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
   describe('renderModal structure', () => {
-    it('renders modal class, 3 action buttons with active state, calendar, footer', () => {
+    it('renders modal class, 3 action buttons with active state, calendar, footer', async () => {
       const modal = openModal('insert-text');
       const el = content(modal);
 
@@ -151,9 +163,30 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       expect(focusedCells[0]).toBe(todayCells[0]);
       expect(focusedCells[0].getAttribute('tabindex')).toBe('0');
 
+      // …and the DOM focus is actually on it. `is-focused` and `tabindex` only
+      // say the cell is focusable; without an explicit focus() the browser
+      // leaves focus on the first focusable element of the modal, which is an
+      // action-tab button. Enter then reaches a button that re-renders the
+      // modal, and typing reaches nothing at all.
+      //
+      // The focus is deferred by a turn — Obsidian focuses the modal itself
+      // after onOpen() returns — so let that timer run first.
+      await flushPromises();
+      expect(document.activeElement).toBe(focusedCells[0]);
+
       // Footer: today button + format selector
       expect(el.querySelector('.date-picker-today-button')?.textContent).toBe('Today');
       expect(formatSelector(modal)).not.toBeNull();
+    });
+
+    it('does not focus a modal closed before the deferred focus runs', async () => {
+      const modal = openModal('insert-text');
+      const cell = content(modal).querySelector('.date-picker-day.is-focused');
+      modal.onClose();
+
+      await flushPromises();
+
+      expect(document.activeElement).not.toBe(cell);
     });
 
     it('shows NLP input iff enableNLP is true', () => {
@@ -185,7 +218,14 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       datePresets.forEach((preset, i) => {
         const example = formatterService.getFormatExample(preset.format, modal.getFocusedDay());
         expect(select.options[i].value).toBe(preset.id);
-        expect(select.options[i].text).toBe(`${preset.name} (${example})`);
+        expect(select.options[i].text).toBe(
+          `${presetName(preset, key => i18n.t(key))} (${example})`
+        );
+        // One literal, independent of the resolver: a wrong key prefix or a
+        // wrong fallback order inside presetName would leave the line above green
+        if (preset.id === 'locale-short') {
+          expect(select.options[i].text).toBe(`Locale short (${example})`);
+        }
       });
       expect(select.value).toBe('locale-long');
     });
@@ -436,7 +476,14 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
       datePresets.forEach((preset, i) => {
         const example = formatterService.getFormatExample(preset.format, newDay);
-        expect(select.options[i].text).toBe(`${preset.name} (${example})`);
+        expect(select.options[i].text).toBe(
+          `${presetName(preset, key => i18n.t(key))} (${example})`
+        );
+        // One literal, independent of the resolver: a wrong key prefix or a
+        // wrong fallback order inside presetName would leave the line above green
+        if (preset.id === 'locale-short') {
+          expect(select.options[i].text).toBe(`Locale short (${example})`);
+        }
       });
     });
   });

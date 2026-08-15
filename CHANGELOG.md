@@ -5,13 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.5] - 2026-08-15
+
+### Added
+
+- The plugin's own interface is translated. Every user-facing string — settings, picker, preset names, notices, errors — goes through the i18n service and follows the **Locale** setting, in English and French. English wording is byte-identical to before, so nothing shifts for an English reader.
+- Command names are the one exception: Obsidian fixes a command's name when the plugin registers it and offers no way to rename it, so the palette keeps the previous language until the plugin is reloaded. The user guide says so where it matters.
+
+### Fixed
+
+- The settings tab stopped redrawing itself once you had closed the settings window. Adding or deleting a trigger character wrote to disk without updating the list, and changing **Locale** persisted without touching a single label — both only caught up on a plugin reload. `hide()` latched a teardown flag that only `getSettingDefinitions()` cleared, and Obsidian calls that hook once per declarative tab, never again.
+- The date picker opens with the keyboard focus on the selected day. It used to land on an action tab, where Enter reached a button that re-renders the modal rather than the calendar, and where typing went nowhere.
 
 ### Documentation
 
 - The README and the user guide were rewritten against the source. They documented default hotkeys that are never registered, calendar keys with the axes swapped, a "Cycle date format" command that does not exist, and four settings that do not exist — while omitting the per-preset insert commands entirely. The guide is now the single reference; both READMEs link to it.
 - Recorded what three settings actually do: **Show parsing warning** is stored but never read, and **Default time format** / **Default datetime format** have no reader either. **Default date format** is the picker's remembered format for *Insert as Text*.
 - Date Helpers is listed in the community plugin directory since 15 August 2026, so **Browse** finds it — which is what the 0.1.4 note about install instructions was waiting for.
+- The user guide now shows the flows it describes: fifteen captures, one per workflow and per settings group. They are produced by a scripted harness (`docs/testing/capture/`) that drives Obsidian over the DevTools protocol, so a capture can be replayed after a UI change or in another locale instead of being re-recorded by hand.
 
 ## [0.1.4] - 2026-08-15
 

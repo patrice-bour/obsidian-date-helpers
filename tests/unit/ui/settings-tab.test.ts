@@ -234,33 +234,89 @@ describe('DateHelpersSettingTab', () => {
       expect(refreshDomState()).not.toHaveBeenCalled();
     });
 
-    it('does not rebuild a tab that was hidden while a save was in flight', async () => {
+    it('does not rebuild a tab disposed while a save was in flight', async () => {
       // clearLocaleRefresh() only cancels the timer. addTrigger/removeTrigger
-      // call update() after an await, so hiding the tab mid-save leaves a
-      // rebuild aimed at a container super.hide() has already torn down.
+      // call update() after an await, so unloading the plugin mid-save leaves a
+      // rebuild that would read services onunload has already torn down.
+      //
+      // The guard is against unload, not against being hidden: a hidden tab is
+      // still live, and Obsidian documents update() as the call a tab makes
+      // when its data changes, on screen or not.
       jest.useRealTimers();
       plugin.settings.triggerCharacters = ['@@', '##'];
       const list = findGroup(tab.getSettingDefinitions(), t('settings.sections.triggers'));
       update().mockClear();
 
       (list as SettingDefinitionList).onDelete?.(0);
-      tab.hide();
+      tab.dispose();
       await flush();
 
       expect(update()).not.toHaveBeenCalled();
     });
 
-    it('disarms the pending rebuild when the tab is hidden', async () => {
+    it('keeps the pending rebuild when the tab is hidden', async () => {
       await tab.setControlValue('locale', 'de');
       update().mockClear();
 
-      // Obsidian calls hide() whenever the user switches settings tab. The
-      // value is already persisted, so dropping the timer costs nothing.
+      // Obsidian calls hide() whenever the user switches settings tab or closes
+      // the window. Dropping the timer here reads as harmless — the value is
+      // already persisted — but the display is what the rebuild was for, and
+      // nothing else will run it: the definitions Obsidian renders on the next
+      // open are the ones `update()` last stored. Closing the window inside the
+      // debounce would otherwise leave the tab in the previous language for the
+      // rest of the session.
       tab.hide();
       jest.advanceTimersByTime(LOCALE_REFRESH_DEBOUNCE_MS * 2);
 
-      expect(update()).not.toHaveBeenCalled();
+      expect(update()).toHaveBeenCalled();
       expect(plugin.settings.locale).toBe('de');
+    });
+
+    /**
+     * The tab outlives being hidden. Obsidian calls `hide()` every time the
+     * user closes settings or switches tab, but for a declarative tab it never
+     * calls `getSettingDefinitions()` again: `display()` — the hook that would
+     * trigger it — is documented as *not called* while `getSettingDefinitions()`
+     * returns a non-empty array. Anything `hide()` latches is therefore latched
+     * for the rest of the session, and every later rebuild is silently dropped.
+     *
+     * No re-display hook is invoked between the two halves of these tests on
+     * purpose: calling `getSettingDefinitions()` here would paper over exactly
+     * the bug they pin.
+     */
+    describe('after the tab has been hidden', () => {
+      it('still rebuilds when a trigger is added', async () => {
+        jest.useRealTimers();
+        tab.hide();
+        update().mockClear();
+
+        await tab.addTrigger('//d');
+
+        expect(plugin.settings.triggerCharacters).toContain('//d');
+        expect(update()).toHaveBeenCalled();
+      });
+
+      it('still rebuilds when a trigger is removed', async () => {
+        jest.useRealTimers();
+        plugin.settings.triggerCharacters = ['@@', '##'];
+        tab.hide();
+        update().mockClear();
+
+        await tab.removeTrigger('##');
+
+        expect(plugin.settings.triggerCharacters).not.toContain('##');
+        expect(update()).toHaveBeenCalled();
+      });
+
+      it('still rebuilds when the locale changes', async () => {
+        tab.hide();
+        await tab.setControlValue('locale', 'de');
+        update().mockClear();
+
+        jest.advanceTimersByTime(LOCALE_REFRESH_DEBOUNCE_MS * 2);
+
+        expect(update()).toHaveBeenCalled();
+      });
     });
   });
 
@@ -295,6 +351,7 @@ describe('DateHelpersSettingTab', () => {
         throw new Error('preset settings must be dropdowns');
       }
       expect(Object.keys(alias.options)[0]).toBe('original-text');
+      expect(alias.options['original-text']).toBe('Original Text');
       expect(Object.keys(fallback.options)).not.toContain('original-text');
     });
 
@@ -369,6 +426,30 @@ describe('DateHelpersSettingTab', () => {
   });
 
   describe('reference content', () => {
+    it('renders a preset row with its label, description and example', () => {
+      const group = findGroup(tab.getSettingDefinitions(), t('settings.sections.presets'));
+      const row = group?.items?.find(item => 'name' in item && item.name === 'ISO 8601');
+
+      // The row is one interpolated translation. A context that dropped the
+      // params would leave {{desc}} and {{example}} on screen, which no
+      // assertion on the key alone would catch.
+      expect(row).toBeDefined();
+      expect((row as { desc: string }).desc).toBe(
+        `Standard ISO format → Example: ${plugin.formatterService.getFormatExample('yyyy-MM-dd')}`
+      );
+    });
+
+    it('labels the presets in the active locale', async () => {
+      plugin.settings.locale = 'fr';
+      await plugin.saveSettings();
+
+      const group = findGroup(tab.getSettingDefinitions(), t('settings.sections.presets'));
+      const names = (group?.items ?? []).map(item => ('name' in item ? item.name : ''));
+
+      expect(names).toContain('Date courte');
+      expect(names).not.toContain('Locale short');
+    });
+
     it('keeps the read-only preset list out of settings search', () => {
       const group = findGroup(tab.getSettingDefinitions(), t('settings.sections.presets'));
       if (!group?.items) throw new Error('preset reference group not found');

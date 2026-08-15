@@ -29,6 +29,15 @@ export const NLP_MIN_COVERAGE_RATIO = 0.5;
 export const VALID_WEEK_STARTS = [0, 1, 6] as const;
 
 /**
+ * The preset types the plugin knows how to label and command.
+ *
+ * Stored data is not trusted: a preset carrying anything else would build its
+ * command name from `commands.prefix.<type>`, a key that does not exist, and
+ * the palette would show the key itself.
+ */
+export const VALID_PRESET_TYPES = ['date', 'time', 'datetime'] as const;
+
+/**
  * First day of week type derived from VALID_WEEK_STARTS
  */
 export type WeekStart = (typeof VALID_WEEK_STARTS)[number];

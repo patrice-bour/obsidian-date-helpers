@@ -5,6 +5,8 @@ import { DateHelpersSettingTab } from '@/ui/settings-tab';
 import { UnifiedDatePickerModal } from '@/ui/unified-date-picker-modal';
 import { DatePickerSuggest } from '@/ui/date-picker-suggest';
 import { I18nService } from '@/services/i18n-service';
+import { presetName } from '@/i18n/preset-labels';
+import { Translate } from '@/i18n/types';
 import { DateService } from '@/services/date-service';
 import { FormatterService } from '@/services/formatter-service';
 import { NLPService } from '@/services/nlp-service';
@@ -23,6 +25,15 @@ export default class DateHelpersPlugin extends Plugin {
   private settingTab?: DateHelpersSettingTab;
   private commandsRegistered = false;
 
+  /**
+   * Bound lookup for the helpers that take one (preset labels). Forwards the
+   * params: a lookup that drops them renders `{{name}}` to the user.
+   */
+  private translate: Translate = (key, params) => this.i18n.t(key, params);
+
+  /** Set by loadSettings, reported once the i18n service exists */
+  private migratedFromPhase5 = false;
+
   async onload() {
     try {
       // Load settings
@@ -30,6 +41,12 @@ export default class DateHelpersPlugin extends Plugin {
 
       // Initialize services
       this.initializeServices();
+
+      // Settings are loaded before the services exist, so the migration notice
+      // can only be translated — and shown — from here
+      if (this.migratedFromPhase5) {
+        new Notice(this.i18n.t('notices.settingsMigrated'));
+      }
 
       // Register settings tab
       this.settingTab = new DateHelpersSettingTab(this.app, this);
@@ -55,7 +72,12 @@ export default class DateHelpersPlugin extends Plugin {
     this.formatterService = new FormatterService(locale);
     this.nlpService = new NLPService(this.dateService, this.i18n, this.settings);
     // Phase 5: Daily Notes Service
-    this.dailyNotesService = new DailyNotesService(this.app, this.formatterService, this.settings);
+    this.dailyNotesService = new DailyNotesService(
+      this.app,
+      this.formatterService,
+      this.i18n,
+      this.settings
+    );
   }
 
   private registerCommands() {
@@ -72,16 +94,15 @@ export default class DateHelpersPlugin extends Plugin {
     // Note: Changes to format presets require plugin reload to update commands
     this.settings.formatPresets.forEach(preset => {
       // Use appropriate prefix based on preset type
-      let commandPrefix = 'Insert date';
-      if (preset.type === 'time') {
-        commandPrefix = 'Insert time';
-      } else if (preset.type === 'datetime') {
-        commandPrefix = 'Insert datetime';
-      }
+      // The separator lives in the translation: French wants a space before it
+      const name = this.i18n.t('commands.presetCommand', {
+        prefix: this.i18n.t(`commands.prefix.${preset.type}`),
+        name: presetName(preset, this.translate),
+      });
 
       this.addCommand({
         id: `insert-date-${preset.id}`,
-        name: `${commandPrefix}: ${preset.name}`,
+        name,
         editorCallback: (editor: Editor) => {
           this.insertFormattedDate(editor, preset.id);
         },
@@ -100,12 +121,16 @@ export default class DateHelpersPlugin extends Plugin {
    *   - The command palette (Cmd/Ctrl+P)
    *   - A custom hotkey (Settings → Hotkeys)
    *   - The configurable trigger character in the editor (default "@@", see settings)
+   *
+   * Names are read from the active locale here, at registration. Obsidian
+   * freezes a command's name when it is registered and offers no removal in its
+   * public API, so a locale change reaches the palette on the next plugin load.
    */
   private registerActionCommands() {
     // Command 1: Insert text (formatted date)
     this.addCommand({
       id: 'insert-date-text',
-      name: 'Insert date as text',
+      name: this.i18n.t('commands.insertText.name'),
       editorCallback: (editor: Editor) => {
         this.showUnifiedPicker(editor, 'insert-text');
       },
@@ -114,7 +139,7 @@ export default class DateHelpersPlugin extends Plugin {
     // Command 2: Insert Daily Note wikilink
     this.addCommand({
       id: 'insert-date-daily-note',
-      name: 'Insert daily note link',
+      name: this.i18n.t('commands.insertDailyNote.name'),
       editorCallback: (editor: Editor) => {
         this.showUnifiedPicker(editor, 'insert-daily-note');
       },
@@ -123,7 +148,7 @@ export default class DateHelpersPlugin extends Plugin {
     // Command 3: Open Daily Note (no text insertion)
     this.addCommand({
       id: 'open-daily-note',
-      name: 'Open daily note',
+      name: this.i18n.t('commands.openDailyNote.name'),
       editorCallback: (editor: Editor) => {
         this.showUnifiedPicker(editor, 'open-daily-note');
       },
@@ -133,7 +158,7 @@ export default class DateHelpersPlugin extends Plugin {
     // Parse selected text with NLP and open picker with parsed date
     this.addCommand({
       id: 'convert-selection',
-      name: 'Convert selection to date',
+      name: this.i18n.t('commands.convertSelection.name'),
       editorCheckCallback: (checking: boolean, editor: Editor) => {
         const selection = editor.getSelection();
         if (!selection) return false;
@@ -184,6 +209,7 @@ export default class DateHelpersPlugin extends Plugin {
       this.dateService,
       this.formatterService,
       this.nlpService,
+      this.i18n,
       this.dailyNotesService,
       datePresets,
       this.settings,
@@ -228,13 +254,13 @@ export default class DateHelpersPlugin extends Plugin {
     const parseResult = this.nlpService.parse(selection.trim());
 
     if (!parseResult) {
-      new Notice(`Could not parse date from: ${selection}`);
+      new Notice(this.i18n.t('errors.parseFailed', { text: selection }));
       return;
     }
 
     // Show notice of what was parsed
     const formattedPreview = this.formatterService.format(parseResult.date, 'yyyy-MM-dd HH:mm');
-    new Notice(`Parsed: ${selection} → ${formattedPreview}`);
+    new Notice(this.i18n.t('notices.parsed', { text: selection, date: formattedPreview }));
 
     // Open unified picker with parsed date pre-selected
     // Use lastUsedAction or default to insert-text
@@ -298,6 +324,7 @@ export default class DateHelpersPlugin extends Plugin {
       this.dateService,
       this.formatterService,
       this.nlpService,
+      this.i18n,
       this.dailyNotesService,
       datePresets,
       this.settings,
@@ -362,12 +389,9 @@ export default class DateHelpersPlugin extends Plugin {
     // Phase 6: Migrate settings from Phase 5 to Phase 6 if needed
     const migratedData = migrateSettings(loadedData);
 
-    // Check if migration occurred
-    if ('enableDailyNotesIntegration' in loadedData) {
-      new Notice(
-        'Date Helpers: Settings updated to Phase 6. Please reload the plugin (Cmd/Ctrl+R) to see updated commands.'
-      );
-    }
+    // Check if migration occurred. The notice waits for onload: i18n is not
+    // initialized yet at this point.
+    this.migratedFromPhase5 = 'enableDailyNotesIntegration' in loadedData;
 
     // Validate settings
     this.settings = validateSettings(migratedData);

@@ -47,9 +47,7 @@ export function buildTriggersSection(
     // At least one trigger must remain, so the affordance is withheld rather
     // than offered and then refused. This is decided at build time, so the
     // mutation side enforces the same rule again.
-    ...(isLastTrigger
-      ? {}
-      : { onDelete: (index: number) => actions.onDelete(rendered[index]) }),
+    ...(isLastTrigger ? {} : { onDelete: (index: number) => actions.onDelete(rendered[index]) }),
   };
 
   return [descriptionRow(t('settings.triggers.description')), list];

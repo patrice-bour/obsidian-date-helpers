@@ -1,8 +1,11 @@
 import { Setting } from 'obsidian';
+import { Translate } from '@/i18n/types';
 import { DatePickerState } from './date-picker-state';
 
 export interface NLPInputDeps {
   state: DatePickerState;
+  /** Translate a key with the plugin's i18n service */
+  t: Translate;
   /** Text changed (typing or programmatic restore) — owner refreshes the preview */
   onInput(text: string): void;
   /** Enter pressed in the field — owner confirms the focused day */
@@ -24,11 +27,13 @@ export class NLPInputController {
     const nlpContainer = container.createDiv({ cls: 'nlp-input-container' });
 
     new Setting(nlpContainer)
-      .setName('Natural language')
-      .setDesc('For example: tomorrow, next monday, 3 days ago')
+      .setName(this.deps.t('picker.nlp.name'))
+      .setDesc(this.deps.t('picker.nlp.desc'))
       .addText(text => {
         this.nlpInputEl = text.inputEl;
-        text.setPlaceholder('Tomorrow').onChange(value => this.deps.onInput(value));
+        text
+          .setPlaceholder(this.deps.t('picker.nlp.placeholder'))
+          .onChange(value => this.deps.onInput(value));
 
         // Restore NLP text (currentNLPText preserves user edits across re-renders)
         // Don't fall back to initialNLPText if user explicitly cleared the field
@@ -61,14 +66,14 @@ export class NLPInputController {
 
   showEmpty(): void {
     if (!this.nlpPreviewEl) return;
-    this.nlpPreviewEl.setText('Enter a date expression to see preview');
+    this.nlpPreviewEl.setText(this.deps.t('picker.nlp.previewEmpty'));
     this.nlpPreviewEl.removeClass('nlp-preview-success', 'nlp-preview-error');
     this.nlpPreviewEl.addClass('nlp-preview-empty');
   }
 
   showError(): void {
     if (!this.nlpPreviewEl) return;
-    this.nlpPreviewEl.setText('Could not parse date');
+    this.nlpPreviewEl.setText(this.deps.t('picker.nlp.previewError'));
     this.nlpPreviewEl.removeClass('nlp-preview-success', 'nlp-preview-empty');
     this.nlpPreviewEl.addClass('nlp-preview-error');
   }

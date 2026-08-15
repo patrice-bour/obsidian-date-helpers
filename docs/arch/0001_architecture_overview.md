@@ -1,295 +1,136 @@
 # Architecture Overview
 
-**Version:** 1.0
-**Date:** 2025-11-02
-**Status:** Living document
+**Status:** describes the code as it stands. Every path, name and signature below was checked
+against `src/` — an architecture document that describes an intention rather than the code is
+worse than none, which is what the first version of this file turned out to be.
 
-## Introduction
+## What the plugin does
 
-This document provides a high-level overview of the Date Helpers plugin architecture. It describes the core components, their interactions, and key design principles.
+One modal — the date picker — reached three ways: the trigger sequence `@@` typed in a note,
+a command from the palette, or a preset command that inserts straight away. The picker
+resolves a date (calendar, or natural language), formats it with a preset, and hands the
+result back to the editor as text, as a daily-note wikilink, or as a navigation.
 
-## Design Principles
-
-1. **Modularity**: Clear separation of concerns (parsing, formatting, UI, settings)
-2. **Extensibility**: Easy to add new date formats, languages, and parsing rules
-3. **Type Safety**: Leverage TypeScript for compile-time guarantees
-4. **Performance**: Lazy loading of heavy components (chrono-node, calendar UI)
-5. **Testability**: Pure functions where possible, dependency injection for services
-
-## System Context
+## Map of the code
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Obsidian App                           │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │         Date Helpers Plugin                          │   │
-│  │                                                      │   │
-│  │  ┌─────────────┐  ┌──────────────┐   ┌───────────┐   │   │
-│  │  │  Commands   │  │  Date Picker │   │  Settings │   │   │
-│  │  └──────┬──────┘  └──────┬───────┘   └─────┬─────┘   │   │
-│  │         │                │                 │         │   │
-│  │         └────────┬───────┴─────────────────┘         │   │
-│  │                  │                                   │   │
-│  │         ┌────────▼────────────────┐                  │   │
-│  │         │   Core Services         │                  │   │
-│  │         │  - DateService          │                  │   │
-│  │         │  - ParserService        │                  │   │
-│  │         │  - FormatterService     │                  │   │
-│  │         │  - I18nService          │                  │   │
-│  │         └────────┬────────────────┘                  │   │
-│  │                  │                                   │   │
-│  │         ┌────────▼────────────────┐                  │   │
-│  │         │   External Libraries    │                  │   │
-│  │         │  - Luxon                │                  │   │
-│  │         │  - chrono-node          │                  │   │
-│  │         └─────────────────────────┘                  │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+src/
+  main.ts                      Plugin entry: loads settings, builds services, registers
+                               commands and the trigger, owns the two picker entry points
+  services/
+    date-service.ts            now/today/tomorrow/yesterday/fromISO, locale-aware
+    formatter-service.ts       DateTime → string, presets, LOCALE_MED* special cases
+    nlp-service.ts             chrono-node wrapper: parse, isParseable, language detection
+    i18n-service.ts            t(), locale resolution, English fallback
+    daily-notes-service.ts     Daily Note paths, wikilinks, creation, opening
+    daily-notes-plugin-adapter.ts  The only access to Obsidian's undocumented internals
+    translated-error.ts        Marks a failure whose message may be shown to the user
+  ui/
+    unified-date-picker-modal.ts   Orchestrator: owns nothing but wiring
+    date-picker/                   The picker's parts (see below)
+    date-picker-suggest.ts         Trigger detection
+    settings-tab.ts                Declarative settings tab
+    settings/sections/             One builder per settings group
+  i18n/
+    locales/{en,fr}.json       Translations
+    types.ts                   TranslationKey union, maintained by hand
+    preset-labels.ts           Built-in preset id → localized name and description
+  utils/
+    locale.ts                  Obsidian language → plugin locale, validation
+    calendar-grid.ts           42-cell month grid, localized day labels
+    settings-validator.ts      Trusts nothing from data.json; also migrates it
+    settings-migration.ts      Phase 5 → Phase 6 field renames
+    constants.ts               Shared constants and the valid-value sets
+  settings/defaults.ts         The eleven built-in presets and the default settings
 ```
 
-## Component Architecture
+There is no `src/commands/` directory and no command classes: commands are registered inline
+in `main.ts` as `addCommand({ id, name, editorCallback })`.
 
-### Layer 1: Obsidian API Integration
+## The picker, decomposed
 
-**Main Plugin Class** (`src/main.ts`)
-- Entry point, implements Obsidian's `Plugin` interface
-- Lifecycle management (load, unload)
-- Registers commands, settings tab, event handlers
-- Dependency injection container
+`UnifiedDatePickerModal` mediates; the modules never talk to each other:
 
-**Commands** (`src/commands/`)
-- Thin adapters to Obsidian command system
-- Delegate logic to services
-- Handle editor context (cursor, selection)
+| Module | Owns |
+|---|---|
+| `date-picker-state.ts` | All non-DOM state: selected action, selected preset, view month, focused day, natural-language text |
+| `calendar-renderer.ts` | Month header, day labels, the 42-cell grid |
+| `nlp-input.ts` | The natural-language field and its preview |
+| `format-selector.ts` | The format dropdown, including the "Original Text" pseudo-preset |
+| `action-selector.ts` | The three action tabs |
+| `keyboard-navigation.ts` | 13 bindings, registered on the modal's `Scope` |
+| `action-executor.ts` | Runs the selected action for a date |
 
-Examples:
-- `InsertDateCommand`: Open picker or insert current date
-- `ParseSelectionCommand`: Parse selected text to date
-- `CycleFormatCommand`: Cycle through format presets
+The keyboard map lives on the modal's scope, so those keys exist only while the picker is
+open. The plugin registers **no default hotkey** — Obsidian's community plugin policy leaves
+that to the user, through Settings → Hotkeys.
 
-**Settings Tab** (`src/ui/settings.ts`)
-- Obsidian settings interface
-- Format customization
-- Locale override
-- Trigger character configuration
+## Three real flows
 
-### Layer 2: Core Services
+**Trigger.** `DatePickerSuggest` extends `EditorSuggest` but never suggests anything: it uses
+`onTrigger` to spot a trigger sequence ending at the cursor, then opens the modal from
+`getSuggestions` and returns an empty list. On confirm the trigger text is replaced by the
+result; on cancel it is removed, which is why the modal's `onClose` is wrapped.
 
-**DateService** (`src/services/date-service.ts`)
-- Central facade for date operations
-- Coordinates between Parser, Formatter, and Luxon
-- Handles timezone logic
-- Pure functions for testability
+**Command.** `main.ts` → `showUnifiedPicker(editor, action)` → the modal → `executeDateAction`
+→ `onSelect` writes at the cursor or over the selection.
 
-```typescript
-interface DateService {
-  now(): DateTime;
-  parse(input: string, locale?: string): DateTime | null;
-  format(date: DateTime, format: string): string;
-  relative(baseDate: DateTime, offset: RelativeOffset): DateTime;
-}
-```
+**Preset command.** `insertFormattedDate` skips the modal entirely: it formats now with the
+preset and inserts, choosing text or wikilink from `lastUsedAction`.
 
-**ParserService** (`src/services/parser-service.ts`)
-- Orchestrates parsing strategies:
-  1. ISO 8601 direct parsing (fast path)
-  2. Locale-specific formats (Luxon)
-  3. Natural language (chrono-node)
-  4. Custom patterns
-- Returns `ParseResult` with confidence score
+## Settings
 
-```typescript
-interface ParserService {
-  parse(input: string, context: ParseContext): ParseResult;
-  registerCustomPattern(pattern: CustomPattern): void;
-}
+The tab is declarative (`getSettingDefinitions`), which is why `minAppVersion` is 1.13.0: the
+sections return a tree of definitions and Obsidian renders it, which is what makes every
+setting reachable from Obsidian's settings search. `setControlValue` is the single write
+funnel; a locale change is the one side effect that rebuilds the tree, on a debounce.
 
-interface ParseResult {
-  date: DateTime | null;
-  confidence: number; // 0-1
-  source: 'iso' | 'locale' | 'nlp' | 'custom';
-}
-```
+Stored settings are never trusted: `validateSettings` checks types and referenced preset ids,
+drops presets whose `type` is not one of date/time/datetime, and performs the migrations —
+including stripping the `name`/`description` that versions ≤ 0.1.4 wrote onto built-in
+presets.
 
-**FormatterService** (`src/services/formatter-service.ts`)
-- Centralizes date-to-string conversion
-- Manages format presets
-- Handles locale-specific formatting via Luxon
+## Internationalization
 
-```typescript
-interface FormatterService {
-  format(date: DateTime, format: FormatString | FormatPreset): string;
-  getPresets(): FormatPreset[];
-  registerPreset(preset: FormatPreset): void;
-}
-```
+Every user-facing string is resolved through `I18nService.t`, including command names, picker
+labels, notices and preset labels. Two consequences worth knowing:
 
-**I18nService** (`src/services/i18n-service.ts`)
-- UI string translations
-- Locale detection and resolution
-- Fallback logic
-- Type-safe translation keys
+- **Built-in presets carry no label.** Their name and description come from
+  `settings.presets.formats.<id>.*`, resolved by `preset-labels.ts` at display time. A
+  user-defined preset keeps its own words, which are never translated.
+- **Command names follow the locale only after a plugin reload.** Obsidian freezes a command's
+  name at registration and its public API has no removal, so renaming live would require an
+  undocumented internal. Everything else switches immediately.
 
-```typescript
-interface I18nService {
-  t(key: TranslationKey, params?: Record<string, unknown>): string;
-  getCurrentLocale(): string;
-  setLocale(locale: string): void;
-}
-```
-
-### Layer 3: UI Components
-
-**DatePicker** (`src/ui/date-picker.ts`)
-- Modal calendar interface
-- Keyboard navigation (arrow keys, Enter, Esc)
-- Localized display (month/day names, week start)
-- Lazy-loaded (only when needed)
-
-**FormatCycler** (`src/ui/format-cycler.ts`)
-- Preview different formats for selected date
-- Quick-select via keyboard shortcuts
-- Remembers last used format
-
-### Layer 4: Utilities
-
-**Locale Manager** (`src/utils/locale.ts`)
-- Locale detection (Obsidian → plugin settings → fallback)
-- Locale validation
-- Extended locale data (week start, ISO weeks, etc.)
-
-**Pattern Registry** (`src/utils/patterns.ts`)
-- Custom regex patterns for parsing
-- Language packs (JSON)
-- Pattern priority and conflict resolution
-
-**Validators** (`src/utils/validators.ts`)
-- Date range validation
-- Format string validation
-- Input sanitization
-
-## Data Flow
-
-### Scenario 1: Insert Date via Command
-
-```
-User: Ctrl+Shift+D
-  → Command: InsertDateCommand
-    → Service: DateService.now()
-      → Library: Luxon.DateTime.now()
-    → Service: FormatterService.format(date, userFormat)
-      → Library: Luxon.toFormat()
-  → Obsidian: editor.replaceSelection(formatted)
-```
-
-### Scenario 2: Parse Selected Text
-
-```
-User: Select "tomorrow" → Ctrl+Shift+P
-  → Command: ParseSelectionCommand
-    → Service: ParserService.parse("tomorrow", context)
-      → Try ISO 8601: fail
-      → Try Luxon formats: fail
-      → Try chrono-node: success!
-        → Library: chrono.parse("tomorrow")
-        → Convert to Luxon: DateTime.fromJSDate()
-    → Service: FormatterService.format(parsed, userFormat)
-  → Obsidian: editor.replaceSelection(formatted)
-```
-
-### Scenario 3: Date Picker
-
-```
-User: @@ (trigger)
-  → Command: OpenDatePickerCommand
-    → UI: DatePicker.open()
-      → Service: I18nService.t('months.january', etc.)
-      → Service: LocaleManager.getWeekStart()
-    → User selects date in calendar
-    → Service: FormatterService.format(selected, userFormat)
-  → Obsidian: editor.replaceRange(formatted, triggerPos)
-```
-
-## Configuration
-
-**Plugin Settings** (`src/types/settings.ts`)
-```typescript
-interface DateHelpersSettings {
-  // Formats
-  defaultFormat: string;
-  formatPresets: FormatPreset[];
-
-  // Locale
-  locale: string | 'auto';
-  weekStart: 0 | 1 | 6; // Sun, Mon, Sat
-
-  // Triggers
-  triggerCharacters: string[];
-
-  // Features
-  enableNLP: boolean;
-  enableDatePicker: boolean;
-}
-```
+Interpolated values are inserted verbatim: every consumer assigns `textContent`, and escaping
+would show entities to the user. An ESLint rule forbids the HTML sinks that would break that
+assumption.
 
 ## Dependencies
 
-### External
-- **Luxon** (~70kb): Date manipulation and formatting
-- **chrono-node** (~100kb): Natural language parsing (lazy-loaded)
+- **Luxon** — all date arithmetic and formatting.
+- **chrono-node** — natural language, imported statically (not lazily), which is most of the
+  ~1.8 MB bundle.
+- **Obsidian API** — `Plugin`, `PluginSettingTab` with the declarative surface, `Modal`,
+  `Scope`, `EditorSuggest`, `Notice`.
 
-### Obsidian API
-- `Plugin`, `PluginSettingTab`
-- `Editor`, `EditorPosition`, `EditorSelection`
-- `Modal` (for DatePicker)
-- `moment.locale()` (for locale detection)
+`DailyNotesPluginAdapter` holds the codebase's single `@ts-expect-error`: reading the core
+Daily Notes plugin's configuration needs `app.internalPlugins`, which is undocumented. Keeping
+it behind one typed method is deliberate — the v0.1.0 Community Portal scan raised findings on
+exactly this kind of access.
 
-## Testing Strategy
+## Tests
 
-### Unit Tests
-- Services (DateService, ParserService, FormatterService)
-- Utilities (validators, locale detection)
-- Pure function transformations
+673 tests across 27 suites, ~93% coverage. Beyond the unit tests, four structural guardrails
+assert what the code *forgot* to declare, which unit tests cannot:
 
-### Integration Tests
-- Command → Service → Result
-- Parser strategies (ISO → locale → NLP fallback)
-- Format cycling
+- no user-facing string literal left in `src/` (AST scan, with a reasoned allowlist);
+- no translation key that nothing reads;
+- English values byte-identical to the literals they replaced, so published screenshots stay true;
+- locale parity between `en.json`, `fr.json` and the `TranslationKey` union.
 
-### Manual Testing
-- UI interactions (DatePicker, settings)
-- Keyboard shortcuts
-- Cross-locale behavior
-
-## Performance Considerations
-
-1. **Lazy Loading**
-   - chrono-node loaded only when NLP parsing needed
-   - DatePicker UI rendered on-demand
-
-2. **Caching**
-   - Compiled regex patterns (Pattern Registry)
-   - Locale data (I18nService)
-   - Format presets
-
-3. **Fast Paths**
-   - ISO 8601 parsing first (cheapest)
-   - Common formats cached in FormatterService
-
-## Security Considerations
-
-- Input sanitization for custom formats (prevent code injection)
-- Validate regex patterns from user (no catastrophic backtracking)
-- No eval() or new Function() for format strings
-
-## Future Extensions
-
-### Phase 6+ (Not in initial scope)
-- Date range operations (duration calculations)
-- Recurring date patterns ("every Monday")
-- Integration with Obsidian Dataview
-- Custom format templates (Handlebars-like)
-- Date arithmetic via command palette
+Manual passes are driven against a real Obsidian over the Chrome DevTools Protocol; the
+evidence lives in the OpenSpec change that produced it.
 
 ## References
 

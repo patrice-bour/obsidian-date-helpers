@@ -88,6 +88,14 @@ export class I18nService {
 
   /**
    * Interpolate parameters into translation string
+   *
+   * Values are inserted verbatim. Every consumer renders the result as text —
+   * `new Notice(string)`, `setText`, `setName`, `setDesc` all assign
+   * textContent, and the plugin never builds HTML from a translation. HTML
+   * escaping here would not prevent an injection that cannot happen; it would
+   * only show `&#39;` to a French user whose selection contains an apostrophe,
+   * which is what the interpolated parameters carry: selected text, typed
+   * expressions and format patterns.
    */
   private interpolate(template: string, params?: Record<string, unknown>): string {
     if (!params) return template;
@@ -95,25 +103,9 @@ export class I18nService {
     return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
       const value = params[key];
       // Only primitives interpolate meaningfully; objects would render '[object Object]'
-      const stringValue =
-        typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-          ? String(value)
-          : match;
-      return this.escapeHtml(stringValue);
+      return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+        ? String(value)
+        : match;
     });
-  }
-
-  /**
-   * Escape HTML characters to prevent XSS
-   */
-  private escapeHtml(text: string): string {
-    const escapeMap: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return text.replace(/[&<>"']/g, char => escapeMap[char]);
   }
 }

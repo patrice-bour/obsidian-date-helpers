@@ -11,6 +11,12 @@
     },
     "convertSelection": {
       "name": "Convertir la sélection en date"
+    },
+    "presetCommand": "{{prefix}} : {{name}}",
+    "prefix": {
+      "date": "Insérer une date",
+      "time": "Insérer une heure",
+      "datetime": "Insérer une date-heure"
     }
   },
   "settings": {
@@ -24,7 +30,7 @@
     },
     "locale": {
       "name": "Locale",
-      "desc": "Langue et région pour le formatage des dates (ex. : en, fr, de, es). Utilisez 'auto' pour hériter d'Obsidian.",
+      "desc": "Langue et région pour le formatage des dates (ex. : en, fr, de, es). Utilisez 'auto' pour hériter d'Obsidian.",
       "placeholder": "auto (utiliser la langue d'Obsidian)",
       "invalid": "Code de langue inconnu. Utilisez un code comme en, fr ou fr-CA, ou laissez vide pour suivre Obsidian."
     },
@@ -43,11 +49,11 @@
       },
       "enableNLP": {
         "name": "Activer l'analyse du langage naturel",
-        "desc": "Analyser les expressions comme « demain », « lundi prochain », « il y a 3 jours »"
+        "desc": "Analyser les expressions comme « demain », « lundi prochain », « il y a 3 jours »"
       },
       "nlpAutoDetect": {
         "name": "Détection automatique de la langue",
-        "desc": "Détecte et analyse automatiquement les expressions de date. Langues supportées : anglais, français, allemand, japonais, portugais, néerlandais."
+        "desc": "Détecte et analyse automatiquement les expressions de date. Langues supportées : anglais, français, allemand, japonais, portugais, néerlandais."
       },
       "nlpStrictMode": {
         "name": "Mode d'analyse",
@@ -61,12 +67,11 @@
       }
     },
     "dailyNotes": {
-      "description": "Configurez la génération des liens wikilinks vers les Daily Notes (notes quotidiennes). Ces paramètres s'appliquent aux actions « Insérer un lien Daily Note » et « Ouvrir la Daily Note ».",
+      "description": "Configurez la génération des liens wikilinks vers les Daily Notes (notes quotidiennes). Ces paramètres s'appliquent aux actions « Insérer un lien Daily Note » et « Ouvrir la Daily Note ».",
       "aliasFormat": {
         "desc": "Format pour le texte affiché (alias) dans les liens Daily Note",
         "withText": "Format (avec texte)",
-        "withoutText": "Format (sans texte)",
-        "originalText": "Original Text"
+        "withoutText": "Format (sans texte)"
       },
       "createIfMissing": {
         "name": "Créer la Daily Note si absente",
@@ -74,7 +79,7 @@
       }
     },
     "text": {
-      "description": "Sélectionnez les formats par défaut pour l'insertion de dates en texte brut. Ces paramètres s'appliquent à l'action « Insérer une date comme texte » et aux commandes de format.",
+      "description": "Sélectionnez les formats par défaut pour l'insertion de dates en texte brut. Ces paramètres s'appliquent à l'action « Insérer une date comme texte » et aux commandes de format.",
       "defaultDateFormat": {
         "name": "Format de date par défaut",
         "desc": "Format utilisé par les commandes de date"
@@ -93,8 +98,8 @@
       "description": "Tapez ces séquences de caractères pour ouvrir le sélecteur de date. Vous pouvez configurer plusieurs déclencheurs ici. Vous pouvez aussi utiliser les Raccourcis clavier (Hotkeys) d'Obsidian.",
       "characters": {
         "name": "Caractères déclencheurs",
-        "desc": "Séquences qui ouvrent le sélecteur de date (ex. : @@, //d)",
-        "placeholder": "Entrez un déclencheur (ex. : ;;)"
+        "desc": "Séquences qui ouvrent le sélecteur de date (ex. : @@, //d)",
+        "placeholder": "Entrez un déclencheur (ex. : ;;)"
       },
       "addTitle": "Ajouter un déclencheur",
       "add": "Ajouter",
@@ -110,35 +115,84 @@
       "dateFormats": "Formats de date",
       "timeFormats": "Formats d'heure",
       "dateTimeFormats": "Formats date-heure",
-      "example": "Exemple",
+      "exampleRow": "{{desc}} → Exemple : {{example}}",
       "formats": {
-        "iso8601": { "name": "ISO 8601", "desc": "Format ISO standard" },
-        "locale-short": { "name": "Date courte", "desc": "Date courte selon la locale" },
-        "locale-long": { "name": "Date longue", "desc": "Date longue selon la locale" },
-        "date-verbose": { "name": "Complète", "desc": "Jour complet et mois" },
-        "date-short-month": { "name": "Mois abrégé", "desc": "Format avec mois abrégé" },
-        "time-24h": { "name": "24 heures", "desc": "Format 24h" },
-        "time-12h": { "name": "12 heures", "desc": "Format 12h avec AM/PM" },
-        "time-24h-seconds": { "name": "24h avec secondes", "desc": "Format 24h avec secondes" },
-        "datetime-iso": { "name": "ISO date-heure", "desc": "Format ISO avec heure" },
-        "datetime-readable": { "name": "Lisible", "desc": "Format lisible selon la locale" },
-        "datetime-standard": { "name": "Standard", "desc": "Format standard" }
+        "iso8601": {
+          "name": "ISO 8601",
+          "desc": "Format ISO standard"
+        },
+        "locale-short": {
+          "name": "Date courte",
+          "desc": "Date courte selon la locale"
+        },
+        "locale-long": {
+          "name": "Date longue",
+          "desc": "Date longue selon la locale"
+        },
+        "date-verbose": {
+          "name": "Complète",
+          "desc": "Jour complet et mois"
+        },
+        "date-short-month": {
+          "name": "Mois abrégé",
+          "desc": "Format avec mois abrégé"
+        },
+        "time-24h": {
+          "name": "24 heures",
+          "desc": "Format 24 h"
+        },
+        "time-12h": {
+          "name": "12 heures",
+          "desc": "Format 12 h avec AM/PM"
+        },
+        "time-24h-seconds": {
+          "name": "24 h avec secondes",
+          "desc": "Format 24 h avec secondes"
+        },
+        "datetime-iso": {
+          "name": "ISO date-heure",
+          "desc": "Format ISO avec heure"
+        },
+        "datetime-readable": {
+          "name": "Lisible",
+          "desc": "Format lisible selon la locale"
+        },
+        "datetime-standard": {
+          "name": "Standard",
+          "desc": "Format standard"
+        }
       }
     }
   },
   "errors": {
-    "invalidDate": "Date invalide : {{date}}"
+    "parseFailed": "Impossible d'analyser une date depuis : {{text}}",
+    "selectFailed": "Échec de la sélection de la date",
+    "createDailyNoteFailed": "Échec de la création de la Daily Note (note quotidienne)",
+    "openDailyNoteFailed": "Échec de l'ouverture de la Daily Note (note quotidienne)",
+    "dailyNoteMissing": "La Daily Note (note quotidienne) n'existe pas : {{date}}. Activez « Créer la Daily Note si absente » dans les paramètres pour la créer automatiquement.",
+    "invalidFormat": "[Format invalide : {{format}}]"
+  },
+  "notices": {
+    "parsed": "Analysé : {{text}} → {{date}}",
+    "settingsMigrated": "Date Helpers : paramètres mis à jour vers la phase 6. Rechargez le plugin (Cmd/Ctrl+R) pour voir les commandes à jour."
   },
   "picker": {
     "tabs": {
-      "insertText": "Insérer texte",
-      "insertDailyNote": "Insérer Daily Note",
-      "openDailyNote": "Ouvrir note"
+      "insertText": "Insérer comme texte",
+      "insertDailyNote": "Lier à la Daily Note",
+      "openDailyNote": "Ouvrir la Daily Note"
     },
-    "nlpPlaceholder": "Tapez une expression (ex. : demain, lundi prochain)",
-    "format": "Format",
-    "preview": "Aperçu",
-    "confirm": "Confirmer",
+    "nlp": {
+      "name": "Langage naturel",
+      "desc": "Par exemple : demain, lundi prochain, il y a 3 jours",
+      "placeholder": "Demain",
+      "previewEmpty": "Saisissez une expression de date pour voir l'aperçu",
+      "previewError": "Impossible d'analyser la date"
+    },
+    "today": "Aujourd'hui",
+    "openPreview": "Ouvrir : {{date}}",
+    "originalText": "Texte d'origine",
+    "originalTextWith": "Texte d'origine ({{text}})",
     "cancel": "Annuler"
   }
 }

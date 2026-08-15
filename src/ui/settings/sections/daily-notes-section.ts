@@ -6,7 +6,9 @@ import { buildPresetOptions } from '../preset-dropdown';
  * Daily Notes section: alias formats (with/without text) and
  * create-if-missing toggle.
  */
-export function buildDailyNotesSection(ctx: SettingsSectionContext): SettingDefinitionGroup<SettingsKey> {
+export function buildDailyNotesSection(
+  ctx: SettingsSectionContext
+): SettingDefinitionGroup<SettingsKey> {
   const { plugin, t } = ctx;
   const datePresets = plugin.settings.formatPresets.filter(p => p.type === 'date');
   const noPresets = datePresets.length === 0;
@@ -26,8 +28,8 @@ export function buildDailyNotesSection(ctx: SettingsSectionContext): SettingDefi
           options: buildPresetOptions({
             presets: datePresets,
             formatterService: plugin.formatterService,
-            noPresetsLabel: t('settings.text.noPresetsAvailable'),
-            originalTextLabel: t('settings.dailyNotes.aliasFormat.originalText'),
+            t,
+            withOriginalText: true,
           }),
         },
       },
@@ -40,7 +42,7 @@ export function buildDailyNotesSection(ctx: SettingsSectionContext): SettingDefi
           options: buildPresetOptions({
             presets: datePresets,
             formatterService: plugin.formatterService,
-            noPresetsLabel: t('settings.text.noPresetsAvailable'),
+            t,
           }),
         },
       },

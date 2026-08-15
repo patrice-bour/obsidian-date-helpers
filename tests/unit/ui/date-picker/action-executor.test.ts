@@ -3,6 +3,9 @@ import { DatePickerState } from '@/ui/date-picker/date-picker-state';
 import { DateService } from '@/services/date-service';
 import { FormatterService } from '@/services/formatter-service';
 import { DailyNotesService } from '@/services/daily-notes-service';
+import { I18nService } from '@/services/i18n-service';
+import { TranslatedError } from '@/services/translated-error';
+import { Notice } from '../../../mocks/obsidian';
 import { DateHelpersSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
 
@@ -35,8 +38,10 @@ describe('executeDateAction', () => {
   });
 
   function ctx() {
+    const i18n = new I18nService('en');
     return {
       state,
+      t: (key: Parameters<I18nService['t']>[0]) => i18n.t(key),
       formatterService,
       dailyNotesService: dailyNotesService as unknown as DailyNotesService,
       settings,
@@ -118,9 +123,43 @@ describe('executeDateAction', () => {
   it('open-daily-note swallows open failures (Notice instead of throw)', async () => {
     state.setSelectedAction('open-daily-note');
     dailyNotesService.openDailyNote.mockRejectedValue(new Error('not found'));
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const date = dateService.now().startOf('day');
     await expect(executeDateAction(date, ctx())).resolves.toBeUndefined();
     expect(onSelect).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
+
+  describe('what the notice says when opening fails', () => {
+    beforeEach(() => {
+      state.setSelectedAction('open-daily-note');
+      Notice.messages = [];
+    });
+
+    it('shows the plugin message when the plugin phrased it', async () => {
+      const fr = new I18nService('fr');
+      dailyNotesService.openDailyNote.mockRejectedValue(
+        new TranslatedError(fr.t('errors.createDailyNoteFailed'))
+      );
+
+      await executeDateAction(dateService.now(), { ...ctx(), t: key => fr.t(key) });
+
+      expect(Notice.messages).toContain(fr.t('errors.createDailyNoteFailed'));
+    });
+
+    it('translates instead of showing what Obsidian raised', async () => {
+      const fr = new I18nService('fr');
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      // What `openLinkText` or the vault API rejects with: English, internal
+      dailyNotesService.openDailyNote.mockRejectedValue(new Error('ENOENT: no such file'));
+
+      await executeDateAction(dateService.now(), { ...ctx(), t: key => fr.t(key) });
+
+      expect(Notice.messages).toContain(fr.t('errors.openDailyNoteFailed'));
+      expect(Notice.messages.join(' ')).not.toContain('ENOENT');
+      expect(consoleError).toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
   });
 });

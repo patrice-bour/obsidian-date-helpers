@@ -1,12 +1,5 @@
 import { execFileSync } from 'child_process';
-import {
-  chmodSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} from 'fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 
@@ -96,7 +89,7 @@ describe('version-bump hook', () => {
     expect(readJson('versions.json')).toEqual({
       '0.1.2': '1.5.0',
       '0.1.3': '1.5.0',
-      '0.1.4': '1.13.0'
+      '0.1.4': '1.13.0',
     });
   });
 
@@ -128,7 +121,7 @@ describe('version-bump hook', () => {
 
     expect(readJson('versions.json')).toEqual({
       '0.1.2': '1.5.0',
-      '0.1.3': '1.13.0'
+      '0.1.3': '1.13.0',
     });
   });
 
@@ -153,7 +146,7 @@ describe('version-bump hook', () => {
 
   it.each(['manifest.json', 'versions.json'])(
     'fails without writing anything when %s is malformed',
-    (file) => {
+    file => {
       writeFileSync(join(dir, file), '{ not json');
 
       const { status, stderr } = runBump(dir, '0.1.4');
@@ -167,7 +160,7 @@ describe('version-bump hook', () => {
     }
   );
 
-  it.each(['manifest.json', 'versions.json'])('fails when %s is missing', (file) => {
+  it.each(['manifest.json', 'versions.json'])('fails when %s is missing', file => {
     rmSync(join(dir, file));
 
     const { status, stderr } = runBump(dir, '0.1.4');
@@ -182,7 +175,7 @@ describe('version-bump hook', () => {
   it.each([
     ['an array', '[]'],
     ['null', 'null'],
-    ['a string', '"1.13.0"']
+    ['a string', '"1.13.0"'],
   ])('fails when versions.json is %s instead of an object', (_label, content) => {
     writeFileSync(join(dir, 'versions.json'), `${content}\n`);
 
@@ -224,7 +217,7 @@ describe('version-bump hook', () => {
 
   it.each([
     ['there is no README', null],
-    ['the README carries no version badge', '# Date Helpers\n\nNo badges here.\n']
+    ['the README carries no version badge', '# Date Helpers\n\nNo badges here.\n'],
   ])('still succeeds and says so when %s', (_label, content) => {
     if (content === null) {
       rmSync(join(dir, 'README.md'));
@@ -258,16 +251,13 @@ describe('version-bump hook', () => {
   // fail — and root ignores the permission bit, so skip there rather than
   // assert something that cannot happen.
   const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
-  (isRoot ? it.skip : it)(
-    'restores the manifest when versions.json cannot be written',
-    () => {
-      chmodSync(join(dir, 'versions.json'), 0o444);
+  (isRoot ? it.skip : it)('restores the manifest when versions.json cannot be written', () => {
+    chmodSync(join(dir, 'versions.json'), 0o444);
 
-      const { status, stderr } = runBump(dir, '0.1.4');
+    const { status, stderr } = runBump(dir, '0.1.4');
 
-      expect(status).not.toBe(0);
-      expect(stderr).toContain('versions.json');
-      expect(readFileSync(join(dir, 'manifest.json'), 'utf8')).toBe(MANIFEST);
-    }
-  );
+    expect(status).not.toBe(0);
+    expect(stderr).toContain('versions.json');
+    expect(readFileSync(join(dir, 'manifest.json'), 'utf8')).toBe(MANIFEST);
+  });
 });

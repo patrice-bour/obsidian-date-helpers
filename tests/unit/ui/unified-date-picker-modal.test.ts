@@ -1,8 +1,10 @@
 import { App } from 'obsidian';
 import { DateTime } from 'luxon';
 import { UnifiedDatePickerModal } from '@/ui/unified-date-picker-modal';
+import { DateAction } from '@/ui/date-picker/types';
 import { DateService } from '@/services/date-service';
 import { FormatterService } from '@/services/formatter-service';
+import { I18nService } from '@/services/i18n-service';
 import { NLPService } from '@/services/nlp-service';
 import { DailyNotesService } from '@/services/daily-notes-service';
 import { DateHelpersSettings } from '@/types/settings';
@@ -14,6 +16,7 @@ describe('UnifiedDatePickerModal', () => {
   let dateService: DateService;
   let formatterService: FormatterService;
   let nlpService: NLPService;
+  let i18n: I18nService;
   let dailyNotesService: DailyNotesService;
   let settings: DateHelpersSettings;
   let datePresets: FormatPreset[];
@@ -39,6 +42,7 @@ describe('UnifiedDatePickerModal', () => {
     // Create services
     dateService = new DateService('en-US');
     formatterService = new FormatterService('en-US');
+    i18n = new I18nService('en');
     settings = { ...DEFAULT_SETTINGS };
 
     // Mock I18nService for NLP
@@ -49,7 +53,7 @@ describe('UnifiedDatePickerModal', () => {
     };
 
     nlpService = new NLPService(dateService, mockI18nService as any, settings);
-    dailyNotesService = new DailyNotesService(app, formatterService, settings);
+    dailyNotesService = new DailyNotesService(app, formatterService, i18n, settings);
 
     // Get date presets
     datePresets = DEFAULT_FORMAT_PRESETS.filter(p => p.type === 'date');
@@ -59,36 +63,44 @@ describe('UnifiedDatePickerModal', () => {
     saveSettings = jest.fn().mockResolvedValue(undefined);
   });
 
+  /**
+   * One construction site for the modal: eleven positional arguments, of which
+   * a test varies at most three. Adding a dependency used to mean editing every
+   * `new UnifiedDatePickerModal(...)` in this file.
+   */
+  function makeModal(
+    overrides: {
+      presets?: FormatPreset[];
+      onSelect?: jest.Mock;
+      initialAction?: DateAction;
+      initialNLPText?: string;
+    } = {}
+  ): UnifiedDatePickerModal {
+    return new UnifiedDatePickerModal(
+      app,
+      dateService,
+      formatterService,
+      nlpService,
+      i18n,
+      dailyNotesService,
+      overrides.presets ?? datePresets,
+      settings,
+      overrides.onSelect ?? onSelect,
+      saveSettings,
+      overrides.initialAction,
+      overrides.initialNLPText
+    );
+  }
+
   describe('Constructor and Initialization', () => {
     it('should create modal with default action (insert-text)', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       expect(modal.getSelectedAction()).toBe('insert-text');
     });
 
     it('should create modal with specified initial action', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note'
-      );
+      const modal = makeModal({ initialAction: 'insert-daily-note' });
 
       expect(modal.getSelectedAction()).toBe('insert-daily-note');
     });
@@ -96,17 +108,7 @@ describe('UnifiedDatePickerModal', () => {
     it('should use lastUsedAction from settings if available', () => {
       settings.lastUsedAction = 'open-daily-note';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       expect(modal.getSelectedAction()).toBe('open-daily-note');
     });
@@ -114,18 +116,7 @@ describe('UnifiedDatePickerModal', () => {
     it('should load format based on initial action (insert-text)', () => {
       settings.defaultDatePresetId = 'locale-long';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text'
-      );
+      const modal = makeModal({ initialAction: 'insert-text' });
 
       expect(modal.getSelectedPreset().id).toBe('locale-long');
     });
@@ -133,18 +124,7 @@ describe('UnifiedDatePickerModal', () => {
     it('should load DN alias format when action is insert-daily-note', () => {
       settings.dailyNotesAliasPresetId = 'date-verbose';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note'
-      );
+      const modal = makeModal({ initialAction: 'insert-daily-note' });
 
       expect(modal.getSelectedPreset().id).toBe('date-verbose');
     });
@@ -152,17 +132,7 @@ describe('UnifiedDatePickerModal', () => {
 
   describe('Action Selection', () => {
     it('should allow changing selected action', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('insert-daily-note');
       expect(modal.getSelectedAction()).toBe('insert-daily-note');
@@ -172,17 +142,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should persist action selection to settings when changed', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('insert-daily-note');
 
@@ -193,35 +153,14 @@ describe('UnifiedDatePickerModal', () => {
 
   describe('Format Selection', () => {
     it('should allow changing selected format preset', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedPreset('locale-long');
       expect(modal.getSelectedPreset().id).toBe('locale-long');
     });
 
     it('should persist format to defaultDatePresetId when action is insert-text', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text'
-      );
+      const modal = makeModal({ initialAction: 'insert-text' });
 
       modal.setSelectedPreset('locale-short');
 
@@ -230,18 +169,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should persist format to dailyNotesAliasPresetId when action is insert-daily-note', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note'
-      );
+      const modal = makeModal({ initialAction: 'insert-daily-note' });
 
       modal.setSelectedPreset('date-verbose');
 
@@ -250,17 +178,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should ignore invalid preset IDs', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       const initialPreset = modal.getSelectedPreset().id;
       modal.setSelectedPreset('invalid-preset-id');
@@ -272,17 +190,7 @@ describe('UnifiedDatePickerModal', () => {
 
   describe('Calendar Navigation', () => {
     it('should initialize to current month and today', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       const now = dateService.now();
       expect(modal.getViewMonth().hasSame(now, 'month')).toBe(true);
@@ -290,17 +198,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should allow navigation between months', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       const initialMonth = modal.getViewMonth();
 
@@ -312,17 +210,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should allow setting focused day from NLP', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       const futureDate = dateService.now().plus({ days: 10 });
       modal.setFocusedDay(futureDate);
@@ -333,17 +221,7 @@ describe('UnifiedDatePickerModal', () => {
 
   describe('Date Selection - Insert Text Action', () => {
     it('should format date as text when action is insert-text', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('insert-text');
       modal.setSelectedPreset('iso8601');
@@ -355,17 +233,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should use selected format preset for text insertion', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('insert-text');
       modal.setSelectedPreset('locale-long');
@@ -380,17 +248,7 @@ describe('UnifiedDatePickerModal', () => {
 
   describe('Date Selection - Insert Daily Note Action', () => {
     it('should generate wikilink when action is insert-daily-note', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('insert-daily-note');
 
@@ -408,17 +266,7 @@ describe('UnifiedDatePickerModal', () => {
     it('should use dailyNotesAliasPresetId for wikilink alias', () => {
       settings.dailyNotesAliasPresetId = 'locale-long';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('insert-daily-note');
 
@@ -434,17 +282,7 @@ describe('UnifiedDatePickerModal', () => {
     it('should call openDailyNote when action is open-daily-note', async () => {
       const openSpy = jest.spyOn(dailyNotesService, 'openDailyNote').mockResolvedValue();
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('open-daily-note');
 
@@ -458,17 +296,7 @@ describe('UnifiedDatePickerModal', () => {
     it('should not call onSelect with text when opening daily note', async () => {
       jest.spyOn(dailyNotesService, 'openDailyNote').mockResolvedValue();
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('open-daily-note');
 
@@ -482,17 +310,7 @@ describe('UnifiedDatePickerModal', () => {
 
   describe('NLP Integration', () => {
     it('should parse NLP expression and update focused day', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       const result = modal.parseNLPExpression('tomorrow');
 
@@ -504,17 +322,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should return null for invalid NLP expression', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       const result = modal.parseNLPExpression('invalid expression xyz123');
 
@@ -522,17 +330,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should handle NLP with time information', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       const result = modal.parseNLPExpression('tomorrow at 2pm');
 
@@ -547,17 +345,7 @@ describe('UnifiedDatePickerModal', () => {
 
   describe('Settings Persistence', () => {
     it('should save lastUsedAction when selecting date', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings
-      );
+      const modal = makeModal();
 
       modal.setSelectedAction('insert-daily-note');
       const testDate = DateTime.fromObject({ year: 2025, month: 11, day: 23 });
@@ -568,18 +356,7 @@ describe('UnifiedDatePickerModal', () => {
 
     it('should update format when switching actions', () => {
       // Start with insert-text action
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text'
-      );
+      const modal = makeModal({ initialAction: 'insert-text' });
 
       const initialPreset = modal.getSelectedPreset().id;
       expect(initialPreset).toBe(settings.defaultDatePresetId);
@@ -602,19 +379,7 @@ describe('UnifiedDatePickerModal', () => {
       settings.dailyNotesAliasPresetId = 'original-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
 
       // selectedPreset should be the fallback (locale-long), not presets[0]
       expect(modal.getSelectedPreset().id).toBe('locale-long');
@@ -624,19 +389,8 @@ describe('UnifiedDatePickerModal', () => {
       settings.dailyNotesAliasPresetId = 'original-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note'
-        // no initialNLPText
-      );
+      // no initialNLPText
+      const modal = makeModal({ initialAction: 'insert-daily-note' });
 
       // Without NLP text, getPresetIdForAction returns fallback, which resolves to locale-long
       expect(modal.getSelectedPreset().id).toBe('locale-long');
@@ -646,19 +400,7 @@ describe('UnifiedDatePickerModal', () => {
       settings.dailyNotesAliasPresetId = 'original-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
 
       // Parse the NLP expression to set nlpParsedDate
       const parseResult = modal.parseNLPExpression('tomorrow');
@@ -677,19 +419,7 @@ describe('UnifiedDatePickerModal', () => {
       settings.dailyNotesAliasPresetId = 'original-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
 
       // Parse NLP to set nlpParsedDate
       modal.parseNLPExpression('tomorrow');
@@ -708,19 +438,7 @@ describe('UnifiedDatePickerModal', () => {
       settings.nlpDefaultPresetId = 'locale-long';
       settings.defaultDatePresetId = 'iso8601';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-text', initialNLPText: 'tomorrow' });
 
       // With NLP text present, should use nlpDefaultPresetId
       expect(modal.getSelectedPreset().id).toBe('locale-long');
@@ -730,38 +448,15 @@ describe('UnifiedDatePickerModal', () => {
       settings.nlpDefaultPresetId = 'locale-long';
       settings.defaultDatePresetId = 'iso8601';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text'
-        // no initialNLPText
-      );
+      // no initialNLPText
+      const modal = makeModal({ initialAction: 'insert-text' });
 
       // Without NLP text, should use defaultDatePresetId
       expect(modal.getSelectedPreset().id).toBe('iso8601');
     });
 
     it('should clear NLP text when jumpToToday is called', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-text', initialNLPText: 'tomorrow' });
 
       // Parse NLP to set state
       modal.parseNLPExpression('tomorrow');
@@ -779,19 +474,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should clear NLP text when navigateMonth is called', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-text', initialNLPText: 'tomorrow' });
 
       // Parse NLP to set state
       modal.parseNLPExpression('tomorrow');
@@ -804,19 +487,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should clear NLP text when navigateDay is called', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-text', initialNLPText: 'tomorrow' });
 
       // Parse NLP to set state
       modal.parseNLPExpression('tomorrow');
@@ -830,19 +501,7 @@ describe('UnifiedDatePickerModal', () => {
     });
 
     it('should allow typing new NLP text after calendar interaction', () => {
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-text',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-text', initialNLPText: 'tomorrow' });
 
       // Parse initial NLP text
       modal.parseNLPExpression('tomorrow');
@@ -859,19 +518,7 @@ describe('UnifiedDatePickerModal', () => {
       settings.dailyNotesAliasPresetId = 'original-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
-      const modal = new UnifiedDatePickerModal(
-        app,
-        dateService,
-        formatterService,
-        nlpService,
-        dailyNotesService,
-        datePresets,
-        settings,
-        onSelect,
-        saveSettings,
-        'insert-daily-note',
-        'tomorrow'
-      );
+      const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
 
       // Parse NLP expression
       const parseResult = modal.parseNLPExpression('tomorrow');

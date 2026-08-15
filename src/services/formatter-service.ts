@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import { FormatPreset } from '@/types/format-preset';
+import { I18nService } from './i18n-service';
 
 /**
  * FormatterService handles all date-to-string formatting operations using Luxon.
@@ -53,9 +54,18 @@ export interface IFormatterService {
  */
 export class FormatterService implements IFormatterService {
   private locale: string;
+  private i18n: I18nService;
 
+  /**
+   * The invalid-format marker is the one string this service shows the user, and
+   * it must follow the locale like everything else. Rather than thread the
+   * plugin's i18n service through every construction site, the formatter
+   * derives one from the locale it already carries, and keeps the two in step
+   * in `setLocale`.
+   */
   constructor(locale: string = 'en-US') {
     this.locale = locale;
+    this.i18n = new I18nService(locale);
   }
 
   format(dateTime: DateTime, format: string): string {
@@ -84,7 +94,7 @@ export class FormatterService implements IFormatterService {
       return localizedDt.toFormat(format);
     } catch (error) {
       console.error('Format error:', error);
-      return `[Invalid format: ${format}]`;
+      return this.i18n.t('errors.invalidFormat', { format });
     }
   }
 
@@ -113,5 +123,6 @@ export class FormatterService implements IFormatterService {
 
   setLocale(locale: string): void {
     this.locale = locale;
+    this.i18n.setLocale(locale);
   }
 }

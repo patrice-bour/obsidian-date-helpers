@@ -12,7 +12,9 @@ import { SettingsKey, SettingsSectionContext } from '../section-context';
  * form, so `fr_CA` passes here. Normalizing before storage is the settings tab's
  * job, in the write funnel — see CONTROL_COERCIONS.
  */
-export function buildGeneralSection(ctx: SettingsSectionContext): SettingDefinitionGroup<SettingsKey> {
+export function buildGeneralSection(
+  ctx: SettingsSectionContext
+): SettingDefinitionGroup<SettingsKey> {
   const { t } = ctx;
 
   return {

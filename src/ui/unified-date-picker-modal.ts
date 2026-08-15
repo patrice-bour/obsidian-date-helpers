@@ -3,6 +3,8 @@ import { DateTime } from 'luxon';
 import { DateService } from '@/services/date-service';
 import { FormatterService } from '@/services/formatter-service';
 import { NLPService } from '@/services/nlp-service';
+import { I18nService } from '@/services/i18n-service';
+import { Translate } from '@/i18n/types';
 import { DailyNotesService } from '@/services/daily-notes-service';
 import { FormatPreset } from '@/types/format-preset';
 import { DateHelpersSettings } from '@/types/settings';
@@ -35,7 +37,16 @@ import { FormatSelector } from './date-picker/format-selector';
 export class UnifiedDatePickerModal extends Modal {
   private formatterService: FormatterService;
   private nlpService: NLPService;
+  private i18n: I18nService;
   private dailyNotesService: DailyNotesService;
+
+  /**
+   * The modal's only channel to i18n, handed to the renderers as well: each
+   * resolves its labels on every render, so a locale change reaches the picker
+   * without a plugin reload. `params` is forwarded — a lookup that drops it
+   * renders `{{date}}` to the user.
+   */
+  private translate: Translate = (key, params) => this.i18n.t(key, params);
   private settings: DateHelpersSettings;
   private onSelect: (result: string | null, action: DateAction) => void;
 
@@ -47,12 +58,15 @@ export class UnifiedDatePickerModal extends Modal {
   private nlpInput: NLPInputController;
   private formatSelector: FormatSelector;
   private footerEl: HTMLElement | null = null;
+  /** Pending initial focus. Cancelled on close so it cannot fire into a torn-down modal. */
+  private focusTimer: number | null = null;
 
   constructor(
     app: App,
     dateService: DateService,
     formatterService: FormatterService,
     nlpService: NLPService,
+    i18n: I18nService,
     dailyNotesService: DailyNotesService,
     presets: FormatPreset[],
     settings: DateHelpersSettings,
@@ -65,6 +79,7 @@ export class UnifiedDatePickerModal extends Modal {
 
     this.formatterService = formatterService;
     this.nlpService = nlpService;
+    this.i18n = i18n;
     this.dailyNotesService = dailyNotesService;
     this.settings = settings;
     this.onSelect = onSelect;
@@ -87,12 +102,14 @@ export class UnifiedDatePickerModal extends Modal {
 
     this.nlpInput = new NLPInputController({
       state: this.state,
+      t: this.translate,
       onInput: value => this.updateNLPPreview(value),
       onSubmit: () => this.confirmSelection(),
     });
 
     this.formatSelector = new FormatSelector({
       state: this.state,
+      t: this.translate,
       presets,
       settings,
       formatterService,
@@ -240,6 +257,7 @@ export class UnifiedDatePickerModal extends Modal {
   async selectDate(date: DateTime): Promise<void> {
     await executeDateAction(date, {
       state: this.state,
+      t: this.translate,
       formatterService: this.formatterService,
       dailyNotesService: this.dailyNotesService,
       settings: this.settings,
@@ -263,7 +281,7 @@ export class UnifiedDatePickerModal extends Modal {
       .then(() => this.close())
       .catch(e => {
         console.error('Failed to select date:', e);
-        new Notice('Failed to select date');
+        new Notice(this.translate('errors.selectFailed'));
       });
   }
 
@@ -274,9 +292,35 @@ export class UnifiedDatePickerModal extends Modal {
   onOpen(): void {
     this.renderModal();
     this.setupKeyboardNavigation();
+    this.focusSelectedDay();
+  }
+
+  /**
+   * Put the DOM focus on the selected day.
+   *
+   * The cell already carries `is-focused` and `tabindex="0"`, but nothing ever
+   * focused it, so the browser left focus on the first focusable element of the
+   * modal — an action-tab button. Enter there reaches a button whose click
+   * handler re-renders the modal, and typing reaches nothing at all.
+   *
+   * Deferred by a turn: Obsidian focuses the modal itself after `onOpen()`
+   * returns, and a synchronous call here is overwritten a moment later. Only on
+   * open, too — the day grid is rebuilt on every keystroke in the NLP field
+   * (`updateNLPPreview`), so focusing from the renderer would take focus away
+   * from the field being typed into.
+   */
+  private focusSelectedDay(): void {
+    this.focusTimer = window.setTimeout(() => {
+      this.focusTimer = null;
+      this.contentEl.querySelector<HTMLElement>('.date-picker-day.is-focused')?.focus();
+    }, 0);
   }
 
   onClose(): void {
+    if (this.focusTimer !== null) {
+      window.clearTimeout(this.focusTimer);
+      this.focusTimer = null;
+    }
     // Cleanup DOM references
     this.calendar.reset();
     this.nlpInput.reset();
@@ -293,11 +337,16 @@ export class UnifiedDatePickerModal extends Modal {
     contentEl.addClass('unified-date-picker-modal');
 
     // Action selector
-    renderActionSelector(contentEl, this.state.selectedAction, action => {
-      this.setSelectedAction(action);
-      // Re-render modal to show/hide format selector
-      this.renderModal();
-    });
+    renderActionSelector(
+      contentEl,
+      this.state.selectedAction,
+      action => {
+        this.setSelectedAction(action);
+        // Re-render modal to show/hide format selector
+        this.renderModal();
+      },
+      this.translate
+    );
 
     // NLP input (optional, inline)
     if (this.settings.enableNLP) {
@@ -332,7 +381,7 @@ export class UnifiedDatePickerModal extends Modal {
     // Today button
     const todayButton = footer.createEl('button', {
       cls: 'date-picker-today-button',
-      text: 'Today',
+      text: this.translate('picker.today'),
     });
 
     todayButton.addEventListener('click', () => {
@@ -376,7 +425,9 @@ export class UnifiedDatePickerModal extends Modal {
         presetId: useOriginalText ? undefined : this.state.selectedPreset.id,
       });
     } else {
-      preview = `Open: ${this.formatterService.formatWithPreset(parseResult.date, this.state.selectedPreset)}`;
+      preview = this.translate('picker.openPreview', {
+        date: this.formatterService.formatWithPreset(parseResult.date, this.state.selectedPreset),
+      });
     }
 
     this.nlpInput.showSuccess(preview);

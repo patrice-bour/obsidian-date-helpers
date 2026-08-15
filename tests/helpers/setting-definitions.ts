@@ -41,10 +41,7 @@ function isControl(item: SettingDefinitionItem): item is SettingDefinitionContro
  * @throws when absent, so a renamed or dropped key fails loudly instead of
  *   silently turning every following assertion into a no-op on `undefined`.
  */
-export function findControl(
-  items: SettingDefinitionItem[],
-  key: string
-): SettingDefinitionControl {
+export function findControl(items: SettingDefinitionItem[], key: string): SettingDefinitionControl {
   const found = flattenDefinitions(items)
     .filter(isControl)
     .find(item => item.control.key === key);

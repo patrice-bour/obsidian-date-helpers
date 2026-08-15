@@ -1,13 +1,15 @@
 import { FormatterService } from '@/services/formatter-service';
 import { FormatPreset } from '@/types/format-preset';
+import { Translate } from '@/i18n/types';
+import { presetName } from '@/i18n/preset-labels';
 
 export interface PresetOptionsInput {
   presets: FormatPreset[];
   formatterService: FormatterService;
-  /** Label for the placeholder shown when no preset of this type exists */
-  noPresetsLabel: string;
-  /** When set, an "original-text" option is added first with this label */
-  originalTextLabel?: string;
+  /** Translate a key with the plugin's i18n service */
+  t: Translate;
+  /** When true, an "original-text" option is added first */
+  withOriginalText?: boolean;
 }
 
 /** Placeholder key used when the preset list is empty. */
@@ -20,19 +22,18 @@ const NO_PRESETS_OPTION = 'none';
  */
 export function buildPresetOptions(input: PresetOptionsInput): Record<string, string> {
   if (input.presets.length === 0) {
-    return { [NO_PRESETS_OPTION]: input.noPresetsLabel };
+    return { [NO_PRESETS_OPTION]: input.t('settings.text.noPresetsAvailable') };
   }
 
   const options: Record<string, string> = {};
-  if (input.originalTextLabel !== undefined) {
-    options['original-text'] = input.originalTextLabel;
+  if (input.withOriginalText) {
+    options['original-text'] = input.t('picker.originalText');
   }
 
   input.presets.forEach(preset => {
     const example = input.formatterService.getFormatExample(preset.format);
-    options[preset.id] = `${preset.name} (${example})`;
+    options[preset.id] = `${presetName(preset, input.t)} (${example})`;
   });
 
   return options;
 }
-

@@ -10,7 +10,9 @@ import { SettingsKey, SettingsSectionContext } from '../section-context';
  * shows or hides them in place, without rebuilding the tab and stealing focus
  * from the toggle the user just clicked.
  */
-export function buildFeaturesSection(ctx: SettingsSectionContext): SettingDefinitionGroup<SettingsKey> {
+export function buildFeaturesSection(
+  ctx: SettingsSectionContext
+): SettingDefinitionGroup<SettingsKey> {
   const { plugin, t } = ctx;
   const nlpEnabled = (): boolean => plugin.settings.enableNLP;
 

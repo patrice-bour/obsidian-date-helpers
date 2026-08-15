@@ -6,7 +6,9 @@ import { buildPresetOptions } from '../preset-dropdown';
 /**
  * Text formatting section: default date / time / datetime presets.
  */
-export function buildTextFormatsSection(ctx: SettingsSectionContext): SettingDefinitionGroup<SettingsKey> {
+export function buildTextFormatsSection(
+  ctx: SettingsSectionContext
+): SettingDefinitionGroup<SettingsKey> {
   return {
     type: 'group',
     heading: ctx.t('settings.sections.text'),
@@ -38,7 +40,7 @@ function defaultFormatSetting(
       options: buildPresetOptions({
         presets,
         formatterService: plugin.formatterService,
-        noPresetsLabel: t('settings.text.noPresetsAvailable'),
+        t,
       }),
     },
   };

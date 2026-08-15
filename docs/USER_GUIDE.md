@@ -98,15 +98,17 @@ Run **Open daily note**, pick any date, and the plugin opens the matching note �
 
 The command only appears in the palette when text is selected.
 
+![Selecting "next monday" and running Convert selection to date replaces it with the date](media/convert-selection.gif)
+
 ### 5. Insert a specific format directly
 
 Every format preset also gets its own command — **Insert date: ISO 8601**, **Insert time: 24-hour**, **Insert datetime: Readable**, and so on. These insert immediately at the cursor, with no modal.
 
-![Running a preset command inserts the date without opening the picker](media/commands-preset-insert.gif)
-
 They follow the picker's last used action, which is not obvious: after you last confirmed something from the **Link to Daily Note** or **Open Daily Note** tab, these commands insert a wikilink to today's note rather than plain text, until you use the **Insert as Text** tab again.
 
 These commands are registered when the plugin loads, so **reload the plugin after changing your presets** for the command list to match.
+
+![Running Insert date: ISO 8601 from the palette inserts at the cursor, with no modal](media/commands-preset-insert.gif)
 
 ---
 
@@ -162,7 +164,9 @@ Your text is left untouched — the plugin never replaces input it did not under
 | `Enter` | Confirm |
 | `Escape` | Cancel |
 
-`Mod` is `Cmd` on macOS and `Ctrl` elsewhere. The picker also has a **Today** button, next to the confirm and cancel buttons.
+`Mod` is `Cmd` on macOS and `Ctrl` elsewhere. There are no confirm or cancel buttons: the footer holds the format selector and a **Today** button, and you confirm with `Enter` or a click on a day.
+
+![Arrows move the day, PageDown changes month, `t` returns to today, Enter confirms](media/keyboard-calendar-nav.gif)
 
 ### Commands
 
@@ -175,6 +179,10 @@ Your text is left untouched — the plugin never replaces input it did not under
 | **Insert date: …**, **Insert time: …**, **Insert datetime: …** | One per format preset |
 
 In the palette they are prefixed with the plugin name — `Date Helpers: Insert date: ISO 8601`.
+
+![The command palette filtered on Date Helpers, with text selected so Convert selection to date is listed](media/date-helpers-commands.png)
+
+The plugin ships no default shortcut. Assign your own under **Settings → Hotkeys**.
 
 ---
 
@@ -198,11 +206,17 @@ Eleven presets ship with the plugin. Examples are rendered for 2 November 2025, 
 
 Presets are read-only in this version: the settings tab lists them so you can see what each one produces. Custom presets are not implemented yet.
 
+Preset names and descriptions follow your **Locale** too — the table above shows the English
+names. The names above appear in the command palette as `Insert date: ISO 8601`; in French
+the same command reads `Insérer une date : ISO 8601`, after a plugin reload.
+
 ---
 
 ## Settings reference
 
 Open **Settings → Date Helpers**. Every setting is indexed by Obsidian's settings search since 0.1.3, so you can also find it by name from the search field.
+
+![Searching "picker" in Obsidian's settings search lists the Date Helpers setting](media/settings-search.gif)
 
 The tab renders its groups in this order: **Daily Note Link Settings**, **Text Insertion Settings**, **General Settings**, **Features**, **Trigger Characters**, and a read-only list of the format presets.
 
@@ -210,10 +224,22 @@ The tab renders its groups in this order: **Daily Note Link Settings**, **Text I
 
 | Setting | What it does |
 |---|---|
-| **Locale** | Language and region for date formatting (`en`, `fr`, `fr-CA`, …). Leave empty to follow Obsidian. It also sets the language of the plugin's own settings and messages, which ship in English and French. |
+| **Locale** | Language and region for date formatting (`en`, `fr`, `fr-CA`, …). Leave empty to follow Obsidian. It also sets the language of the plugin's own interface — settings, picker, preset names and messages — which ships in English and French. |
 | **Week starts on** | First column of the calendar. Independent of the locale. |
 
-Format examples in the settings re-render as soon as you change the locale.
+![The picker in French: tabs, calendar and footer follow the Locale setting](media/i18n-french-picker.png)
+
+Format examples in the settings re-render as soon as you change the locale, and so does
+every other surface — the picker, the preset names, the notices.
+
+![Typing fr-FR in Locale re-renders the tab in French, examples included](media/settings-locale-live.gif)
+
+**Command names are the exception.** Obsidian fixes a command's name when the plugin
+registers it and offers no way to rename it afterwards, so the command palette keeps the
+previous language until you reload the plugin (disable and re-enable it in **Settings →
+Community plugins**, or restart Obsidian).
+
+![The command palette in French, after a plugin reload](media/i18n-french-commands.png)
 
 ### Features
 
@@ -224,6 +250,8 @@ Format examples in the settings re-render as soon as you change the locale.
 | **Auto-detect language** | Detects the language of each expression instead of using your locale. |
 | **Parsing mode** | Casual or Strict, see [above](#parsing-modes). |
 | **Show parsing warning** | Currently has no effect — the setting is stored but never read. Your text is preserved either way. |
+
+![Turning natural language parsing off hides its three dependent settings](media/nlp-subsettings.gif)
 
 ### Text Insertion Settings
 
@@ -242,6 +270,8 @@ The note's folder and filename format are **not** plugin settings — they come 
 ### Trigger Characters
 
 The list of sequences that open the picker, `@@` by default. Add one with **+**, remove one with the delete button on its row or the `Delete`/`Backspace` shortcut. At least one trigger always remains.
+
+![Adding //d with the + button, then removing it from its row](media/trigger-list.gif)
 
 ---
 

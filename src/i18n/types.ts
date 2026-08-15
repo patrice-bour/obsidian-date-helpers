@@ -8,6 +8,10 @@ export type TranslationKey =
   | 'commands.insertDailyNote.name'
   | 'commands.openDailyNote.name'
   | 'commands.convertSelection.name'
+  | 'commands.presetCommand'
+  | 'commands.prefix.date'
+  | 'commands.prefix.time'
+  | 'commands.prefix.datetime'
   // Settings - General
   | 'settings.sections.general'
   | 'settings.sections.features'
@@ -43,7 +47,6 @@ export type TranslationKey =
   | 'settings.dailyNotes.aliasFormat.desc'
   | 'settings.dailyNotes.aliasFormat.withText'
   | 'settings.dailyNotes.aliasFormat.withoutText'
-  | 'settings.dailyNotes.aliasFormat.originalText'
   | 'settings.dailyNotes.createIfMissing.name'
   | 'settings.dailyNotes.createIfMissing.desc'
   // Settings - Text
@@ -71,8 +74,9 @@ export type TranslationKey =
   | 'settings.presets.dateFormats'
   | 'settings.presets.timeFormats'
   | 'settings.presets.dateTimeFormats'
-  | 'settings.presets.example'
-  // Settings - Presets - Formats (for internationalized preset names)
+  | 'settings.presets.exampleRow'
+  // Settings - Presets - Formats (built-in presets are labelled by id, never by
+  // a stored name, so they follow the locale wherever they are displayed)
   | 'settings.presets.formats.iso8601.name'
   | 'settings.presets.formats.iso8601.desc'
   | 'settings.presets.formats.locale-short.name'
@@ -95,21 +99,51 @@ export type TranslationKey =
   | 'settings.presets.formats.datetime-readable.desc'
   | 'settings.presets.formats.datetime-standard.name'
   | 'settings.presets.formats.datetime-standard.desc'
-  // Errors
-  | 'errors.invalidDate'
+  // Errors (all surfaced to the user as a Notice or as displayed text)
+  | 'errors.parseFailed'
+  | 'errors.selectFailed'
+  | 'errors.createDailyNoteFailed'
+  | 'errors.openDailyNoteFailed'
+  | 'errors.dailyNoteMissing'
+  | 'errors.invalidFormat'
+  // Notices
+  | 'notices.parsed'
+  | 'notices.settingsMigrated'
   // Picker
   | 'picker.tabs.insertText'
   | 'picker.tabs.insertDailyNote'
   | 'picker.tabs.openDailyNote'
-  | 'picker.nlpPlaceholder'
-  | 'picker.format'
-  | 'picker.preview'
-  | 'picker.confirm'
+  | 'picker.nlp.name'
+  | 'picker.nlp.desc'
+  | 'picker.nlp.placeholder'
+  | 'picker.nlp.previewEmpty'
+  | 'picker.nlp.previewError'
+  | 'picker.today'
+  | 'picker.openPreview'
+  | 'picker.originalText'
+  | 'picker.originalTextWith'
   | 'picker.cancel';
+
+/**
+ * The plugin's translate function, as sections, pickers and label helpers
+ * receive it. Mirrors `I18nService.t`, so a component can be handed the lookup
+ * without the service — and a test can hand it a stub.
+ */
+export type Translate = <K extends TranslationKey>(
+  key: K,
+  params?: K extends keyof TranslationParams ? TranslationParams[K] : never
+) => string;
 
 /**
  * Translation parameter types (for type-safe interpolation)
  */
 export interface TranslationParams {
-  'errors.invalidDate': { date: string };
+  'settings.presets.exampleRow': { desc: string; example: string };
+  'commands.presetCommand': { prefix: string; name: string };
+  'errors.parseFailed': { text: string };
+  'errors.dailyNoteMissing': { date: string };
+  'errors.invalidFormat': { format: string };
+  'notices.parsed': { text: string; date: string };
+  'picker.openPreview': { date: string };
+  'picker.originalTextWith': { text: string };
 }

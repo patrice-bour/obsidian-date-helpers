@@ -1,10 +1,14 @@
 import { FormatterService } from '@/services/formatter-service';
 import { FormatPreset } from '@/types/format-preset';
 import { DateHelpersSettings } from '@/types/settings';
+import { Translate } from '@/i18n/types';
+import { presetName } from '@/i18n/preset-labels';
 import { DatePickerState } from './date-picker-state';
 
 export interface FormatSelectorDeps {
   state: DatePickerState;
+  /** Translate a key with the plugin's i18n service */
+  t: Translate;
   presets: FormatPreset[];
   settings: DateHelpersSettings;
   formatterService: FormatterService;
@@ -54,7 +58,7 @@ export class FormatSelector {
 
       const option = this.selectEl.createEl('option', {
         value: preset.id,
-        text: `${preset.name} (${example})`,
+        text: `${presetName(preset, this.deps.t)} (${example})`,
       });
 
       // Select this preset if it matches and "original-text" is not selected
@@ -92,7 +96,7 @@ export class FormatSelector {
           preset.format,
           this.deps.state.focusedDay
         );
-        option.text = `${preset.name} (${example})`;
+        option.text = `${presetName(preset, this.deps.t)} (${example})`;
       }
     }
   }
@@ -173,6 +177,8 @@ export class FormatSelector {
 
   private originalTextLabel(): string {
     const text = this.deps.state.getOriginalText();
-    return text ? `Original Text (${text})` : 'Original Text';
+    return text
+      ? this.deps.t('picker.originalTextWith', { text })
+      : this.deps.t('picker.originalText');
   }
 }
