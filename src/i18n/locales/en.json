@@ -47,7 +47,7 @@
       },
       "nlpAutoDetect": {
         "name": "Auto-detect language",
-        "desc": "Automatically detect and parse date expressions. Supported: English, French, German, Japanese, Portuguese, Dutch, Chinese."
+        "desc": "Automatically detect and parse date expressions. Supported: English, French, German, Japanese, Portuguese, Dutch."
       },
       "nlpStrictMode": {
         "name": "Parsing mode",

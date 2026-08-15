@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+
+- The README and the user guide were rewritten against the source. They documented default hotkeys that are never registered, calendar keys with the axes swapped, a "Cycle date format" command that does not exist, and four settings that do not exist — while omitting the per-preset insert commands entirely. The guide is now the single reference; both READMEs link to it.
+- Recorded what three settings actually do: **Show parsing warning** is stored but never read, and **Default time format** / **Default datetime format** have no reader either. **Default date format** is the picker's remembered format for *Insert as Text*.
+- Date Helpers is listed in the community plugin directory since 15 August 2026, so **Browse** finds it — which is what the 0.1.4 note about install instructions was waiting for.
+
 ## [0.1.4] - 2026-08-15
 
 No code changes. This release exists to restore distribution.
