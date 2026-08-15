@@ -24,6 +24,14 @@ const MANIFEST = `{
 // 0.1.3 is deliberately mapped to an *older* floor than the manifest declares:
 // re-cutting a version after minAppVersion was raised is the case where
 // overwriting and preserving stop producing the same file.
+const README = `# Date Helpers
+
+[![CI](https://example.test/ci.svg)](https://example.test/ci)
+[![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)](./CHANGELOG.md)
+
+Body text mentioning 0.1.3 in prose, which is not the badge.
+`;
+
 const VERSIONS = `{
   "0.1.2": "1.5.0",
   "0.1.3": "1.5.0"
@@ -37,7 +45,7 @@ const VERSIONS = `{
 function runBump(
   cwd: string,
   version: string | undefined
-): { status: number; stderr: string } {
+): { status: number; stderr: string; stdout: string } {
   const env = { ...process.env };
   delete env.npm_package_version;
   if (version !== undefined) {
@@ -45,11 +53,11 @@ function runBump(
   }
 
   try {
-    execFileSync('node', [SCRIPT], { cwd, env, encoding: 'utf8' });
-    return { status: 0, stderr: '' };
+    const stdout = execFileSync('node', [SCRIPT], { cwd, env, encoding: 'utf8' });
+    return { status: 0, stderr: '', stdout };
   } catch (error) {
-    const failure = error as { status: number; stderr: string };
-    return { status: failure.status, stderr: failure.stderr };
+    const failure = error as { status: number; stderr: string; stdout: string };
+    return { status: failure.status, stderr: failure.stderr, stdout: failure.stdout };
   }
 }
 
@@ -60,12 +68,15 @@ describe('version-bump hook', () => {
     dir = mkdtempSync(join(tmpdir(), 'version-bump-'));
     writeFileSync(join(dir, 'manifest.json'), MANIFEST);
     writeFileSync(join(dir, 'versions.json'), VERSIONS);
+    writeFileSync(join(dir, 'README.md'), README);
   });
 
   afterEach(() => {
     // One test drops the write bit; restore it so the cleanup can proceed.
-    if (existsSync(join(dir, 'versions.json'))) {
-      chmodSync(join(dir, 'versions.json'), 0o644);
+    for (const name of ['versions.json', 'README.md']) {
+      if (existsSync(join(dir, name))) {
+        chmodSync(join(dir, name), 0o644);
+      }
     }
     rmSync(dir, { recursive: true, force: true });
   });
@@ -190,6 +201,56 @@ describe('version-bump hook', () => {
 
     expect(status).not.toBe(0);
     expect(stderr).toContain('manifest.json');
+  });
+
+  it('bumps the README version badge', () => {
+    runBump(dir, '0.1.4');
+
+    const readme = readFileSync(join(dir, 'README.md'), 'utf8');
+    expect(readme).toContain('badge/version-0.1.4-blue.svg');
+    expect(readme).not.toContain('0.1.3-blue');
+  });
+
+  // The badge is the only version the script owns in the README: prose that
+  // happens to name a version is the author's, not a field to rewrite.
+  it('leaves the rest of the README alone', () => {
+    runBump(dir, '0.1.4');
+
+    const readme = readFileSync(join(dir, 'README.md'), 'utf8');
+    expect(readme).toContain('Body text mentioning 0.1.3 in prose');
+    expect(readme).toContain('[![CI](https://example.test/ci.svg)]');
+    expect(readme.startsWith('# Date Helpers\n')).toBe(true);
+  });
+
+  it.each([
+    ['there is no README', null],
+    ['the README carries no version badge', '# Date Helpers\n\nNo badges here.\n']
+  ])('still succeeds and says so when %s', (_label, content) => {
+    if (content === null) {
+      rmSync(join(dir, 'README.md'));
+    } else {
+      writeFileSync(join(dir, 'README.md'), content);
+    }
+
+    const { status, stdout } = runBump(dir, '0.1.4');
+
+    expect(status).toBe(0);
+    expect(stdout).toContain('README');
+    expect(readJson('manifest.json').version).toBe('0.1.4');
+    if (content !== null) {
+      expect(readFileSync(join(dir, 'README.md'), 'utf8')).toBe(content);
+    }
+  });
+
+  it('restores the manifest and versions.json when the README cannot be written', () => {
+    chmodSync(join(dir, 'README.md'), 0o444);
+
+    const { status, stderr } = runBump(dir, '0.1.4');
+
+    expect(status).not.toBe(0);
+    expect(stderr).toContain('README.md');
+    expect(readFileSync(join(dir, 'manifest.json'), 'utf8')).toBe(MANIFEST);
+    expect(readFileSync(join(dir, 'versions.json'), 'utf8')).toBe(VERSIONS);
   });
 
   // versions.json is written second: the manifest is already on disk when this

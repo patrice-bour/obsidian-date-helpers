@@ -5,10 +5,11 @@
  * package root with the new version in npm_package_version. What it does not
  * touch is what Obsidian actually reads: manifest.json, and versions.json,
  * which is what the community store uses to decide which release a given
- * Obsidian version is served.
+ * Obsidian version is served — plus the README version badge, which drifted
+ * behind three releases in a row while it was maintained by hand.
  *
- * Both files are read, checked and serialized before the first byte is
- * written, and the manifest is put back if writing versions.json fails — a
+ * Everything is read, checked and serialized before the first byte is written,
+ * and any file already written is put back if a later write fails: a
  * half-bumped tree is the one state that would go unnoticed until the store
  * serves a version whose floor was never recorded.
  */
@@ -17,6 +18,10 @@ import { readFileSync, writeFileSync } from 'fs';
 const fail = (message) => {
   process.stderr.write(`version-bump: ${message}\n`);
   process.exit(1);
+};
+
+const say = (message) => {
+  process.stdout.write(`version-bump: ${message}\n`);
 };
 
 const readObject = (path) => {
@@ -64,28 +69,54 @@ const versions = readObject('versions.json');
 manifest.parsed.version = targetVersion;
 versions.parsed[targetVersion] = minAppVersion;
 
-const nextManifest = serialize(manifest.parsed);
-const nextVersions = serialize(versions.parsed);
+const writes = [
+  { path: 'manifest.json', next: serialize(manifest.parsed), previous: manifest.raw },
+  { path: 'versions.json', next: serialize(versions.parsed), previous: versions.raw }
+];
 
+// The badge is the only version the README owns: prose that happens to name a
+// version belongs to the author. Its absence is not an error — the private
+// repository carries no badge, and this script ships to both.
+const BADGE = /badge\/version-\d+\.\d+\.\d+-/g;
+let readme;
 try {
-  writeFileSync('manifest.json', nextManifest);
-} catch (error) {
-  fail(`could not write manifest.json: ${error.message}`);
+  readme = readFileSync('README.md', 'utf8');
+} catch {
+  say('no README.md — badge skipped');
 }
 
-try {
-  writeFileSync('versions.json', nextVersions);
-} catch (error) {
-  try {
-    writeFileSync('manifest.json', manifest.raw);
-  } catch {
-    fail(
-      `could not write versions.json: ${error.message} — and manifest.json is left at ${targetVersion}, restore it by hand`
-    );
+if (readme !== undefined) {
+  // Compared rather than tested: a /g regex carries lastIndex between calls,
+  // and the rewrite is the only question worth asking anyway.
+  const next = readme.replace(BADGE, `badge/version-${targetVersion}-`);
+  if (next === readme) {
+    say('no version badge in README.md — skipped');
+  } else {
+    writes.push({ path: 'README.md', next, previous: readme });
   }
-  fail(`could not write versions.json: ${error.message} — manifest.json restored`);
 }
 
-process.stdout.write(
-  `version-bump: manifest ${targetVersion}, versions.json → ${minAppVersion}\n`
-);
+const written = [];
+for (const { path, next, previous } of writes) {
+  try {
+    writeFileSync(path, next);
+    written.push({ path, previous });
+  } catch (error) {
+    const undone = [];
+    for (const done of written.reverse()) {
+      try {
+        writeFileSync(done.path, done.previous);
+      } catch {
+        undone.push(done.path);
+      }
+    }
+    if (undone.length > 0) {
+      fail(
+        `could not write ${path}: ${error.message} — and ${undone.join(', ')} could not be restored, fix by hand`
+      );
+    }
+    fail(`could not write ${path}: ${error.message} — earlier files restored`);
+  }
+}
+
+say(`manifest ${targetVersion}, versions.json → ${minAppVersion}`);
