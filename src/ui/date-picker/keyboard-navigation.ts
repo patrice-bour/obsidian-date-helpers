@@ -23,22 +23,30 @@ export interface DatePickerKeyHandlers {
  * Mod+Down/Up (month), Mod+Left/Right (year), 't' (today, NLP-aware).
  */
 export function registerDatePickerKeys(scope: Scope, handlers: DatePickerKeyHandlers): void {
+  // The four unmodified arrows yield to the NLP field, like 't' does. Without
+  // it, an arrow pressed mid-word cleared the field *and* — since a redraw now
+  // focuses a day cell — moved the keyboard focus out of it, so the user lost
+  // both their text and their place.
   scope.register([], 'ArrowRight', () => {
+    if (handlers.isTypingInNLP()) return true;
     handlers.onDayMove('next');
     return false;
   });
 
   scope.register([], 'ArrowLeft', () => {
+    if (handlers.isTypingInNLP()) return true;
     handlers.onDayMove('prev');
     return false;
   });
 
   scope.register([], 'ArrowDown', () => {
+    if (handlers.isTypingInNLP()) return true;
     handlers.onDayMove('down');
     return false;
   });
 
   scope.register([], 'ArrowUp', () => {
+    if (handlers.isTypingInNLP()) return true;
     handlers.onDayMove('up');
     return false;
   });

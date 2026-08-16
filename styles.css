@@ -1,21 +1,35 @@
 /* Date Picker Modal Styles */
 
-.date-picker-modal .modal-content {
-  padding: 16px;
-  min-width: 320px;
-  max-width: 400px;
+/* Unified Date Picker Modal (Phase 7.2) */
+
+/* Width belongs on the modal, not on its content box: Obsidian gives `.modal` a
+   fixed `--dialog-width` (560px), so sizing the content only shrinks it inside a
+   box that keeps its own width — 526px of shell around 450px of content. The
+   floor is `min(…, 100%)` because `.modal` is itself `min(560px, 80vw)`, and a
+   fixed 360px floor overflows it horizontally under a ~493px viewport. */
+.unified-date-picker-modal {
+  width: auto;
+  min-width: min(360px, 100%);
+  max-width: 450px;
 }
 
-/* Unified Date Picker Modal (Phase 7.2) */
 .unified-date-picker-modal .modal-content {
   padding: 16px;
-  min-width: 360px;
-  max-width: 450px;
+  /* No `max-height` here. `.modal` already caps itself at 85vh, and an 80vh
+     content box plus the shell's own padding exceeds that, which made the modal
+     scroll as a whole. The height floor lets this box shrink instead, so the
+     calendar inside it takes the overflow and the footer stays put. */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Action Selector (Tabs) */
 .action-selector {
   display: flex;
+  /* Three tabs need more room than the 450px box gives them, and a longer
+     locale needs more still; wrapping degrades where clipping did not. */
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
   padding: 4px;
@@ -24,7 +38,11 @@
 }
 
 .action-button {
-  flex: 1;
+  /* `1 1 auto`, not `1`: `flex: 1` is `1 1 0%`, and a zero basis makes the
+     items fit the line whatever their labels say, so the row truncates instead
+     of wrapping. With the label's own width as the basis, a row that no longer
+     fits moves a tab to a second line. */
+  flex: 1 1 auto;
   padding: 8px 12px;
   cursor: pointer;
   border-radius: 6px;
@@ -167,6 +185,19 @@
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   margin-bottom: 4px;
+  /* Reserve the same gutter the scrolling grid below reserves, or the seven
+     labels stay full width while the seven columns lose the scrollbar's width
+     and slide out from under them. Invisible on macOS, where scrollbars
+     overlay; a 13px drift on Windows and Linux.
+     `overflow-y: auto` is what makes this row a scroll container, which is the
+     only thing `scrollbar-gutter` applies to — it never actually scrolls. */
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  /* Making this row a scroll container also changed its automatic minimum size:
+     a flex item that scrolls resolves `min-height` to 0 rather than `auto`, so
+     it became compressible and would clip its own labels when the modal ran
+     short. Only the grid below should absorb a vertical shortfall. */
+  flex-shrink: 0;
 }
 
 .date-picker-day-label {
@@ -184,6 +215,12 @@
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   margin-bottom: 12px;
+  /* The grid takes the overflow so the footer never leaves the screen. The
+     height floor is what makes it work: a flex item will not shrink below its
+     content without it, so the overflow rule would never engage. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .date-picker-day {
@@ -197,7 +234,6 @@
   font-size: 0.95em;
   font-weight: 500;
   min-height: 32px;
-  position: relative;
 }
 
 .date-picker-day:hover {
@@ -215,16 +251,21 @@
   background-color: var(--background-modifier-hover);
 }
 
-.date-picker-day.is-selected {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-  font-weight: 600;
-}
+/* An inset shadow, not an outline. An outline is a stroke on the box's
+   boundary, and this grid clips horizontally — `overflow-y: auto` makes
+   `overflow-x` compute to `auto` — with `repeat(7, 1fr)` putting the Sunday
+   column's edge on a fractional pixel. On a display running a scaled
+   resolution, where the framebuffer is resampled before it reaches the panel,
+   that right-hand stroke was lost. A shadow painted inside the box depends on
+   no edge pixel surviving.
 
-.date-picker-day.is-focused {
-  outline: 2px solid var(--interactive-accent);
-  outline-offset: -2px;
-  z-index: 1;
+   `:focus-visible` shares the rule and needed it more: its ring was offset
+   outwards, where the grid cuts it off outright. `outline: none` is
+   load-bearing — without it the app's own ring returns to the boundary. */
+.date-picker-day.is-focused,
+.date-picker-day:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
 }
 
 .date-picker-day.is-other-month {
@@ -239,7 +280,12 @@
 /* Footer */
 .date-picker-footer {
   margin-top: 8px;
-  text-align: center;
+  /* The select and the Today button carry different paddings, so a baseline
+     row left them misaligned and touching. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--background-modifier-border);
 }
@@ -265,8 +311,14 @@
 
 /* Responsive adjustments */
 @media (max-width: 400px) {
-  .date-picker-modal .modal-content {
-    min-width: 280px;
+  /* Was `.date-picker-modal`, a class no code has applied since phase 7.2 — so
+     the escape hatch for narrow viewports was inert exactly when the floor
+     above started applying. */
+  .unified-date-picker-modal {
+    min-width: min(280px, 100%);
+  }
+
+  .unified-date-picker-modal .modal-content {
     padding: 12px;
   }
 
@@ -286,14 +338,22 @@
 }
 
 /* Accessibility */
-.date-picker-day:focus-visible {
-  outline: 2px solid var(--interactive-accent);
-  outline-offset: 2px;
-}
-
 .date-picker-nav-button:focus-visible,
 .date-picker-format-selector:focus-visible,
 .date-picker-today-button:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
+}
+
+/* Forced colours (Windows high contrast, honoured by Chromium and so by
+   Obsidian) overrides `box-shadow` to `none` while preserving `outline`. The
+   inset shadow above would therefore leave a keyboard-first calendar with no
+   focus indicator at all. The outline comes back here offset *inwards*, so it
+   still does not sit on the boundary the grid clips. */
+@media (forced-colors: active) {
+  .date-picker-day.is-focused,
+  .date-picker-day:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
 }

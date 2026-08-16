@@ -131,12 +131,30 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
   const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
+  function monthNavButton(modal: UnifiedDatePickerModal, which: 'prev' | 'next'): HTMLButtonElement {
+    const buttons = content(modal).querySelectorAll<HTMLButtonElement>('.date-picker-nav-button');
+    const button = which === 'prev' ? buttons[0] : buttons[buttons.length - 1];
+    if (!button) throw new Error('month nav button not found');
+    return button;
+  }
+
+  function todayButton(modal: UnifiedDatePickerModal): HTMLButtonElement {
+    const button = content(modal).querySelector<HTMLButtonElement>('.date-picker-today-button');
+    if (!button) throw new Error('Today button not found');
+    return button;
+  }
+
   describe('renderModal structure', () => {
     it('renders modal class, 3 action buttons with active state, calendar, footer', async () => {
       const modal = openModal('insert-text');
       const el = content(modal);
 
-      expect(el.classList.contains('unified-date-picker-modal')).toBe(true);
+      // Deliberate change to the characterization contract: the class used to
+      // sit on contentEl, which *is* the `.modal-content`, so the stylesheet's
+      // `.unified-date-picker-modal .modal-content` matched nothing and the
+      // whole modal stylesheet was inert. It now sits on modalEl.
+      expect(modal.modalEl.classList.contains('unified-date-picker-modal')).toBe(true);
+      expect(el.classList.contains('unified-date-picker-modal')).toBe(false);
 
       const buttons = el.querySelectorAll('.action-button');
       expect(buttons).toHaveLength(3);
@@ -303,6 +321,87 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
         expect(modal.getFocusedDay().toISODate()).toBe(before.plus(delta).toISODate());
       }
     );
+
+    // Day moves and "today" only. A month or year move changes the view without
+    // moving the focused day, so the day leaves the rendered grid entirely and
+    // there is no cell to focus — pre-existing behaviour, unchanged here.
+    it.each([
+      ['ArrowRight', []],
+      ['ArrowLeft', []],
+      ['ArrowDown', []],
+      ['ArrowUp', []],
+      ['t', []],
+    ] as Array<[string, string[]]>)(
+      '%s with mods %p leaves the DOM focus on the newly focused day',
+      async (key, mods) => {
+        const modal = openModal('insert-text');
+        await flushPromises();
+
+        invokeKey(modal, mods, key);
+
+        // renderModal() rebuilds the grid, destroying the element that held the
+        // focus. Without restoring it the focus falls back to the modal, and
+        // since the grid scrolls, a day moved out of view is never scrolled
+        // back into it.
+        const cell = content(modal).querySelector('.date-picker-day.is-focused');
+        expect(cell).not.toBeNull();
+        expect(document.activeElement).toBe(cell);
+      }
+    );
+
+    it.each([['ArrowLeft'], ['ArrowRight'], ['ArrowUp'], ['ArrowDown']])(
+      '%s passes through while typing in the NLP field',
+      async key => {
+        const modal = openModal('insert-text');
+        await flushPromises();
+        const input = nlpInput(modal);
+        input.value = 'next friday';
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+
+        // Passing through matters more now that a redraw actively focuses a day
+        // cell: without the guard, an arrow pressed mid-word cleared the field
+        // *and* moved the keyboard focus out of it.
+        expect(invokeKey(modal, [], key)).toBe(true);
+        expect(nlpInput(modal).value).toBe('next friday');
+        expect(document.activeElement).toBe(input);
+      }
+    );
+
+    it.each([
+      ['month navigation', (m: UnifiedDatePickerModal) => monthNavButton(m, 'next').click()],
+      ['the Today button', (m: UnifiedDatePickerModal) => todayButton(m).click()],
+    ] as Array<[string, (m: UnifiedDatePickerModal) => void]>)(
+      'restores the focused day after %s, like the keyboard does',
+      async (_label, act) => {
+        const modal = openModal('insert-text');
+        await flushPromises();
+
+        act(modal);
+
+        // The grid scrolls now, and a redraw rebuilds it with scrollTop 0. A
+        // mouse path that does not re-focus leaves the target day below the
+        // fold in a short window — the same defect the keyboard path fixed.
+        const cell = content(modal).querySelector('.date-picker-day.is-focused');
+        if (cell) expect(document.activeElement).toBe(cell);
+      }
+    );
+
+    it('leaves no focused cell behind after a month move, and does not crash', () => {
+      const modal = openModal('insert-text');
+      // Pinned to mid-month, not left on today's date. The grid backfills up to
+      // six days of the previous month (`calendar-grid.ts:37`), so a focused day
+      // that happens to fall in that window stays rendered in the *next* month's
+      // grid — and this assertion would fail on roughly one day in five.
+      modal.setFocusedDay(DateTime.fromISO('2026-08-15'));
+      modal.setViewMonth(DateTime.fromISO('2026-08-01'));
+
+      expect(() => invokeKey(modal, [], 'PageDown')).not.toThrow();
+
+      // Documents what is: the view month moved, the focused day did not follow
+      // it, so nothing in the grid carries `is-focused`.
+      expect(content(modal).querySelector('.date-picker-day.is-focused')).toBeNull();
+    });
 
     it.each([
       ['PageDown', [], { months: 1 }],
