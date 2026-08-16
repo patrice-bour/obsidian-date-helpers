@@ -95,7 +95,9 @@ export class UnifiedDatePickerModal extends Modal {
       weekStart: settings.weekStart,
       onMonthNav: direction => {
         this.navigateMonth(direction);
-        this.renderModal();
+        // Same as the keyboard path: a redraw rebuilds the scrolling grid with
+        // scrollTop 0, so without this the target day can sit below the fold.
+        this.renderModalAndFocusDay();
       },
       onDayPick: day => this.confirmSelection(day),
     });
@@ -334,7 +336,10 @@ export class UnifiedDatePickerModal extends Modal {
   private renderModal(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass('unified-date-picker-modal');
+    // On modalEl, not contentEl: contentEl *is* the `.modal-content`, so a
+    // class placed there leaves `.unified-date-picker-modal .modal-content`
+    // without a descendant to match.
+    this.modalEl.addClass('unified-date-picker-modal');
 
     // Action selector
     renderActionSelector(
@@ -386,7 +391,7 @@ export class UnifiedDatePickerModal extends Modal {
 
     todayButton.addEventListener('click', () => {
       this.jumpToToday();
-      this.renderModal();
+      this.renderModalAndFocusDay();
     });
   }
 
@@ -442,23 +447,41 @@ export class UnifiedDatePickerModal extends Modal {
   // Keyboard navigation
   // ========================================
 
+  /**
+   * Redraw, then put the DOM focus back on the day that now carries it.
+   *
+   * `renderModal()` rebuilds the grid, so the element holding the focus is
+   * destroyed and the focus falls back to the modal. That was invisible while
+   * the grid could not scroll; now that it can, a day moved out of view stays
+   * out of view — `focus()` scrolls it back. Synchronous, unlike the deferred
+   * focus on open: nothing competes for the focus here.
+   *
+   * A month or year move usually leaves no focused cell, since the focused day
+   * does not follow the view — though one within six days of the boundary stays
+   * rendered as an adjacent-month cell. The optional call absorbs both.
+   */
+  private renderModalAndFocusDay(): void {
+    this.renderModal();
+    this.contentEl.querySelector<HTMLElement>('.date-picker-day.is-focused')?.focus();
+  }
+
   private setupKeyboardNavigation(): void {
     registerDatePickerKeys(this.scope, {
       onDayMove: direction => {
         this.navigateDay(direction);
-        this.renderModal();
+        this.renderModalAndFocusDay();
       },
       onMonthMove: direction => {
         this.navigateMonth(direction);
-        this.renderModal();
+        this.renderModalAndFocusDay();
       },
       onYearMove: direction => {
         this.navigateYear(direction);
-        this.renderModal();
+        this.renderModalAndFocusDay();
       },
       onToday: () => {
         this.jumpToToday();
-        this.renderModal();
+        this.renderModalAndFocusDay();
       },
       onConfirm: () => this.confirmSelection(),
       isTypingInNLP: () =>

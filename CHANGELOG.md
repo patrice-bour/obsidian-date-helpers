@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-08-16
+
+### Fixed
+
+- The date picker sizes itself. Its one scoped rule put the class on `contentEl`, which *is* the `.modal-content`, so `.unified-date-picker-modal .modal-content` matched no descendant and the picker opened at 526 px — Obsidian's default dialog width — rather than the 360-450 px it declares. The class sits on `modalEl` now, and so does the width, since Obsidian gives `.modal` a fixed width that sizing the content box alone cannot shrink.
+- The picker fits a narrow window. Its width floor is `min(360px, 100%)`: a bare 360 px overflows `.modal`, which is itself `min(560px, 80vw)`, below roughly a 493 px viewport. The narrow-viewport override that existed for this case had been targeting `.date-picker-modal`, a class nothing has applied since phase 7.2.
+- The picker no longer overflows the window vertically. A 6-week month pushed the footer past the bottom edge and you had to scroll the whole window to reach it; the calendar grid takes the overflow instead, so the footer stays on screen.
+- The calendar columns stay under their day labels. The grid scrolls and the label row does not, so on Windows and Linux — where scrollbars take real width — the seven columns slid out from under seven full-width labels, by 13 px at Sunday. Both rows reserve the gutter now. macOS never showed this: its scrollbars overlay.
+- The focused day's ring is drawn inside the cell. As an outline it was a stroke on the cell's boundary, and the calendar grid clips horizontally, so on a display running a scaled resolution — where the framebuffer is resampled before it reaches the panel — the right-hand stroke of a Sunday was lost. The keyboard focus ring gets the same treatment, and needed it more: it was offset outwards, where the grid cuts it off outright.
+- Keyboard navigation keeps the focus on the day it moves to. Each arrow key redraws the calendar, which destroyed the focused cell; now that the grid scrolls, a day moved out of view was never scrolled back into it.
+- The picker's footer lays out on one row. The format `<select>` and the **Today** button sat on a shared baseline with different paddings and no space between them.
+- The three action tabs fit the picker. At its declared width they needed 448 px for 418 px and **Open Daily Note** was cut off — invisible while the picker spread to 526 px. The row wraps to a second line instead of clipping, which is also the layout longer labels in other locales reach.
+- The published `main.js` is a third of its size — roughly 600 kB against 1 903 530 o in 0.1.5. The production build inlined a sourcemap, so every user downloaded the full plugin source alongside the bundle.
+
+### Removed
+
+- `src/ui/date-picker.css`, a dead 193-line copy imported by nothing. `styles.css` is the only stylesheet shipped, and the copy had already drifted from it.
+
 ## [0.1.5] - 2026-08-15
 
 ### Added

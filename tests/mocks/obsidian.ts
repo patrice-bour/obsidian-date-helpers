@@ -265,6 +265,7 @@ function createMockElement(): any {
 export class Modal {
   app: any;
   containerEl: any;
+  modalEl: any;
   contentEl: any;
   scope: any;
 
@@ -273,15 +274,25 @@ export class Modal {
     // Under jsdom (with obsidian-dom helpers installed) use real elements
     // so render paths can be tested; node-env tests keep the jest.fn mock.
     if (typeof document !== 'undefined') {
+      // Same nesting and classes as a real open modal:
+      // .modal-container > .modal > .modal-content. A flat mock made
+      // `.foo .modal-content` selectors untestable, which is how a modal
+      // stylesheet shipped inert.
       this.containerEl = document.createElement('div');
+      this.containerEl.className = 'modal-container';
+      this.modalEl = document.createElement('div');
+      this.modalEl.className = 'modal';
       this.contentEl = document.createElement('div');
+      this.contentEl.className = 'modal-content';
       // Attached, as an open modal is. A detached subtree cannot hold the DOM
       // focus, so anything asserting on `document.activeElement` would pass
       // against a modal that never focuses anything.
-      this.containerEl.appendChild(this.contentEl);
+      this.modalEl.appendChild(this.contentEl);
+      this.containerEl.appendChild(this.modalEl);
       document.body.appendChild(this.containerEl);
     } else {
       this.containerEl = createMockElement();
+      this.modalEl = createMockElement();
       this.contentEl = createMockElement();
     }
     this.scope = {

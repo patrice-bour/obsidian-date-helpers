@@ -14,7 +14,10 @@ export default {
   input: 'src/main.ts',
   output: {
     dir: '.',
-    sourcemap: 'inline',
+    // No sourcemap in the published bundle: inlining one tripled the download
+    // and shipped the full source with it. Sizes live in the CHANGELOG, which is
+    // measured per release rather than restated here where it would drift.
+    sourcemap: false,
     format: 'cjs',
     exports: 'default',
   },
@@ -39,7 +42,9 @@ export default {
       entries: [{ find: '@', replacement: resolve(__dirname, 'src') }],
     }),
     json(),
-    typescript(),
+    // Overrides tsconfig's `sourceMap: true`, which serves the dev build; the
+    // plugin warns otherwise that Rollup emits no map for what it produces.
+    typescript({ sourceMap: false }),
     nodeResolve({ browser: false }),
     commonjs(),
   ],
