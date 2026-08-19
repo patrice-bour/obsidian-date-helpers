@@ -21,6 +21,8 @@ An Obsidian plugin for writing dates without leaving the keyboard — in six lan
 
 When nothing parses, the popup still offers the daily note link and the picker — and keeps your words rather than discarding them, which is what the next section is about.
 
+**On an AZERTY keyboard**, `@` is typed with AltGr, and the plugin reads that as the character it is. One caveat comes with it: an Obsidian hotkey bound to `Ctrl+Alt` plus a trigger character takes the keystroke first, and the trigger goes quiet. Rebind the hotkey, or give the trigger another sequence — see [Troubleshooting](./docs/USER_GUIDE.md#troubleshooting--faq). This path is verified by simulating the AltGr keystroke rather than on an AZERTY machine, so reports from those keyboards are welcome.
+
 ## Your selection becomes the alias
 
 Select `kickoff meeting`, run **Insert daily note link…**, confirm a day: you get `[[2026-08-17|kickoff meeting]]`. The selection is never overwritten, whether or not it reads as a date — and when it does read as one, it also decides which day the calendar opens on.
