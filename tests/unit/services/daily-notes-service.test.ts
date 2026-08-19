@@ -360,15 +360,81 @@ describe('DailyNotesService', () => {
       expect(wikilink).toBe('[[01_Journal/2025-11-12|mercredi prochain]]');
     });
 
-    it('should use fallback preset when original-text is configured but no custom alias', () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
-      settings.dailyNotesAliasFallbackPresetId = 'iso8601';
+    it.each(['selected-text', 'typed-text'])(
+      'should use the fallback preset when %s is configured but no custom alias reaches it',
+      source => {
+        settings.dailyNotesAliasPresetId = source;
+        settings.dailyNotesAliasFallbackPresetId = 'iso8601';
 
+        const date = DateTime.fromISO('2025-11-12', { locale: 'en' });
+        const wikilink = service.generateWikilink(date);
+
+        // A text source with no text behind it has nothing to alias with
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|2025-11-12]]');
+      }
+    );
+
+    describe('an alias that would break the link', () => {
       const date = DateTime.fromISO('2025-11-12', { locale: 'en' });
-      const wikilink = service.generateWikilink(date);
 
-      // Should use fallback preset (iso8601) when no customAlias provided
-      expect(wikilink).toBe('[[01_Journal/2025-11-12|2025-11-12]]');
+      it('keeps a closing bracket pair from ending the link early', () => {
+        // `[[…|a]] b]]` renders as a link to "a" followed by stray " b]]"
+        const wikilink = service.generateWikilink(date, { customAlias: 'a]] b' });
+
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|a b]]');
+      });
+
+      it('keeps a pipe from opening a second alias field', () => {
+        const wikilink = service.generateWikilink(date, { customAlias: 'a|b' });
+
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|a b]]');
+      });
+
+      it('flattens a multi-line selection: a wikilink does not cross lines', () => {
+        const wikilink = service.generateWikilink(date, { customAlias: 'ligne 1\nligne 2' });
+
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|ligne 1 ligne 2]]');
+      });
+
+      it('drops an alias left empty by the cleanup rather than emitting an empty one', () => {
+        const wikilink = service.generateWikilink(date, { customAlias: ']]' });
+
+        // Falls back to the configured preset instead of `[[path|]]`
+        expect(wikilink).not.toContain('|]]');
+      });
+
+      it('keeps the typographic spaces French punctuation needs', () => {
+        // A narrow no-break space before a colon breaks no link; flattening it
+        // to a plain space would undo the user's own typography.
+        const wikilink = service.generateWikilink(date, { customAlias: 'bilan\u202f: T1' });
+
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|bilan\u202f: T1]]');
+      });
+
+      it('keeps a no-break space', () => {
+        const wikilink = service.generateWikilink(date, { customAlias: 'T1\u00a02026' });
+
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|T1\u00a02026]]');
+      });
+
+      it('keeps single brackets: only a pair closes a link', () => {
+        const wikilink = service.generateWikilink(date, { customAlias: '[TODO] revoir le plan' });
+
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|[TODO] revoir le plan]]');
+      });
+
+      it('still neutralises a nested link', () => {
+        const wikilink = service.generateWikilink(date, { customAlias: 'voir [[autre note]]' });
+
+        expect(wikilink).not.toContain('[[autre note]]');
+        expect(wikilink.match(/\]\]/g)).toHaveLength(1);
+      });
+
+      it('leaves an ordinary alias untouched, accents and all', () => {
+        const wikilink = service.generateWikilink(date, { customAlias: 'réunion de cadrage' });
+
+        expect(wikilink).toBe('[[01_Journal/2025-11-12|réunion de cadrage]]');
+      });
     });
 
     it('should prefer custom alias over preset when both provided', () => {

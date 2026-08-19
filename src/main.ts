@@ -1,9 +1,10 @@
 import { Editor, EditorPosition, Notice, Plugin } from 'obsidian';
-import { DateTime } from 'luxon';
 import { DateHelpersSettings } from '@/types/settings';
 import { DateHelpersSettingTab } from '@/ui/settings-tab';
 import { UnifiedDatePickerModal } from '@/ui/unified-date-picker-modal';
 import { DatePickerSuggest } from '@/ui/date-picker-suggest';
+import { openEditorSuggest } from '@/ui/editor-suggest-opener';
+import { isBareTrigger } from '@/utils/trigger-text';
 import { I18nService } from '@/services/i18n-service';
 import { presetName } from '@/i18n/preset-labels';
 import { Translate } from '@/i18n/types';
@@ -14,6 +15,19 @@ import { DailyNotesService } from '@/services/daily-notes-service';
 import { validateSettings } from '@/utils/settings-validator';
 import { migrateSettings } from '@/utils/settings-migration';
 import { resolveLocale } from '@/utils/locale';
+
+/**
+ * What a trigger typed over a selection hands the picker.
+ *
+ * The two parts always travel together — `SelectionCapture` yields both or
+ * neither — so they are one argument rather than two that could disagree.
+ */
+interface KeptHandover {
+  /** The text left in the note, offered to the picker as the alias source */
+  text: string;
+  /** Where the trigger stands; the separating space sits one character before */
+  triggerStart: EditorPosition;
+}
 
 export default class DateHelpersPlugin extends Plugin {
   settings!: DateHelpersSettings;
@@ -26,10 +40,11 @@ export default class DateHelpersPlugin extends Plugin {
   private commandsRegistered = false;
 
   /**
-   * Bound lookup for the helpers that take one (preset labels). Forwards the
-   * params: a lookup that drops them renders `{{name}}` to the user.
+   * Bound lookup for the helpers that take one (preset labels). Spreading the
+   * tuple is what keeps this a `Translate`: a forwarder that drops the params
+   * no longer typechecks.
    */
-  private translate: Translate = (key, params) => this.i18n.t(key, params);
+  private translate: Translate = (key, ...params) => this.i18n.t(key, ...params);
 
   /** Set by loadSettings, reported once the i18n service exists */
   private migratedFromPhase5 = false;
@@ -153,22 +168,6 @@ export default class DateHelpersPlugin extends Plugin {
         this.showUnifiedPicker(editor, 'open-daily-note');
       },
     });
-
-    // Command 4: Convert selection (Phase 7.2)
-    // Parse selected text with NLP and open picker with parsed date
-    this.addCommand({
-      id: 'convert-selection',
-      name: this.i18n.t('commands.convertSelection.name'),
-      editorCheckCallback: (checking: boolean, editor: Editor) => {
-        const selection = editor.getSelection();
-        if (!selection) return false;
-
-        if (!checking) {
-          this.convertSelection(editor, selection);
-        }
-        return true;
-      },
-    });
   }
 
   private registerTriggerCharacters() {
@@ -182,22 +181,94 @@ export default class DateHelpersPlugin extends Plugin {
     }
 
     // Register EditorSuggest for trigger character detection
-    this.registerEditorSuggest(
-      new DatePickerSuggest(this.app, this, this.settings.triggerCharacters)
+    const suggest = new DatePickerSuggest(this.app, this, this.settings.triggerCharacters);
+    this.registerEditorSuggest(suggest);
+
+    // The keystroke that opens a trigger replaces the selection, and CodeMirror
+    // does that before the suggest is asked anything: by the time `onTrigger`
+    // runs, the text is gone and the line carries the trigger in its place.
+    // `keydown` is the last moment the selection still exists — and the last
+    // moment the replacement can be called off, which is what happens here: the
+    // text stays where the user put it, and the trigger goes after it.
+    //
+    // Capture phase, so nothing that stops the event first can cost the alias.
+    const armCapture = (event: KeyboardEvent) => {
+      // A held modifier makes a shortcut, not a character typed over the
+      // selection — with one exception. On the AZERTY keyboards under Windows
+      // and Linux, `@` is typed with AltGr, and the browser reports that
+      // keystroke with ctrlKey and altKey both set. Reading ctrlKey alone
+      // leaves the trigger inert on every one of those keyboards, so alt is
+      // what tells the two apart here.
+      //
+      // Ctrl+Alt shortcuts do exist, and this is a trade-off, not a proof that
+      // they do not: such a keystroke now reaches the capture. It arms one only
+      // when the key also opens a configured trigger and a selection is live,
+      // and Obsidian's own keymap runs first — a bound hotkey stops the event
+      // before this listener sees it. Measured on 1.13.7.
+      if (event.metaKey || (event.ctrlKey && !event.altKey)) return;
+
+      // The keystroke must have landed in the editor's own content. The
+      // picker's fields are ordinary inputs in the same document, and
+      // `activeEditor` still points at the note behind them: typing `@` into
+      // the natural-language field would otherwise arm a capture on a
+      // selection that keystroke never touched.
+      const target = event.target as { closest?: (selector: string) => unknown } | null;
+      if (!target?.closest?.('.cm-content')) return;
+
+      const editor = this.app.workspace.activeEditor?.editor;
+      if (!editor) return;
+
+      const file = this.app.workspace.activeEditor?.file ?? null;
+      const separatorAt = suggest.selectionCapture.arm(editor, event.key, file?.path ?? null);
+      if (!separatorAt) return;
+
+      // Call the replacement off, and write the trigger after the text instead.
+      // A separating space comes first because `startsAWord` makes a trigger
+      // glued to a word inert; writing it before and never after keeps a
+      // selection already followed by a space from ending up with two.
+      event.preventDefault();
+      editor.replaceRange(` ${event.key}`, separatorAt, separatorAt);
+      editor.setCursor({ line: separatorAt.line, ch: separatorAt.ch + 2 });
+
+      // Obsidian re-evaluates its suggests on what the user types, and this
+      // write was not typed. Without this the trigger lands with no list under
+      // it, and everything typed after it goes nowhere.
+      //
+      // If it cannot even be asked, the capture is dropped on the spot: no
+      // popup means no `close()`, and a capture nobody will ever consume would
+      // sit armed until a later trigger landed on the same position and
+      // inherited a selection the user never made.
+      if (!openEditorSuggest(this.app, editor, file)) {
+        suggest.selectionCapture.clear();
+      }
+    };
+
+    this.registerDomEvent(document, 'keydown', armCapture, true);
+
+    // A note popped out into its own window has its own document, and the
+    // listener above never sees its keystrokes. Without this the feature is
+    // silently absent there: the selection goes, nothing holds it.
+    this.registerEvent(
+      this.app.workspace.on('window-open', (_leaf, win) => {
+        this.registerDomEvent(win.document, 'keydown', armCapture, true);
+      })
     );
   }
 
   /**
    * Show unified date picker with specified action
-   * Phase 7.2: Replaces old mode-based pickers
+   *
+   * On the link paths the editor selection is carried into the picker as an
+   * alias candidate, parsable or not. The plain-text path ignores it: no
+   * preset type produces a wikilink, so there is nothing an alias could ride in.
    */
   private showUnifiedPicker(
     editor: Editor,
-    initialAction: 'insert-text' | 'insert-daily-note' | 'open-daily-note',
-    initialDate?: DateTime,
-    initialNLPText?: string
+    initialAction: 'insert-text' | 'insert-daily-note' | 'open-daily-note'
   ) {
     const datePresets = this.settings.formatPresets.filter(p => p.type === 'date');
+    const selectionText =
+      initialAction === 'insert-text' ? undefined : editor.getSelection()?.trim() || undefined;
 
     if (datePresets.length === 0) {
       console.error('No date presets available for date picker');
@@ -233,39 +304,11 @@ export default class DateHelpersPlugin extends Plugin {
       },
       () => this.saveSettings(),
       initialAction,
-      initialNLPText
+      undefined,
+      selectionText
     );
 
-    // If an initial date is provided, pre-select it in the calendar
-    if (initialDate) {
-      modal.setFocusedDay(initialDate);
-      modal.setViewMonth(initialDate);
-    }
-
     modal.open();
-  }
-
-  /**
-   * Convert selected text to date (Phase 7.2)
-   * Parse selection with NLP and open unified picker with parsed date
-   */
-  private convertSelection(editor: Editor, selection: string) {
-    // Try parsing the selection
-    const parseResult = this.nlpService.parse(selection.trim());
-
-    if (!parseResult) {
-      new Notice(this.i18n.t('errors.parseFailed', { text: selection }));
-      return;
-    }
-
-    // Show notice of what was parsed
-    const formattedPreview = this.formatterService.format(parseResult.date, 'yyyy-MM-dd HH:mm');
-    new Notice(this.i18n.t('notices.parsed', { text: selection, date: formattedPreview }));
-
-    // Open unified picker with parsed date pre-selected
-    // Use lastUsedAction or default to insert-text
-    const initialAction = this.settings.lastUsedAction || 'insert-text';
-    this.showUnifiedPicker(editor, initialAction, parseResult.date, selection.trim());
   }
 
   /**
@@ -296,16 +339,29 @@ export default class DateHelpersPlugin extends Plugin {
   }
 
   /**
-   * Show unified date picker from trigger character detection
-   * Phase 7.2: Replaces trigger characters with selected date, cleans up on cancel
-   * @param initialDate - Optional date to pre-select in calendar (from NLP parsing)
+   * Open the unified picker for a trigger, and clean up after it.
+   *
+   * @param start Left bound of what confirming replaces — the kept text's own
+   *   start when a selection was kept, the trigger otherwise.
+   * @param end Right bound: the caret when the trigger handed over.
+   * @param initialNLPText What was typed after the trigger, carried into the
+   *   picker's natural-language field rather than retyped.
+   * @param kept What a trigger typed over a selection hands over. Its two parts
+   *   always travel together: the capture yields both or neither.
    */
   showDatePickerFromTrigger(
     editor: Editor,
     start: EditorPosition,
     end: EditorPosition,
-    initialDate?: DateTime | null
+    initialNLPText?: string,
+    kept?: KeptHandover
   ) {
+    const selectionText = kept?.text;
+    // Where the removals start. The separating space stands one character
+    // before the trigger, and was written with it.
+    const triggerSeparator = kept
+      ? { line: kept.triggerStart.line, ch: kept.triggerStart.ch - 1 }
+      : undefined;
     const datePresets = this.settings.formatPresets.filter(p => p.type === 'date');
 
     if (datePresets.length === 0) {
@@ -313,8 +369,10 @@ export default class DateHelpersPlugin extends Plugin {
       return;
     }
 
-    // Use lastUsedAction or default to insert-text
-    const initialAction = this.settings.lastUsedAction || 'insert-text';
+    // No action is *requested* on this path — a trigger says nothing about which
+    // tab the user wants — so the picker falls back to what they last did,
+    // unless a selection came in: see `openOnAction` in `DatePickerStateOptions`.
+    const openOnAction = selectionText ? 'insert-daily-note' : undefined;
 
     // Track whether user made a selection (to cleanup trigger on cancel)
     let selectionMade = false;
@@ -341,29 +399,42 @@ export default class DateHelpersPlugin extends Plugin {
             ch: start.ch + result.length,
           });
         } else if (action === 'open-daily-note') {
-          // open-daily-note: Remove trigger characters BEFORE opening note
-          // This ensures the cleanup happens before navigation
-          editor.replaceRange('', start, end);
+          // Nothing is inserted on this path, so nothing may be consumed
+          // either: only what the plugin wrote comes out. `start` is the kept
+          // text's own beginning whenever a selection was kept, and erasing
+          // from there would wipe the user's words and navigate away from the
+          // damage.
+          //
+          // Removed BEFORE opening the note, so the cleanup lands while the
+          // editor is still the one the trigger was typed in.
+          editor.replaceRange('', triggerSeparator ?? start, end);
         }
       },
       () => this.saveSettings(),
-      initialAction
+      undefined,
+      initialNLPText,
+      selectionText,
+      openOnAction
     );
-
-    // If NLP provided a date, pre-select it in the calendar
-    if (initialDate) {
-      modal.setFocusedDay(initialDate);
-      modal.setViewMonth(initialDate);
-    }
 
     // Phase 7.2: Cleanup trigger characters on cancel
     const originalOnClose = modal.onClose.bind(modal);
     modal.onClose = () => {
-      // If user cancelled without making a selection, remove trigger characters
+      // If the user cancelled without selecting, remove the trigger — but only
+      // the trigger. The inline suggest hands over a range covering everything
+      // typed after it, and cancelling must not eat the user's own words: an
+      // equality test, not `startsWith`.
       if (!selectionMade) {
-        const currentText = editor.getRange(start, end);
-        if (this.settings.triggerCharacters.some(t => currentText.startsWith(t))) {
-          editor.replaceRange('', start, end);
+        if (triggerSeparator) {
+          // The selected text was never taken away: it is still in the note,
+          // with a separating space and the trigger written after it. There is
+          // nothing to give back — only what the plugin wrote to take away.
+          editor.replaceRange('', triggerSeparator, end);
+        } else {
+          const currentText = editor.getRange(start, end);
+          if (isBareTrigger(currentText, this.settings.triggerCharacters)) {
+            editor.replaceRange('', start, end);
+          }
         }
       }
       // Preserve original cleanup (nullifies DOM refs)

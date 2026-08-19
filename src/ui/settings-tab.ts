@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '@/settings/defaults';
 import { normalizeLocale } from '@/utils/locale';
 import { LOCALE_REFRESH_DEBOUNCE_MS, MAX_TRIGGER_LENGTH } from '@/utils/constants';
 import { SettingsKey, SettingsSectionContext } from './settings/section-context';
+import { TriggerConfig, TriggerMode, isTriggerMode } from '@/types/settings';
 import { AddTriggerModal } from './settings/add-trigger-modal';
 import { buildDailyNotesSection } from './settings/sections/daily-notes-section';
 import { buildTextFormatsSection } from './settings/sections/text-formats-section';
@@ -95,7 +96,8 @@ export class DateHelpersSettingTab extends PluginSettingTab {
       buildFeaturesSection(ctx),
       ...buildTriggersSection(ctx, {
         onAdd: () => this.openAddTriggerDialog(),
-        onDelete: trigger => void this.removeTrigger(trigger),
+        onDelete: sequence => void this.removeTrigger(sequence),
+        onModeChange: (sequence, mode) => void this.setTriggerMode(sequence, mode),
       }),
       buildPresetsListSection(ctx),
     ];
@@ -209,7 +211,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
   private openAddTriggerDialog(): void {
     new AddTriggerModal(this.app, {
-      existing: [...this.plugin.settings.triggerCharacters],
+      existing: this.plugin.settings.triggerCharacters.map(({ sequence }) => sequence),
       t: this.plugin.i18n.t.bind(this.plugin.i18n),
       onSubmit: trigger => void this.addTrigger(trigger),
     }).open();
@@ -222,25 +224,32 @@ export class DateHelpersSettingTab extends PluginSettingTab {
    * validates against a list captured when it opened, and validation that lives
    * only in a dialog is validation the next caller can bypass.
    */
-  async addTrigger(trigger: string): Promise<void> {
+  async addTrigger(trigger: TriggerConfig): Promise<void> {
     const triggers = this.plugin.settings.triggerCharacters;
-    if (trigger === '' || trigger.length > MAX_TRIGGER_LENGTH || triggers.includes(trigger)) {
+    const { sequence, mode } = trigger;
+
+    if (
+      sequence === '' ||
+      sequence.length > MAX_TRIGGER_LENGTH ||
+      !isTriggerMode(mode) ||
+      triggers.some(existing => existing.sequence === sequence)
+    ) {
       return;
     }
 
-    triggers.push(trigger);
+    triggers.push({ sequence, mode });
     await this.persistTriggers();
   }
 
   /**
-   * Remove a trigger by value.
+   * Remove a trigger by sequence.
    *
    * By value, not by index: the rendered rows keep their original indices until
    * `update()` rebuilds the tree, which only happens after an `await`. A second
    * click — or the Delete key repeating — lands in that window carrying an index
    * that has since come to mean a different trigger.
    */
-  async removeTrigger(trigger: string): Promise<void> {
+  async removeTrigger(sequence: string): Promise<void> {
     const triggers = this.plugin.settings.triggerCharacters;
     // At least one trigger must remain. The list withholds the affordance when
     // only one is left, but that is decided when the tree is built; two quick
@@ -248,10 +257,31 @@ export class DateHelpersSettingTab extends PluginSettingTab {
     // survives `validateSettings`, silently disabling the picker for good.
     if (triggers.length <= 1) return;
 
-    const at = triggers.indexOf(trigger);
+    const at = triggers.findIndex(trigger => trigger.sequence === sequence);
     if (at === -1) return; // already removed by an earlier click
 
     triggers.splice(at, 1);
+    await this.persistTriggers();
+  }
+
+  /**
+   * Reassign what a trigger opens.
+   *
+   * By sequence for the same reason `removeTrigger` is: the dropdown of a row
+   * deleted by a quicker click is still on screen until the rebuild, and must
+   * not put the trigger back. Writing the same mode again is a no-op rather
+   * than a save — the rebuild that follows would otherwise steal focus from the
+   * dropdown the user has just used.
+   */
+  async setTriggerMode(sequence: string, mode: TriggerMode): Promise<void> {
+    if (!isTriggerMode(mode)) return;
+
+    const trigger = this.plugin.settings.triggerCharacters.find(
+      candidate => candidate.sequence === sequence
+    );
+    if (!trigger || trigger.mode === mode) return;
+
+    trigger.mode = mode;
     await this.persistTriggers();
   }
 

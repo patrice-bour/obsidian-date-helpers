@@ -43,6 +43,13 @@ export const VALID_PRESET_TYPES = ['date', 'time', 'datetime'] as const;
 export type WeekStart = (typeof VALID_WEEK_STARTS)[number];
 
 /**
+ * What a trigger may open. Stored data is not trusted: an entry carrying
+ * anything else is dropped rather than guessed at, since guessing would open
+ * the surface the user did not ask for.
+ */
+export const VALID_TRIGGER_MODES = ['picker', 'inline'] as const;
+
+/**
  * Maximum length of a trigger character sequence
  */
 export const MAX_TRIGGER_LENGTH = 5;

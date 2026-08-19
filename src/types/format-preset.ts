@@ -26,4 +26,13 @@ export interface FormatPreset {
 
   /** Optional tooltip/help text */
   description?: string;
+
+  /**
+   * Whether this preset appears in the inline suggestion popup.
+   *
+   * An explicit per-preset choice, independent of display order: the popup is
+   * a short list, and which formats belong on it is not the same question as
+   * which order they are shown in elsewhere.
+   */
+  showInSuggest?: boolean;
 }

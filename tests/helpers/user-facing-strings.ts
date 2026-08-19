@@ -93,11 +93,6 @@ export const ALLOWLIST: Array<{ file: string; text: string; reason: string }> = 
     text: 'UnifiedDatePickerModal requires at least one format preset',
     reason: 'Programming error: thrown at construction, logged, never displayed',
   },
-  {
-    file: 'src/ui/unified-date-picker-modal.ts',
-    text: 'original-text',
-    reason: 'Dropdown option value (setValue), not a label — the label is picker.originalText',
-  },
 ];
 
 function isAllowed(literal: UserFacingLiteral): boolean {

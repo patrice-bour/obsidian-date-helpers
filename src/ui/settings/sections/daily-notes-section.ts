@@ -29,7 +29,7 @@ export function buildDailyNotesSection(
             presets: datePresets,
             formatterService: plugin.formatterService,
             t,
-            withOriginalText: true,
+            withAliasSources: true,
           }),
         },
       },

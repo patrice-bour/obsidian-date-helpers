@@ -2,8 +2,8 @@ import type { SettingDefinitionGroup } from 'obsidian';
 import { SettingsKey, SettingsSectionContext } from '../section-context';
 
 /**
- * Feature toggles section: date picker, NLP, and (when NLP is on)
- * auto-detect / strict mode / parsing warning sub-settings.
+ * Feature toggles section: date picker, NLP, and (when NLP is on) its
+ * auto-detect and parsing-mode sub-settings.
  *
  * The sub-settings declare a `visible` predicate rather than being omitted from
  * the tree: Obsidian re-evaluates it on `refreshDomState()`, so toggling NLP
@@ -48,12 +48,6 @@ export function buildFeaturesSection(
             true: t('settings.features.nlpStrictMode.strict'),
           },
         },
-      },
-      {
-        name: t('settings.features.nlpShowWarning.name'),
-        desc: t('settings.features.nlpShowWarning.desc'),
-        visible: nlpEnabled,
-        control: { type: 'toggle', key: 'showParsingWarning' },
       },
     ],
   };

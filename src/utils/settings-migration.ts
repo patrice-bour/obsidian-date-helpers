@@ -1,4 +1,49 @@
-import { DateHelpersSettings } from '@/types/settings';
+import { DateHelpersSettings, TriggerConfig, TriggerMode } from '@/types/settings';
+import { LEGACY_TEXT_SOURCE, SELECTED_TEXT_SOURCE } from '@/types/alias-source';
+
+/**
+ * Keys the plugin no longer keeps. Most were stored, validated and sometimes
+ * displayed, but no code path ever read them: each described an architecture
+ * the plugin no longer has (a category-wide default format for commands that
+ * each carry their own preset, a configurable NLP language list for hardcoded
+ * chrono instances, a parsing warning for notices that no longer exist).
+ * `nlpDefaultPresetId` is the exception: it had a reader and no writer.
+ * Purged from stored data so none of them linger in data.json forever.
+ */
+const REMOVED_KEYS = [
+  'defaultFormat',
+  'nlpFallbackBehavior',
+  'showParsingWarning',
+  'defaultTimePresetId',
+  'defaultDateTimePresetId',
+  'nlpLanguages',
+  'nlpWithDatePicker',
+  'pickerDefaultPresetId',
+  'pickerShowFormatSelector',
+  'nlpUseDateTimePreset',
+  'nlpDefaultDateTimePresetId',
+  'nlpDefaultPresetId',
+] as const;
+
+/**
+ * Give a stored trigger string the mode the code used to derive from it.
+ *
+ * One character opened the inline popup, two or more opened the picker. Any
+ * other choice would change behaviour on upgrade for triggers the user set up
+ * long ago — the one thing this migration must not do. Entries that are already
+ * objects pass through untouched, modes included, so a user who has since
+ * reassigned a mode does not get it re-derived away on the next load.
+ */
+function migrateTriggers(stored: unknown): unknown {
+  if (!Array.isArray(stored)) return stored; // the validator resets it
+
+  return stored.map((entry: unknown) => {
+    if (typeof entry !== 'string') return entry;
+
+    const mode: TriggerMode = entry.length > 1 ? 'picker' : 'inline';
+    return { sequence: entry, mode };
+  });
+}
 
 /**
  * Phase 5 settings interface (for migration purposes)
@@ -44,13 +89,32 @@ interface Phase6Settings {
 export function migrateSettings(
   settings: Partial<DateHelpersSettings>
 ): Partial<DateHelpersSettings> {
-  // Purge the deprecated Phase 0 'defaultFormat' key (replaced by presets).
-  // Runs before the Phase 7.2 early return so already-migrated data is
-  // cleaned too; loadSettings re-saves after validation, so users'
-  // data.json self-cleans on next load.
-  if ('defaultFormat' in settings) {
-    settings = { ...settings };
-    delete (settings as Record<string, unknown>).defaultFormat;
+  // Purge every key the plugin no longer reads (see REMOVED_KEYS). Runs before
+  // the Phase 7.2 early return so already-migrated data is cleaned too;
+  // loadSettings re-saves after validation, so users' data.json self-cleans on
+  // next load. The copy is unconditional: the caller keeps reading the object it
+  // passed in (main.ts:352), so this function must never write to it.
+  settings = { ...settings };
+  for (const key of REMOVED_KEYS) {
+    delete (settings as Record<string, unknown>)[key];
+  }
+
+  // 'original-text' no longer names a single source: the selection and the NLP
+  // field are two options now. The selection is the closer match — it is what
+  // the option produced for a user who had selected text. Runs before the
+  // Phase 7.2 early return so already-migrated data is rewritten too.
+  if (settings.dailyNotesAliasPresetId === LEGACY_TEXT_SOURCE) {
+    settings = { ...settings, dailyNotesAliasPresetId: SELECTED_TEXT_SOURCE };
+  }
+
+  // A trigger carries its mode now. Runs before the Phase 7.2 early return for
+  // the same reason as the alias source: already-migrated data still stores the
+  // old `string[]`.
+  if ('triggerCharacters' in settings) {
+    settings = {
+      ...settings,
+      triggerCharacters: migrateTriggers(settings.triggerCharacters) as TriggerConfig[],
+    };
   }
 
   const phase5 = settings as Phase5Settings;

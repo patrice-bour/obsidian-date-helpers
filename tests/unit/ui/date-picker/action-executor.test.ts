@@ -8,6 +8,7 @@ import { TranslatedError } from '@/services/translated-error';
 import { Notice } from '../../../mocks/obsidian';
 import { DateHelpersSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
+import { translateWith } from '../../../helpers/translate';
 
 describe('executeDateAction', () => {
   let dateService: DateService;
@@ -41,7 +42,7 @@ describe('executeDateAction', () => {
     const i18n = new I18nService('en');
     return {
       state,
-      t: (key: Parameters<I18nService['t']>[0]) => i18n.t(key),
+      t: translateWith(i18n),
       formatterService,
       dailyNotesService: dailyNotesService as unknown as DailyNotesService,
       settings,
@@ -70,8 +71,8 @@ describe('executeDateAction', () => {
     expect(dailyNotesService.createDailyNote).not.toHaveBeenCalled();
   });
 
-  it('insert-daily-note uses the original text as alias when selected and date matches', async () => {
-    settings.dailyNotesAliasPresetId = 'original-text';
+  it('insert-daily-note uses the typed text as alias when selected and date matches', async () => {
+    settings.dailyNotesAliasPresetId = 'typed-text';
     state = new DatePickerState(
       DEFAULT_FORMAT_PRESETS.filter(p => p.type === 'date'),
       settings,
@@ -80,7 +81,7 @@ describe('executeDateAction', () => {
       { initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' }
     );
     const tomorrow = dateService.now().plus({ days: 1 }).startOf('day');
-    state.nlpParsedDate = tomorrow;
+    state.setNLPParseResult(tomorrow);
 
     await executeDateAction(tomorrow, ctx());
 
@@ -143,7 +144,7 @@ describe('executeDateAction', () => {
         new TranslatedError(fr.t('errors.createDailyNoteFailed'))
       );
 
-      await executeDateAction(dateService.now(), { ...ctx(), t: key => fr.t(key) });
+      await executeDateAction(dateService.now(), { ...ctx(), t: translateWith(fr) });
 
       expect(Notice.messages).toContain(fr.t('errors.createDailyNoteFailed'));
     });
@@ -154,7 +155,7 @@ describe('executeDateAction', () => {
       // What `openLinkText` or the vault API rejects with: English, internal
       dailyNotesService.openDailyNote.mockRejectedValue(new Error('ENOENT: no such file'));
 
-      await executeDateAction(dateService.now(), { ...ctx(), t: key => fr.t(key) });
+      await executeDateAction(dateService.now(), { ...ctx(), t: translateWith(fr) });
 
       expect(Notice.messages).toContain(fr.t('errors.openDailyNoteFailed'));
       expect(Notice.messages.join(' ')).not.toContain('ENOENT');

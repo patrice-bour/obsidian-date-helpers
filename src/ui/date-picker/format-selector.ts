@@ -3,6 +3,8 @@ import { FormatPreset } from '@/types/format-preset';
 import { DateHelpersSettings } from '@/types/settings';
 import { Translate } from '@/i18n/types';
 import { presetName } from '@/i18n/preset-labels';
+import { AliasSourceId, isAliasSourceId, SELECTED_TEXT_SOURCE } from '@/types/alias-source';
+import { sanitizeAlias } from '@/services/daily-notes-service';
 import { DatePickerState } from './date-picker-state';
 
 export interface FormatSelectorDeps {
@@ -17,9 +19,9 @@ export interface FormatSelectorDeps {
 }
 
 /**
- * The format preset <select>, including the "Original Text" pseudo-preset
- * lifecycle (add/remove/relabel as NLP text availability changes) and
- * example refresh against the focused day.
+ * The format preset <select>, including the text alias source pseudo-presets
+ * ("Selected text" and "Typed text") whose lifecycle follows their own text
+ * availability, and example refresh against the focused day.
  */
 export class FormatSelector {
   private selectEl: HTMLSelectElement | null = null;
@@ -37,19 +39,19 @@ export class FormatSelector {
       cls: 'date-picker-format-selector',
     });
 
-    const showOriginalTextOption = state.isOriginalTextAvailable();
-    const isOriginalTextCurrentlySelected = state.isOriginalTextSelected();
+    const selectedSource = state.selectedAliasSource();
 
-    // Add "Original Text" option first if available (Daily Notes action with text)
-    if (showOriginalTextOption && this.selectEl) {
+    // Alias sources come first, in the state's display order
+    state.availableAliasSources().forEach(source => {
+      if (!this.selectEl) return;
       const option = this.selectEl.createEl('option', {
-        value: 'original-text',
-        text: this.originalTextLabel(),
+        value: source,
+        text: this.aliasSourceLabel(source),
       });
-      if (isOriginalTextCurrentlySelected) {
+      if (source === selectedSource) {
         option.selected = true;
       }
-    }
+    });
 
     // Add format presets
     presets.forEach(preset => {
@@ -61,8 +63,8 @@ export class FormatSelector {
         text: `${presetName(preset, this.deps.t)} (${example})`,
       });
 
-      // Select this preset if it matches and "original-text" is not selected
-      if (preset.id === state.selectedPreset.id && !isOriginalTextCurrentlySelected) {
+      // Select this preset if it matches and no alias source is selected
+      if (preset.id === state.selectedPreset.id && !selectedSource) {
         option.selected = true;
       }
     });
@@ -84,9 +86,9 @@ export class FormatSelector {
       const option = options[i];
       const presetId = option.value;
 
-      // Handle "Original Text" pseudo-preset
-      if (presetId === 'original-text') {
-        option.text = this.originalTextLabel();
+      // Alias sources carry their text, not a formatted date
+      if (isAliasSourceId(presetId)) {
+        option.text = this.aliasSourceLabel(presetId);
         continue;
       }
 
@@ -102,9 +104,9 @@ export class FormatSelector {
   }
 
   /**
-   * Sync the "Original Text" option with NLP text availability:
-   * add it first when text appears (selecting the configured "with text"
-   * preset), remove it when text disappears (selecting the fallback),
+   * Sync the alias source options with text availability: add a source when
+   * its text appears (selecting the configured "with text" preset), remove it
+   * when its text disappears (selecting the fallback if no source is left),
    * or relabel it with the current text.
    */
   syncOptions(): void {
@@ -113,59 +115,61 @@ export class FormatSelector {
     // is also reset for that action, but don't rely on it)
     if (this.deps.state.selectedAction === 'open-daily-note') return;
 
-    const { state, settings } = this.deps;
-    const hasOriginalTextOption = this.selectEl.options[0]?.value === 'original-text';
-    const shouldHaveOriginalTextOption = state.isOriginalTextAvailable();
+    const { state } = this.deps;
+    const listed = this.listedAliasSources();
+    const available = state.availableAliasSources();
 
-    if (shouldHaveOriginalTextOption && !hasOriginalTextOption) {
-      // Text just became available - add "Original Text" option at the beginning
+    const added = available.filter(source => !listed.includes(source));
+    const removed = listed.filter(source => !available.includes(source));
+
+    // Insert missing sources, keeping the state's display order
+    available.forEach((source, index) => {
+      if (!this.selectEl || !added.includes(source)) return;
       const option = this.selectEl.createEl('option', {
-        value: 'original-text',
-        text: this.originalTextLabel(),
+        value: source,
+        text: this.aliasSourceLabel(source),
       });
+      this.selectEl.insertBefore(option, this.selectEl.options[index] ?? null);
+    });
 
-      this.selectEl.insertBefore(option, this.selectEl.options[0]);
+    // Drop sources whose text is gone
+    removed.forEach(source => {
+      if (!this.selectEl) return;
+      const index = Array.from(this.selectEl.options).findIndex(o => o.value === source);
+      if (index >= 0) this.selectEl.remove(index);
+    });
 
-      // Switch to the "with text" preset (dailyNotesAliasPresetId)
-      // This could be "original-text" or any other preset configured by user
-      const withTextPresetId = settings.dailyNotesAliasPresetId;
-      if (withTextPresetId === 'original-text') {
-        // Select the "Original Text" option we just added
-        option.selected = true;
-      } else {
-        // Select the configured preset
-        for (let i = 0; i < this.selectEl.options.length; i++) {
-          if (this.selectEl.options[i].value === withTextPresetId) {
-            this.selectEl.options[i].selected = true;
-            break;
-          }
-        }
-      }
-    } else if (!shouldHaveOriginalTextOption && hasOriginalTextOption) {
-      // Text no longer available - remove "Original Text" option
-      this.selectEl.remove(0);
+    // Relabel the sources that stayed
+    available.forEach(source => {
+      if (!this.selectEl || added.includes(source)) return;
+      const option = Array.from(this.selectEl.options).find(o => o.value === source);
+      if (option) option.text = this.aliasSourceLabel(source);
+    });
 
-      // Switch to the fallback preset
-      const fallbackPresetId = settings.dailyNotesAliasFallbackPresetId;
-      for (let i = 0; i < this.selectEl.options.length; i++) {
-        if (this.selectEl.options[i].value === fallbackPresetId) {
-          this.selectEl.options[i].selected = true;
-          break;
-        }
-      }
-    } else if (shouldHaveOriginalTextOption && hasOriginalTextOption) {
-      // Update the label with current text
-      this.selectEl.options[0].text = this.originalTextLabel();
-    }
+    if (added.length === 0 && removed.length === 0) return;
+
+    // Availability changed: ask the state what should be selected now. Reading
+    // `dailyNotesAliasPresetId` directly would put a value in the control that
+    // the control does not offer — a source with no text is not listed, and the
+    // dropdown then renders blank.
+    this.setValue(state.getPresetIdForAction(state.selectedAction));
   }
 
   /**
-   * Set the dropdown value ('original-text' or a preset id)
+   * Set the dropdown value (an alias source id or a preset id).
+   *
+   * A value the control does not offer leaves `<select>` on `selectedIndex -1`,
+   * rendering blank — a state no keystroke can produce and no user can read.
+   * Callers compute that value from settings that are validated more loosely
+   * than this list is built, so the last word belongs here.
    */
   setValue(value: string): void {
-    if (this.selectEl) {
-      this.selectEl.value = value;
-    }
+    if (!this.selectEl) return;
+
+    const offered = Array.from(this.selectEl.options).some(option => option.value === value);
+    if (!offered) return;
+
+    this.selectEl.value = value;
   }
 
   /**
@@ -175,10 +179,23 @@ export class FormatSelector {
     this.selectEl = null;
   }
 
-  private originalTextLabel(): string {
-    const text = this.deps.state.getOriginalText();
-    return text
-      ? this.deps.t('picker.originalTextWith', { text })
-      : this.deps.t('picker.originalText');
+  /** The alias sources currently present in the <select>, in DOM order */
+  private listedAliasSources(): AliasSourceId[] {
+    if (!this.selectEl) return [];
+    return Array.from(this.selectEl.options)
+      .map(o => o.value)
+      .filter(isAliasSourceId);
+  }
+
+  private aliasSourceLabel(source: AliasSourceId): string {
+    // Through the same cleanup the insertion applies: the option shows the
+    // alias that will be written, not the raw text it came from.
+    const text = sanitizeAlias(this.deps.state.getAliasSourceText(source) ?? undefined);
+    if (source === SELECTED_TEXT_SOURCE) {
+      return text
+        ? this.deps.t('picker.selectedTextWith', { text })
+        : this.deps.t('picker.selectedText');
+    }
+    return text ? this.deps.t('picker.typedTextWith', { text }) : this.deps.t('picker.typedText');
   }
 }

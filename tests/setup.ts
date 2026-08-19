@@ -4,7 +4,7 @@
  */
 
 // Install Obsidian DOM prototype helpers (no-op without a DOM)
-import { Notice } from './mocks/obsidian';
+import { Modal, Notice } from './mocks/obsidian';
 import './mocks/obsidian-dom';
 
 // Mock window.moment for locale detection.
@@ -24,8 +24,10 @@ if (typeof window === 'undefined') {
 // Suppress console.warn in tests unless explicitly needed
 global.console.warn = jest.fn();
 
-// The Notice mock records every message so a test can read what the user saw.
-// Without a reset, the next reader inherits the previous test's notices.
+// The Notice and Modal mocks record what the user saw and what was opened, so
+// a test can read them. Without a reset, the next reader inherits the previous
+// test's notices and modals.
 beforeEach(() => {
   Notice.messages = [];
+  Modal.opened = [];
 });

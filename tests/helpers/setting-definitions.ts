@@ -63,6 +63,27 @@ export function findGroup(
   );
 }
 
+/**
+ * The one list in the tree — the trigger characters.
+ *
+ * It carries no `heading` of its own: a list draws its heading above
+ * everything it holds, which would put the section's intro above the title
+ * that introduces it. Its heading lives on the group beside it, so the list is
+ * reached by its type.
+ * @throws when absent, so a restructured section fails loudly instead of
+ *   turning every following assertion into a no-op on `undefined`.
+ */
+export function findList(items: SettingDefinitionItem[]): SettingDefinitionList {
+  const found = flattenDefinitions(items).find(
+    (item): item is SettingDefinitionList => 'type' in item && item.type === 'list'
+  );
+
+  if (!found) {
+    throw new Error('No list definition in the settings tree');
+  }
+  return found;
+}
+
 /** The headings of the top-level groups, in render order. */
 export function groupHeadings(items: SettingDefinitionItem[]): string[] {
   return items

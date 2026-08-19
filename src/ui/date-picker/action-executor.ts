@@ -38,16 +38,9 @@ export async function executeDateAction(date: DateTime, ctx: ActionExecutorConte
       break;
 
     case 'insert-daily-note': {
-      // Generate wikilink to daily note
-      // Use original text as alias ONLY if:
-      // 1. "original-text" is selected
-      // 2. The selected date matches the NLP-parsed date
-      const useOriginalText =
-        state.isOriginalTextSelected() && state.canUseOriginalTextForDate(date);
-      result = dailyNotesService.generateWikilink(date, {
-        customAlias: useOriginalText ? (state.getOriginalText() ?? undefined) : undefined,
-        presetId: useOriginalText ? undefined : state.selectedPreset.id,
-      });
+      // Text alias or format preset — the state decides, and the NLP preview
+      // asks it the same question, so the two cannot disagree.
+      result = dailyNotesService.generateWikilink(date, state.aliasOptionsForDate(date));
       // Optionally create note if setting enabled
       if (settings.dailyNotesCreateIfMissing) {
         await dailyNotesService.createDailyNote(date).catch(error => {
