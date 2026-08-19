@@ -17,6 +17,9 @@ export const DEFAULT_FORMAT_PRESETS: FormatPreset[] = [
     format: 'yyyy-MM-dd',
     type: 'date',
     builtin: true,
+    // Two formats start pinned to the inline popup: a list that opens empty
+    // teaches the user nothing about what the popup is for.
+    showInSuggest: true,
   },
   {
     id: 'locale-short',
@@ -29,6 +32,7 @@ export const DEFAULT_FORMAT_PRESETS: FormatPreset[] = [
     format: 'DDD',
     type: 'date',
     builtin: true,
+    showInSuggest: true,
   },
   {
     id: 'date-verbose',

@@ -8,6 +8,7 @@ import { Translate } from '@/i18n/types';
 import { DailyNotesService } from '@/services/daily-notes-service';
 import { FormatPreset } from '@/types/format-preset';
 import { DateHelpersSettings } from '@/types/settings';
+import { isAliasSourceId } from '@/types/alias-source';
 import { DateAction } from './date-picker/types';
 import { DatePickerState } from './date-picker/date-picker-state';
 import { registerDatePickerKeys } from './date-picker/keyboard-navigation';
@@ -43,10 +44,10 @@ export class UnifiedDatePickerModal extends Modal {
   /**
    * The modal's only channel to i18n, handed to the renderers as well: each
    * resolves its labels on every render, so a locale change reaches the picker
-   * without a plugin reload. `params` is forwarded — a lookup that drops it
-   * renders `{{date}}` to the user.
+   * without a plugin reload. Spreading the tuple is what keeps this a
+   * `Translate`: a forwarder that drops the params no longer typechecks.
    */
-  private translate: Translate = (key, params) => this.i18n.t(key, params);
+  private translate: Translate = (key, ...params) => this.i18n.t(key, ...params);
   private settings: DateHelpersSettings;
   private onSelect: (result: string | null, action: DateAction) => void;
 
@@ -73,7 +74,9 @@ export class UnifiedDatePickerModal extends Modal {
     onSelect: (result: string | null, action: DateAction) => void,
     saveSettings: () => Promise<void>,
     initialAction?: DateAction,
-    initialNLPText?: string
+    initialNLPText?: string,
+    selectionText?: string,
+    openOnAction?: DateAction
   ) {
     super(app);
 
@@ -87,7 +90,19 @@ export class UnifiedDatePickerModal extends Modal {
     this.state = new DatePickerState(presets, settings, dateService, saveSettings, {
       initialAction,
       initialNLPText,
+      selectionText,
+      openOnAction,
     });
+
+    // The selection is an alias whether or not it parses. Parsing it decides
+    // one thing only: which day the calendar opens on.
+    if (this.state.selectionText) {
+      const parsed = this.nlpService.parse(this.state.selectionText);
+      this.state.setSelectionParseResult(parsed?.date ?? null);
+      if (parsed) {
+        this.state.setFocusedDay(parsed.date);
+      }
+    }
 
     this.calendar = new CalendarRenderer({
       state: this.state,
@@ -144,7 +159,7 @@ export class UnifiedDatePickerModal extends Modal {
 
     // Update format selector dropdown if it exists
     this.formatSelector.setValue(
-      presetId === 'original-text' ? 'original-text' : this.state.selectedPreset.id
+      isAliasSourceId(presetId) ? presetId : this.state.selectedPreset.id
     );
 
     // Update NLP preview if active
@@ -162,7 +177,7 @@ export class UnifiedDatePickerModal extends Modal {
 
   /**
    * Set selected preset by ID
-   * Handles special "original-text" pseudo-preset for Daily Notes actions
+   * Handles the text alias source pseudo-presets for Daily Notes actions
    */
   setSelectedPreset(presetId: string): void {
     this.state.setSelectedPreset(presetId);
@@ -234,18 +249,19 @@ export class UnifiedDatePickerModal extends Modal {
    */
   parseNLPExpression(text: string): { date: DateTime; hasTime: boolean } | null {
     if (!text || !text.trim()) {
-      this.state.nlpParsedDate = null;
+      // An empty field has not been parsed — it has nothing to parse
+      this.state.clearNLPParseResult();
       return null;
     }
 
     const parseResult = this.nlpService.parse(text.trim());
     if (!parseResult) {
-      this.state.nlpParsedDate = null;
+      // Parsed, to no date: the text may still alias whatever day is confirmed
+      this.state.setNLPParseResult(null);
       return null;
     }
 
-    // Store the NLP-parsed date for "Original Text" validation
-    this.state.nlpParsedDate = parseResult.date.startOf('day');
+    this.state.setNLPParseResult(parseResult.date);
 
     // Update focused day to parsed date
     this.setFocusedDay(parseResult.date);
@@ -423,12 +439,12 @@ export class UnifiedDatePickerModal extends Modal {
     if (this.state.selectedAction === 'insert-text') {
       preview = this.formatterService.formatWithPreset(parseResult.date, this.state.selectedPreset);
     } else if (this.state.selectedAction === 'insert-daily-note') {
-      // Use original text as alias if "original-text" is selected
-      const useOriginalText = this.state.isOriginalTextSelected();
-      preview = this.dailyNotesService.generateWikilink(parseResult.date, {
-        customAlias: useOriginalText ? (this.state.getOriginalText() ?? undefined) : undefined,
-        presetId: useOriginalText ? undefined : this.state.selectedPreset.id,
-      });
+      // The same resolution the executor will apply, so the preview cannot
+      // promise an alias the insertion refuses.
+      preview = this.dailyNotesService.generateWikilink(
+        parseResult.date,
+        this.state.aliasOptionsForDate(parseResult.date)
+      );
     } else {
       preview = this.translate('picker.openPreview', {
         date: this.formatterService.formatWithPreset(parseResult.date, this.state.selectedPreset),

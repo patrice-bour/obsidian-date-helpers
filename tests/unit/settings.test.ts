@@ -8,7 +8,10 @@ describe('Settings', () => {
     it('should have correct default values', () => {
       expect(DEFAULT_SETTINGS.locale).toBe('auto');
       expect(DEFAULT_SETTINGS.weekStart).toBe(1);
-      expect(DEFAULT_SETTINGS.triggerCharacters).toEqual(['@@']);
+      expect(DEFAULT_SETTINGS.triggerCharacters).toEqual([
+        { sequence: '@@', mode: 'picker' },
+        { sequence: '@', mode: 'inline' },
+      ]);
       expect(DEFAULT_SETTINGS.enableNLP).toBe(true);
       expect(DEFAULT_SETTINGS.enableDatePicker).toBe(true);
     });
@@ -22,10 +25,10 @@ describe('Settings', () => {
       expect(DEFAULT_SETTINGS.formatPresets.length).toBeGreaterThan(0);
     });
 
-    it('should have default preset IDs', () => {
+    it('should have a default date preset ID, and no other category default', () => {
       expect(DEFAULT_SETTINGS.defaultDatePresetId).toBe('iso8601');
-      expect(DEFAULT_SETTINGS.defaultTimePresetId).toBe('time-24h');
-      expect(DEFAULT_SETTINGS.defaultDateTimePresetId).toBe('datetime-standard');
+      expect(DEFAULT_SETTINGS).not.toHaveProperty('defaultTimePresetId');
+      expect(DEFAULT_SETTINGS).not.toHaveProperty('defaultDateTimePresetId');
     });
 
     it('should have unique preset IDs', () => {
@@ -83,7 +86,10 @@ describe('Settings', () => {
       };
       const validated = validateSettings(invalidTrigger);
       expect(Array.isArray(validated.triggerCharacters)).toBe(true);
-      expect(validated.triggerCharacters).toEqual(['@@']);
+      expect(validated.triggerCharacters).toEqual([
+        { sequence: '@@', mode: 'picker' },
+        { sequence: '@', mode: 'inline' },
+      ]);
     });
 
     it('should validate boolean fields', () => {
@@ -105,23 +111,16 @@ describe('Settings', () => {
       const custom: DateHelpersSettings = {
         locale: 'de-DE',
         weekStart: 0,
-        triggerCharacters: ['##', '@@'],
+        triggerCharacters: [
+          { sequence: '##', mode: 'picker' },
+          { sequence: '@@', mode: 'picker' },
+        ],
         enableNLP: false,
-        nlpLanguages: ['de'],
         nlpStrictMode: true,
-        nlpDefaultPresetId: 'iso8601',
-        showParsingWarning: true,
-        nlpWithDatePicker: false,
         enableDatePicker: false,
         formatPresets: DEFAULT_SETTINGS.formatPresets,
         defaultDatePresetId: 'iso8601',
-        defaultTimePresetId: 'time-24h',
-        defaultDateTimePresetId: 'datetime-standard',
-        pickerDefaultPresetId: 'iso8601',
-        pickerShowFormatSelector: true,
-        // Phase 4
         nlpAutoDetectLanguage: false,
-        nlpUseDateTimePreset: false,
         // Phase 7.2
         lastUsedAction: 'insert-daily-note',
         dailyNotesAliasPresetId: 'locale-long',
@@ -333,22 +332,6 @@ describe('Settings', () => {
       expect(validated.defaultDatePresetId).toBe('iso8601'); // Reset to default
     });
 
-    it('should validate default time preset ID', () => {
-      const settings: Partial<DateHelpersSettings> = {
-        defaultTimePresetId: 'nonexistent-id',
-      };
-      const validated = validateSettings(settings);
-      expect(validated.defaultTimePresetId).toBe('time-24h'); // Reset to default
-    });
-
-    it('should validate default datetime preset ID', () => {
-      const settings: Partial<DateHelpersSettings> = {
-        defaultDateTimePresetId: 'nonexistent-id',
-      };
-      const validated = validateSettings(settings);
-      expect(validated.defaultDateTimePresetId).toBe('datetime-standard'); // Reset to default
-    });
-
     it('should preserve valid custom presets', () => {
       const customPreset: FormatPreset = {
         id: 'custom-format',
@@ -375,40 +358,6 @@ describe('Settings', () => {
       const validated = validateSettings(invalidBoolean);
       expect(typeof validated.nlpAutoDetectLanguage).toBe('boolean');
       expect(validated.nlpAutoDetectLanguage).toBe(DEFAULT_SETTINGS.nlpAutoDetectLanguage);
-    });
-
-    it('should validate nlpUseDateTimePreset boolean', () => {
-      const invalidBoolean: any = {
-        ...DEFAULT_SETTINGS,
-        nlpUseDateTimePreset: 1, // Not a boolean
-      };
-      const validated = validateSettings(invalidBoolean);
-      expect(typeof validated.nlpUseDateTimePreset).toBe('boolean');
-      expect(validated.nlpUseDateTimePreset).toBe(DEFAULT_SETTINGS.nlpUseDateTimePreset);
-    });
-
-    it('should validate nlpDefaultDateTimePresetId exists', () => {
-      const settings: Partial<DateHelpersSettings> = {
-        nlpDefaultDateTimePresetId: 'nonexistent-preset-id',
-      };
-      const validated = validateSettings(settings);
-      expect(validated.nlpDefaultDateTimePresetId).toBeUndefined(); // Should be cleared
-    });
-
-    it('should preserve valid nlpDefaultDateTimePresetId', () => {
-      const settings: Partial<DateHelpersSettings> = {
-        nlpDefaultDateTimePresetId: 'datetime-standard',
-      };
-      const validated = validateSettings(settings);
-      expect(validated.nlpDefaultDateTimePresetId).toBe('datetime-standard');
-    });
-
-    it('should allow undefined nlpDefaultDateTimePresetId', () => {
-      const settings: Partial<DateHelpersSettings> = {
-        nlpDefaultDateTimePresetId: undefined,
-      };
-      const validated = validateSettings(settings);
-      expect(validated.nlpDefaultDateTimePresetId).toBeUndefined();
     });
 
     // Phase 7.2: lastUsedAction validation tests
@@ -498,12 +447,20 @@ describe('Settings', () => {
     });
 
     describe('dailyNotesAliasPresetId validation', () => {
-      it('should accept original-text as valid preset ID', () => {
-        const settings: Partial<DateHelpersSettings> = {
+      it('should accept a text alias source as valid preset ID', () => {
+        for (const source of ['selected-text', 'typed-text']) {
+          const validated = validateSettings({
+            dailyNotesAliasPresetId: source,
+          } as Partial<DateHelpersSettings>);
+          expect(validated.dailyNotesAliasPresetId).toBe(source);
+        }
+      });
+
+      it('should reject the pre-split original-text value, leaving it at the default', () => {
+        const validated = validateSettings({
           dailyNotesAliasPresetId: 'original-text',
-        };
-        const validated = validateSettings(settings);
-        expect(validated.dailyNotesAliasPresetId).toBe('original-text');
+        } as Partial<DateHelpersSettings>);
+        expect(validated.dailyNotesAliasPresetId).toBe('selected-text');
       });
 
       it('should accept valid format preset ID', () => {
@@ -519,7 +476,7 @@ describe('Settings', () => {
           dailyNotesAliasPresetId: 'nonexistent-preset',
         };
         const validated = validateSettings(settings);
-        expect(validated.dailyNotesAliasPresetId).toBe('original-text');
+        expect(validated.dailyNotesAliasPresetId).toBe('selected-text');
       });
     });
   });

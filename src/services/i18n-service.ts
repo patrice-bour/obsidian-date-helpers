@@ -18,7 +18,7 @@ export class I18nService {
    */
   t<K extends TranslationKey>(
     key: K,
-    params?: K extends keyof TranslationParams ? TranslationParams[K] : never
+    ...params: K extends keyof TranslationParams ? [TranslationParams[K]] : []
   ): string {
     const value = this.getNestedValue(this.translations, key);
 
@@ -27,7 +27,7 @@ export class I18nService {
       return key;
     }
 
-    return this.interpolate(value, params);
+    return this.interpolate(value, params[0]);
   }
 
   /**

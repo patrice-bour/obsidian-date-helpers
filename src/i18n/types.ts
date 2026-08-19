@@ -7,7 +7,6 @@ export type TranslationKey =
   | 'commands.insertText.name'
   | 'commands.insertDailyNote.name'
   | 'commands.openDailyNote.name'
-  | 'commands.convertSelection.name'
   | 'commands.presetCommand'
   | 'commands.prefix.date'
   | 'commands.prefix.time'
@@ -40,8 +39,6 @@ export type TranslationKey =
   | 'settings.features.nlpStrictMode.desc'
   | 'settings.features.nlpStrictMode.casual'
   | 'settings.features.nlpStrictMode.strict'
-  | 'settings.features.nlpShowWarning.name'
-  | 'settings.features.nlpShowWarning.desc'
   // Settings - Daily Notes
   | 'settings.dailyNotes.description'
   | 'settings.dailyNotes.aliasFormat.desc'
@@ -53,16 +50,17 @@ export type TranslationKey =
   | 'settings.text.description'
   | 'settings.text.defaultDateFormat.name'
   | 'settings.text.defaultDateFormat.desc'
-  | 'settings.text.defaultTimeFormat.name'
-  | 'settings.text.defaultTimeFormat.desc'
-  | 'settings.text.defaultDateTimeFormat.name'
-  | 'settings.text.defaultDateTimeFormat.desc'
   | 'settings.text.noPresetsAvailable'
   // Settings - Triggers
   | 'settings.triggers.description'
+  | 'settings.triggers.reloadNote'
   | 'settings.triggers.characters.name'
   | 'settings.triggers.characters.desc'
   | 'settings.triggers.characters.placeholder'
+  | 'settings.triggers.mode.name'
+  | 'settings.triggers.mode.desc'
+  | 'settings.triggers.mode.picker'
+  | 'settings.triggers.mode.inline'
   | 'settings.triggers.addTitle'
   | 'settings.triggers.add'
   | 'settings.triggers.validation.empty'
@@ -75,6 +73,7 @@ export type TranslationKey =
   | 'settings.presets.timeFormats'
   | 'settings.presets.dateTimeFormats'
   | 'settings.presets.exampleRow'
+  | 'settings.presets.showInSuggest'
   // Settings - Presets - Formats (built-in presets are labelled by id, never by
   // a stored name, so they follow the locale wherever they are displayed)
   | 'settings.presets.formats.iso8601.name'
@@ -100,15 +99,19 @@ export type TranslationKey =
   | 'settings.presets.formats.datetime-standard.name'
   | 'settings.presets.formats.datetime-standard.desc'
   // Errors (all surfaced to the user as a Notice or as displayed text)
-  | 'errors.parseFailed'
   | 'errors.selectFailed'
   | 'errors.createDailyNoteFailed'
   | 'errors.openDailyNoteFailed'
   | 'errors.dailyNoteMissing'
   | 'errors.invalidFormat'
   // Notices
-  | 'notices.parsed'
   | 'notices.settingsMigrated'
+  // Inline suggest
+  | 'suggest.dailyNoteLink'
+  | 'suggest.openPicker'
+  | 'suggest.instructions.selection'
+  | 'suggest.instructions.date'
+  | 'suggest.instructions.cancel'
   // Picker
   | 'picker.tabs.insertText'
   | 'picker.tabs.insertDailyNote'
@@ -120,9 +123,21 @@ export type TranslationKey =
   | 'picker.nlp.previewError'
   | 'picker.today'
   | 'picker.openPreview'
-  | 'picker.originalText'
-  | 'picker.originalTextWith'
+  | 'picker.selectedText'
+  | 'picker.selectedTextWith'
+  | 'picker.typedText'
+  | 'picker.typedTextWith'
   | 'picker.cancel';
+
+/**
+ * A key that carries no template, so it is safe to look up with no argument.
+ *
+ * The variadic tuple below distributes over a union: when `K` is the whole
+ * `TranslationKey`, the empty branch stays valid and `t(someWideKey)` compiles
+ * even for a key that needs a parameter. Any helper that takes a key as data
+ * rather than as a literal MUST take this type, not `TranslationKey`.
+ */
+export type PlainTranslationKey = Exclude<TranslationKey, keyof TranslationParams>;
 
 /**
  * The plugin's translate function, as sections, pickers and label helpers
@@ -131,7 +146,7 @@ export type TranslationKey =
  */
 export type Translate = <K extends TranslationKey>(
   key: K,
-  params?: K extends keyof TranslationParams ? TranslationParams[K] : never
+  ...params: K extends keyof TranslationParams ? [TranslationParams[K]] : []
 ) => string;
 
 /**
@@ -140,10 +155,14 @@ export type Translate = <K extends TranslationKey>(
 export interface TranslationParams {
   'settings.presets.exampleRow': { desc: string; example: string };
   'commands.presetCommand': { prefix: string; name: string };
-  'errors.parseFailed': { text: string };
   'errors.dailyNoteMissing': { date: string };
   'errors.invalidFormat': { format: string };
-  'notices.parsed': { text: string; date: string };
   'picker.openPreview': { date: string };
-  'picker.originalTextWith': { text: string };
+  'picker.selectedTextWith': { text: string };
+  'picker.typedTextWith': { text: string };
+  // Both name MAX_TRIGGER_LENGTH. A key listed here MUST be called with its
+  // parameter: `Translate` and `I18nService.t` take a variadic tuple, so
+  // omitting the argument is a compile error, not a `{{max}}` on screen.
+  'settings.triggers.characters.desc': { max: number };
+  'settings.triggers.validation.tooLong': { max: number };
 }

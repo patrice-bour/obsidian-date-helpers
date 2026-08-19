@@ -10,6 +10,7 @@ import { DailyNotesService } from '@/services/daily-notes-service';
 import { DateHelpersSettings } from '@/types/settings';
 import { FormatPreset } from '@/types/format-preset';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
+import { isAliasSourceId } from '@/types/alias-source';
 
 describe('UnifiedDatePickerModal', () => {
   let app: App;
@@ -74,6 +75,8 @@ describe('UnifiedDatePickerModal', () => {
       onSelect?: jest.Mock;
       initialAction?: DateAction;
       initialNLPText?: string;
+      selectionText?: string;
+      openOnAction?: DateAction;
     } = {}
   ): UnifiedDatePickerModal {
     return new UnifiedDatePickerModal(
@@ -88,9 +91,44 @@ describe('UnifiedDatePickerModal', () => {
       overrides.onSelect ?? onSelect,
       saveSettings,
       overrides.initialAction,
-      overrides.initialNLPText
+      overrides.initialNLPText,
+      overrides.selectionText,
+      overrides.openOnAction
     );
   }
+
+  describe('Opening on a tab without remembering it', () => {
+    /**
+     * A trigger typed over a selection opens the picker on the link tab: it is
+     * the only tab that does anything with an alias. That is the context
+     * choosing, not the user, so it must not overwrite the remembered action —
+     * `initialAction` does exactly that at construction, which is why it cannot
+     * serve here.
+     */
+    it('opens on the given tab', () => {
+      settings.lastUsedAction = 'insert-text';
+
+      const modal = makeModal({ openOnAction: 'insert-daily-note' });
+
+      expect(modal.getSelectedAction()).toBe('insert-daily-note');
+    });
+
+    it('leaves the remembered action alone', () => {
+      settings.lastUsedAction = 'insert-text';
+
+      makeModal({ openOnAction: 'insert-daily-note' });
+
+      expect(settings.lastUsedAction).toBe('insert-text');
+    });
+
+    it('still lets a requested action be remembered', () => {
+      settings.lastUsedAction = 'insert-text';
+
+      makeModal({ initialAction: 'insert-daily-note' });
+
+      expect(settings.lastUsedAction).toBe('insert-daily-note');
+    });
+  });
 
   describe('Constructor and Initialization', () => {
     it('should create modal with default action (insert-text)', () => {
@@ -121,10 +159,24 @@ describe('UnifiedDatePickerModal', () => {
       expect(modal.getSelectedPreset().id).toBe('locale-long');
     });
 
-    it('should load DN alias format when action is insert-daily-note', () => {
+    it('should load the no-text alias format when the picker opens with no text', () => {
+      // The two settings answer one question — is there text to reuse? Opened
+      // with neither a selection nor NLP text, the with-text setting does not
+      // apply, whatever it names. (spec: daily-notes-integration, "Default from
+      // settings without any text")
       settings.dailyNotesAliasPresetId = 'date-verbose';
+      settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
       const modal = makeModal({ initialAction: 'insert-daily-note' });
+
+      expect(modal.getSelectedPreset().id).toBe('locale-long');
+    });
+
+    it('should load the with-text alias format once text is available', () => {
+      settings.dailyNotesAliasPresetId = 'date-verbose';
+      settings.dailyNotesAliasFallbackPresetId = 'locale-long';
+
+      const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
 
       expect(modal.getSelectedPreset().id).toBe('date-verbose');
     });
@@ -364,19 +416,18 @@ describe('UnifiedDatePickerModal', () => {
       // Switch to insert-daily-note action
       modal.setSelectedAction('insert-daily-note');
 
-      // Format should update to DN alias format
-      // When dailyNotesAliasPresetId is 'original-text' but no initialNLPText, use fallback
-      const expectedPresetId =
-        settings.dailyNotesAliasPresetId === 'original-text'
-          ? settings.dailyNotesAliasFallbackPresetId
-          : settings.dailyNotesAliasPresetId;
+      // Format should update to DN alias format. A configured text alias source
+      // has no text here (no selection, no NLP input), so the fallback applies.
+      const expectedPresetId = isAliasSourceId(settings.dailyNotesAliasPresetId)
+        ? settings.dailyNotesAliasFallbackPresetId
+        : settings.dailyNotesAliasPresetId;
       expect(modal.getSelectedPreset().id).toBe(expectedPresetId);
     });
   });
 
-  describe('NLP + Original Text + Daily Note (regression)', () => {
-    it('should resolve original-text preset correctly when initialNLPText is provided', () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
+  describe('NLP + typed-text alias + Daily Note (regression)', () => {
+    it('should resolve the typed-text source correctly when initialNLPText is provided', () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
       const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
@@ -385,8 +436,8 @@ describe('UnifiedDatePickerModal', () => {
       expect(modal.getSelectedPreset().id).toBe('locale-long');
     });
 
-    it('should fall back correctly when no initialNLPText and original-text configured', () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
+    it('should fall back correctly when no initialNLPText and typed-text configured', () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
       // no initialNLPText
@@ -396,8 +447,8 @@ describe('UnifiedDatePickerModal', () => {
       expect(modal.getSelectedPreset().id).toBe('locale-long');
     });
 
-    it('should use original text as wikilink alias when NLP date matches selected date', async () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
+    it('should use the typed text as wikilink alias when NLP date matches selected date', async () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
       const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
@@ -406,17 +457,17 @@ describe('UnifiedDatePickerModal', () => {
       const parseResult = modal.parseNLPExpression('tomorrow');
       expect(parseResult).toBeTruthy();
 
-      // Select the NLP-parsed date — should produce alias with original text
+      // Select the NLP-parsed date — should produce alias with the typed text
       await modal.selectDate(parseResult!.date);
 
       expect(onSelect).toHaveBeenCalled();
       const [result] = onSelect.mock.calls[0];
-      // Wikilink alias should be the original NLP text, not verbose format
+      // Wikilink alias should be the typed NLP text, not verbose format
       expect(result).toContain('|tomorrow]]');
     });
 
-    it('should NOT use original text as alias when selected date differs from NLP-parsed date', async () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
+    it('should NOT use the typed text as alias when selected date differs from NLP-parsed date', async () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
       const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });
@@ -434,25 +485,65 @@ describe('UnifiedDatePickerModal', () => {
       expect(result).not.toContain('|tomorrow]]');
     });
 
-    it('should use nlpDefaultPresetId for insert-text when NLP text is present', () => {
-      settings.nlpDefaultPresetId = 'locale-long';
-      settings.defaultDatePresetId = 'iso8601';
+    it('should use the selection as alias even when it parses to no date', async () => {
+      const modal = makeModal({
+        initialAction: 'insert-daily-note',
+        selectionText: 'réunion de cadrage',
+      });
 
-      const modal = makeModal({ initialAction: 'insert-text', initialNLPText: 'tomorrow' });
+      await modal.selectDate(dateService.now().plus({ days: 3 }));
 
-      // With NLP text present, should use nlpDefaultPresetId
-      expect(modal.getSelectedPreset().id).toBe('locale-long');
+      expect(onSelect).toHaveBeenCalled();
+      const [result] = onSelect.mock.calls[0];
+      expect(result).toContain('|réunion de cadrage]]');
     });
 
-    it('should use defaultDatePresetId for insert-text when no NLP text', () => {
-      settings.nlpDefaultPresetId = 'locale-long';
-      settings.defaultDatePresetId = 'iso8601';
+    it('should open the calendar on the date a parsable selection points to', () => {
+      const modal = makeModal({
+        initialAction: 'insert-daily-note',
+        selectionText: 'tomorrow',
+      });
 
-      // no initialNLPText
-      const modal = makeModal({ initialAction: 'insert-text' });
+      const tomorrow = dateService.now().plus({ days: 1 }).startOf('day');
+      expect(modal.getFocusedDay().hasSame(tomorrow, 'day')).toBe(true);
+      expect(modal.getViewMonth().hasSame(tomorrow, 'month')).toBe(true);
+    });
 
-      // Without NLP text, should use defaultDatePresetId
-      expect(modal.getSelectedPreset().id).toBe('iso8601');
+    it('should keep the parsable selection as the alias on its own date', async () => {
+      const modal = makeModal({
+        initialAction: 'insert-daily-note',
+        selectionText: 'tomorrow',
+      });
+
+      await modal.selectDate(dateService.now().plus({ days: 1 }));
+
+      const [result] = onSelect.mock.calls[0];
+      expect(result).toContain('|tomorrow]]');
+    });
+
+    it('should NOT use a parsable selection as alias on a date it does not name', async () => {
+      const modal = makeModal({
+        initialAction: 'insert-daily-note',
+        selectionText: 'tomorrow',
+      });
+
+      await modal.selectDate(dateService.now().plus({ days: 10 }));
+
+      const [result] = onSelect.mock.calls[0];
+      expect(result).not.toContain('|tomorrow]]');
+    });
+
+    it('should use defaultDatePresetId for insert-text, with or without NLP text', () => {
+      settings.defaultDatePresetId = 'locale-long';
+
+      // The expression changes the date, not the format the user last chose
+      expect(makeModal({ initialAction: 'insert-text' }).getSelectedPreset().id).toBe(
+        'locale-long'
+      );
+      expect(
+        makeModal({ initialAction: 'insert-text', initialNLPText: 'tomorrow' }).getSelectedPreset()
+          .id
+      ).toBe('locale-long');
     });
 
     it('should clear NLP text when jumpToToday is called', () => {
@@ -514,8 +605,8 @@ describe('UnifiedDatePickerModal', () => {
       expect(result).toBeTruthy();
     });
 
-    it('should handle canUseOriginalTextForDate with differently-constructed DateTimes', async () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
+    it('should handle canUseAliasSourceForDate with differently-constructed DateTimes', async () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
 
       const modal = makeModal({ initialAction: 'insert-daily-note', initialNLPText: 'tomorrow' });

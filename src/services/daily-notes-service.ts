@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import type { FormatterService } from './formatter-service';
 import type { I18nService } from './i18n-service';
 import type { DateHelpersSettings } from '../types/settings';
+import { isAliasSourceId } from '../types/alias-source';
 import { DailyNotesPluginAdapter } from './daily-notes-plugin-adapter';
 import { TranslatedError } from './translated-error';
 
@@ -23,6 +24,35 @@ export const DEFAULT_DAILY_NOTES_CONFIG: DailyNotesConfig = {
   folder: '',
   template: '',
 };
+
+/**
+ * Make a user-supplied string safe as a wikilink alias.
+ *
+ * Obsidian's wikilink syntax has no escape, and exactly three things break it:
+ * `]]` ends the link where it stands, `[[` opens another, and `|` starts a
+ * second field. Those become a space. A line break is not syntax but geometry —
+ * a wikilink lives on one line — so `\r` and `\n` are flattened too.
+ *
+ * Nothing else is touched. A single `]`, a no-break space before a colon, an
+ * em-dash: none of them can break a link, and rewriting them would quietly
+ * undo the user's own text.
+ *
+ * Returns null when nothing usable remains, so the caller falls back to a
+ * format preset instead of emitting `[[path|]]`.
+ */
+export function sanitizeAlias(alias: string | undefined): string | null {
+  if (!alias) return null;
+
+  const cleaned = alias
+    .replace(/\]\]|\[\[|\|/g, ' ')
+    .replace(/[\r\n\t]+/g, ' ')
+    // Only runs of plain spaces, which the substitutions above create. A
+    // no-break space is the user's typography, not our leftover.
+    .replace(/ {2,}/g, ' ')
+    .trim();
+
+  return cleaned || null;
+}
 
 /**
  * Daily Notes integration service
@@ -139,17 +169,19 @@ export class DailyNotesService {
   generateWikilink(date: DateTime, options?: { customAlias?: string; presetId?: string }): string {
     const path = this.getDailyNotePath(date);
 
-    // If custom alias is provided, use it directly
-    if (options?.customAlias) {
-      return `[[${path}|${options.customAlias}]]`;
+    // A user-supplied alias, made safe to sit inside a wikilink
+    const customAlias = sanitizeAlias(options?.customAlias);
+    if (customAlias) {
+      return `[[${path}|${customAlias}]]`;
     }
 
     // Use specified preset or fallback to configured alias preset
     const presetId = options?.presetId || this.settings.dailyNotesAliasPresetId;
 
-    // Handle 'original-text' preset when no custom alias - use fallback
-    const effectivePresetId =
-      presetId === 'original-text' ? this.settings.dailyNotesAliasFallbackPresetId : presetId;
+    // A text alias source with no text behind it - use the fallback preset
+    const effectivePresetId = isAliasSourceId(presetId)
+      ? this.settings.dailyNotesAliasFallbackPresetId
+      : presetId;
 
     // Look up the preset from settings
     const preset = this.settings.formatPresets.find(p => p.id === effectivePresetId);

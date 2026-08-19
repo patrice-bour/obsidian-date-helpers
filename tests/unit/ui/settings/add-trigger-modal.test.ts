@@ -54,10 +54,17 @@ describe('AddTriggerModal', () => {
     return modal;
   };
 
-  const typeAndConfirm = (modal: AddTriggerModal, value: string): void => {
+  const typeAndConfirm = (modal: AddTriggerModal, value: string, mode?: string): void => {
     const input = modal.contentEl.querySelector('input') as HTMLInputElement;
     input.value = value;
     input.dispatchEvent(new Event('input'));
+
+    if (mode !== undefined) {
+      const select = modal.contentEl.querySelector('select') as HTMLSelectElement;
+      if (!select) throw new Error('no mode control rendered');
+      select.value = mode;
+      select.dispatchEvent(new Event('change'));
+    }
 
     const confirm = Array.from(modal.contentEl.querySelectorAll('button')).find(
       button => button.textContent === 'settings.triggers.add'
@@ -77,14 +84,35 @@ describe('AddTriggerModal', () => {
 
     typeAndConfirm(modal, ';;');
 
-    expect(onSubmit).toHaveBeenCalledWith(';;');
+    expect(onSubmit).toHaveBeenCalledWith({ sequence: ';;', mode: 'picker' });
     expect(close).toHaveBeenCalled();
   });
 
   it('trims surrounding whitespace before submitting', () => {
     const modal = openModal();
     typeAndConfirm(modal, '  ;;  ');
-    expect(onSubmit).toHaveBeenCalledWith(';;');
+    expect(onSubmit).toHaveBeenCalledWith({ sequence: ';;', mode: 'picker' });
+  });
+
+  it('collects the mode alongside the sequence', () => {
+    const modal = openModal();
+
+    typeAndConfirm(modal, ';;', 'inline');
+
+    expect(onSubmit).toHaveBeenCalledWith({ sequence: ';;', mode: 'inline' });
+  });
+
+  it('offers both modes whatever the sequence length', () => {
+    // The length rule is gone: a three-character inline trigger is legal, and
+    // the dialog must not imply otherwise by hiding or disabling an option.
+    const modal = openModal();
+    const input = modal.contentEl.querySelector('input') as HTMLInputElement;
+    input.value = '//d';
+    input.dispatchEvent(new Event('input'));
+
+    const select = modal.contentEl.querySelector('select') as HTMLSelectElement;
+    expect(Array.from(select.options).map(option => option.value)).toEqual(['picker', 'inline']);
+    expect(select.disabled).toBe(false);
   });
 
   it('shows the error and stays open on an invalid entry', () => {
@@ -106,7 +134,7 @@ describe('AddTriggerModal', () => {
     typeAndConfirm(modal, ';;');
 
     expect(modal.contentEl.textContent).not.toContain('settings.triggers.validation.duplicate');
-    expect(onSubmit).toHaveBeenCalledWith(';;');
+    expect(onSubmit).toHaveBeenCalledWith({ sequence: ';;', mode: 'picker' });
   });
 
   it('closes without submitting when cancelled', () => {

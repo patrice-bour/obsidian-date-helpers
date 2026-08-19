@@ -5,6 +5,7 @@ import { I18nService } from './i18n-service';
 import { DateHelpersSettings } from '@/types/settings';
 import { getLanguageCode } from '@/utils/locale';
 import { NLP_MIN_COVERAGE_RATIO } from '@/utils/constants';
+import { withCompoundDays } from '@/utils/compound-day-parser';
 
 /**
  * Parse result with additional metadata
@@ -59,13 +60,22 @@ export class NLPService {
   private initializeChrono(): void {
     const mode = this.settings.nlpStrictMode ? 'strict' : 'casual';
 
-    // Create chrono instances for each supported language
-    this.chronoInstances.set('en', chrono.en[mode]);
-    this.chronoInstances.set('fr', chrono.fr[mode]);
-    this.chronoInstances.set('de', chrono.de[mode]);
-    this.chronoInstances.set('ja', chrono.ja[mode]);
-    this.chronoInstances.set('pt', chrono.pt[mode]);
-    this.chronoInstances.set('nl', chrono.nl[mode]);
+    // Six literal property reads, not a loop over NLP_LANGUAGES. `chrono[lang]`
+    // with a variable defeats Rollup's tree-shaking: it cannot know which
+    // locales are reachable, so it bundles all of them. Measured — the loop
+    // pulled Spanish, Traditional Chinese and Russian into main.js and cost
+    // 207 951 bytes, on a plugin whose size was cut by two thirds in 0.1.6.
+    // Typecheck, lint and the whole suite stayed green throughout.
+    //
+    // The compound parser is applied in both modes. Strict is where a user who
+    // wants no guesswork sets the plugin, and answering `après-demain` with
+    // tomorrow is the guesswork strict mode exists to refuse.
+    this.chronoInstances.set('en', withCompoundDays(chrono.en[mode], 'en'));
+    this.chronoInstances.set('fr', withCompoundDays(chrono.fr[mode], 'fr'));
+    this.chronoInstances.set('de', withCompoundDays(chrono.de[mode], 'de'));
+    this.chronoInstances.set('ja', withCompoundDays(chrono.ja[mode], 'ja'));
+    this.chronoInstances.set('pt', withCompoundDays(chrono.pt[mode], 'pt'));
+    this.chronoInstances.set('nl', withCompoundDays(chrono.nl[mode], 'nl'));
   }
 
   /**

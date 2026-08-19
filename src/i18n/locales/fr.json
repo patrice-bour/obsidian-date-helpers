@@ -1,16 +1,13 @@
 {
   "commands": {
     "insertText": {
-      "name": "Insérer une date comme texte"
+      "name": "Insérer une date comme texte…"
     },
     "insertDailyNote": {
-      "name": "Insérer un lien Daily Note (note quotidienne)"
+      "name": "Insérer un lien Daily Note…"
     },
     "openDailyNote": {
-      "name": "Ouvrir la Daily Note (note quotidienne)"
-    },
-    "convertSelection": {
-      "name": "Convertir la sélection en date"
+      "name": "Ouvrir la Daily Note…"
     },
     "presetCommand": "{{prefix}} : {{name}}",
     "prefix": {
@@ -60,10 +57,6 @@
         "desc": "Contrôle la permissivité de l'analyseur",
         "casual": "Permissif – accepte plus d'expressions (recommandé)",
         "strict": "Strict – réduit les faux positifs"
-      },
-      "nlpShowWarning": {
-        "name": "Afficher un avertissement",
-        "desc": "Affiche une notification lorsqu'une expression de date ne peut pas être analysée. Le texte original est toujours préservé."
       }
     },
     "dailyNotes": {
@@ -79,43 +72,43 @@
       }
     },
     "text": {
-      "description": "Sélectionnez les formats par défaut pour l'insertion de dates en texte brut. Ces paramètres s'appliquent à l'action « Insérer une date comme texte » et aux commandes de format.",
+      "description": "Le format de départ de l'action « Insérer comme texte ». Les commandes de format ne sont pas concernées : chacune porte le sien.",
       "defaultDateFormat": {
         "name": "Format de date par défaut",
-        "desc": "Format utilisé par les commandes de date"
-      },
-      "defaultTimeFormat": {
-        "name": "Format d'heure par défaut",
-        "desc": "Format utilisé par les commandes d'heure"
-      },
-      "defaultDateTimeFormat": {
-        "name": "Format date-heure par défaut",
-        "desc": "Format utilisé par les commandes date-heure"
+        "desc": "Le sélecteur de format s'ouvre sur ce format, et le remplace dès que vous en choisissez un autre."
       },
       "noPresetsAvailable": "Aucun format disponible"
     },
     "triggers": {
-      "description": "Tapez ces séquences de caractères pour ouvrir le sélecteur de date. Vous pouvez configurer plusieurs déclencheurs ici. Vous pouvez aussi utiliser les Raccourcis clavier (Hotkeys) d'Obsidian.",
+      "description": "Tapez l'une de ces séquences dans une note pour insérer une date. Chaque déclencheur ouvre le sélecteur de date ou les suggestions en ligne, selon son mode.",
+      "reloadNote": "Les déclencheurs sont lus au chargement du plugin : en ajouter un, en retirer un ou en changer le mode prend effet après un rechargement.",
       "characters": {
-        "name": "Caractères déclencheurs",
-        "desc": "Séquences qui ouvrent le sélecteur de date (ex. : @@, //d)",
+        "name": "Séquence",
+        "desc": "Les caractères à taper, {{max}} au maximum (ex. : @@, //d)",
         "placeholder": "Entrez un déclencheur (ex. : ;;)"
+      },
+      "mode": {
+        "name": "Ouvre",
+        "desc": "Ce que cette séquence ouvre. Tous les modes fonctionnent quelle que soit la longueur.",
+        "picker": "Le sélecteur de date",
+        "inline": "Les suggestions en ligne"
       },
       "addTitle": "Ajouter un déclencheur",
       "add": "Ajouter",
       "validation": {
         "empty": "Le déclencheur ne peut pas être vide",
-        "tooLong": "Le déclencheur doit faire 5 caractères maximum",
+        "tooLong": "Le déclencheur doit faire {{max}} caractères maximum",
         "duplicate": "Ce déclencheur existe déjà",
         "minRequired": "Au moins un déclencheur est requis"
       }
     },
     "presets": {
-      "description": "Liste de tous les formats disponibles pour les commandes et paramètres.",
+      "description": "Liste de tous les formats disponibles pour les commandes et paramètres. L'interrupteur d'une ligne décide seulement de la présence de ce format dans le popup de suggestion.",
       "dateFormats": "Formats de date",
       "timeFormats": "Formats d'heure",
       "dateTimeFormats": "Formats date-heure",
       "exampleRow": "{{desc}} → Exemple : {{example}}",
+      "showInSuggest": "Afficher dans le popup de suggestion",
       "formats": {
         "iso8601": {
           "name": "ISO 8601",
@@ -165,7 +158,6 @@
     }
   },
   "errors": {
-    "parseFailed": "Impossible d'analyser une date depuis : {{text}}",
     "selectFailed": "Échec de la sélection de la date",
     "createDailyNoteFailed": "Échec de la création de la Daily Note (note quotidienne)",
     "openDailyNoteFailed": "Échec de l'ouverture de la Daily Note (note quotidienne)",
@@ -173,8 +165,16 @@
     "invalidFormat": "[Format invalide : {{format}}]"
   },
   "notices": {
-    "parsed": "Analysé : {{text}} → {{date}}",
     "settingsMigrated": "Date Helpers : paramètres mis à jour vers la phase 6. Rechargez le plugin (Cmd/Ctrl+R) pour voir les commandes à jour."
+  },
+  "suggest": {
+    "dailyNoteLink": "Lien Daily Note",
+    "openPicker": "Ouvrir le sélecteur…",
+    "instructions": {
+      "selection": "sélection",
+      "date": "date",
+      "cancel": "annuler"
+    }
   },
   "picker": {
     "tabs": {
@@ -191,8 +191,10 @@
     },
     "today": "Aujourd'hui",
     "openPreview": "Ouvrir : {{date}}",
-    "originalText": "Texte d'origine",
-    "originalTextWith": "Texte d'origine ({{text}})",
+    "selectedText": "Texte sélectionné",
+    "selectedTextWith": "Texte sélectionné ({{text}})",
+    "typedText": "Texte saisi",
+    "typedTextWith": "Texte saisi ({{text}})",
     "cancel": "Annuler"
   }
 }

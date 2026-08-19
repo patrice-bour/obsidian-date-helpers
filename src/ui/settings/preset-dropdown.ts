@@ -2,23 +2,25 @@ import { FormatterService } from '@/services/formatter-service';
 import { FormatPreset } from '@/types/format-preset';
 import { Translate } from '@/i18n/types';
 import { presetName } from '@/i18n/preset-labels';
+import { SELECTED_TEXT_SOURCE, TYPED_TEXT_SOURCE } from '@/types/alias-source';
 
 export interface PresetOptionsInput {
   presets: FormatPreset[];
   formatterService: FormatterService;
   /** Translate a key with the plugin's i18n service */
   t: Translate;
-  /** When true, an "original-text" option is added first */
-  withOriginalText?: boolean;
+  /** When true, the text alias sources are added first */
+  withAliasSources?: boolean;
 }
 
 /** Placeholder key used when the preset list is empty. */
 const NO_PRESETS_OPTION = 'none';
 
 /**
- * Build the option map of a preset dropdown: "Name (example)" per preset, an
- * optional "Original Text" first entry, and a lone placeholder when there is
- * nothing to choose from (the caller disables the control in that case).
+ * Build the option map of a preset dropdown: "Name (example)" per preset, the
+ * optional text alias sources as first entries, and a lone placeholder when
+ * there is nothing to choose from (the caller disables the control in that
+ * case).
  */
 export function buildPresetOptions(input: PresetOptionsInput): Record<string, string> {
   if (input.presets.length === 0) {
@@ -26,8 +28,9 @@ export function buildPresetOptions(input: PresetOptionsInput): Record<string, st
   }
 
   const options: Record<string, string> = {};
-  if (input.withOriginalText) {
-    options['original-text'] = input.t('picker.originalText');
+  if (input.withAliasSources) {
+    options[SELECTED_TEXT_SOURCE] = input.t('picker.selectedText');
+    options[TYPED_TEXT_SOURCE] = input.t('picker.typedText');
   }
 
   input.presets.forEach(preset => {

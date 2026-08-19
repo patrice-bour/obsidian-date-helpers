@@ -48,10 +48,14 @@ export function descriptionRow(text: string): SettingDefinitionRender {
 /**
  * A sub-heading inside a group. Groups cannot nest, so the per-type headings of
  * the format-preset reference are rendered as headings on a plain row.
+ *
+ * `name` is required on every definition and is what the framework matches a
+ * row to across a rebuild, so it carries the title the callback writes rather
+ * than an empty string. Search skips the row regardless.
  */
 export function headingRow(text: string): SettingDefinitionRender {
   return {
-    name: '',
+    name: text,
     searchable: false,
     render: setting => {
       setting.setName(text).setHeading();

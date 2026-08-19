@@ -357,3 +357,66 @@
     outline-offset: -2px;
   }
 }
+
+/* ==========================================================================
+   Inline suggestion popup
+   ==========================================================================
+   The popup itself is Obsidian's (`.suggestion-item`, shared with every other
+   plugin), so nothing here touches it: the entry's two lines live in a
+   container of ours, and only that container is laid out. */
+
+.date-suggest-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--size-4-3);
+  min-width: 0;
+}
+
+/* The result, which is what the user is choosing between */
+.date-suggest-output {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The format's name: present for identification, never competing with the
+   result for attention. `flex-shrink: 0` keeps it readable when a long wikilink
+   takes the row — the output is the half that truncates. */
+.date-suggest-label {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+/* Settings — the action on a section heading */
+
+/* An extra-setting button is drawn as a bare muted glyph, which works in a row
+   of controls and not at the right of a heading: alone there, with nothing to
+   belong to, it reads as decoration. The frame and the accent colour make it a
+   control the eye finds.
+
+   On specificity: the base rule ties with Obsidian's `.clickable-icon` at
+   (0,2,0) and wins on sheet order, the plugin's stylesheet being injected after
+   `app.css`. The hover rule reaches (0,3,0) and outranks `.clickable-icon:hover`
+   outright, which would otherwise repaint the background from under the accent.
+   `color` is restated in both states rather than inherited from the base rule,
+   so neither depends on that sheet order holding. */
+.setting-item-heading .settings-heading-action {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-radius: var(--radius-s);
+}
+
+.setting-item-heading .settings-heading-action:hover {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent-hover);
+}
+
+/* Without this the button has no press feedback at all: Obsidian's own
+   `:active` rule is a background repaint the accent already covers. */
+.setting-item-heading .settings-heading-action:active {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  transform: scale(0.94);
+}

@@ -20,6 +20,7 @@ import { DailyNotesService } from '@/services/daily-notes-service';
 import { DateHelpersSettings } from '@/types/settings';
 import { FormatPreset } from '@/types/format-preset';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
+import { translateWith } from '../../helpers/translate';
 
 type DateAction = 'insert-text' | 'insert-daily-note' | 'open-daily-note';
 
@@ -65,7 +66,8 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
   function createModal(
     initialAction?: DateAction,
-    initialNLPText?: string
+    initialNLPText?: string,
+    selectionText?: string
   ): UnifiedDatePickerModal {
     return new UnifiedDatePickerModal(
       app,
@@ -79,12 +81,17 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       onSelect,
       saveSettings,
       initialAction,
-      initialNLPText
+      initialNLPText,
+      selectionText
     );
   }
 
-  function openModal(initialAction?: DateAction, initialNLPText?: string): UnifiedDatePickerModal {
-    const modal = createModal(initialAction, initialNLPText);
+  function openModal(
+    initialAction?: DateAction,
+    initialNLPText?: string,
+    selectionText?: string
+  ): UnifiedDatePickerModal {
+    const modal = createModal(initialAction, initialNLPText, selectionText);
     modal.onOpen();
     return modal;
   }
@@ -158,9 +165,9 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
       const buttons = el.querySelectorAll('.action-button');
       expect(buttons).toHaveLength(3);
-      expect(buttons[0].textContent).toContain('Insert as Text');
-      expect(buttons[1].textContent).toContain('Link to Daily Note');
-      expect(buttons[2].textContent).toContain('Open Daily Note');
+      expect(buttons[0].textContent).toContain('Insert as text');
+      expect(buttons[1].textContent).toContain('Link to daily note');
+      expect(buttons[2].textContent).toContain('Open daily note');
       expect(buttons[0].classList.contains('is-active')).toBe(true);
       expect(buttons[1].classList.contains('is-active')).toBe(false);
 
@@ -237,7 +244,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
         const example = formatterService.getFormatExample(preset.format, modal.getFocusedDay());
         expect(select.options[i].value).toBe(preset.id);
         expect(select.options[i].text).toBe(
-          `${presetName(preset, key => i18n.t(key))} (${example})`
+          `${presetName(preset, translateWith(i18n))} (${example})`
         );
         // One literal, independent of the resolver: a wrong key prefix or a
         // wrong fallback order inside presetName would leave the line above green
@@ -248,24 +255,59 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       expect(select.value).toBe('locale-long');
     });
 
-    it('shows Original Text as first option for daily-note action with initial text', () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
+    it('shows Typed text as first option for daily-note action with initial text', () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
       const modal = openModal('insert-daily-note', 'tomorrow');
       const select = formatSelector(modal);
       if (!select) throw new Error('format selector missing');
 
-      expect(select.options[0].value).toBe('original-text');
-      expect(select.options[0].text).toBe('Original Text (tomorrow)');
+      expect(select.options[0].value).toBe('typed-text');
+      expect(select.options[0].text).toBe('Typed text (tomorrow)');
       expect(select.options[0].selected).toBe(true);
       expect(select.options).toHaveLength(datePresets.length + 1);
     });
 
-    it('does not show Original Text for insert-text even with initial text', () => {
+    it('does not show a text alias source for insert-text even with initial text', () => {
       const modal = openModal('insert-text', 'tomorrow');
       const select = formatSelector(modal);
       if (!select) throw new Error('format selector missing');
-      expect(select.options[0].value).not.toBe('original-text');
+      expect(select.options[0].value).not.toBe('typed-text');
+      expect(select.options[0].value).not.toBe('selected-text');
       expect(select.options).toHaveLength(datePresets.length);
+    });
+  });
+
+  describe('preview and insertion agree', () => {
+    // The preview and the executor build the same wikilink from the same state.
+    // Only one of them used to run the date validation, so the preview could
+    // promise an alias the insertion then refused.
+    it('does not promise an alias the insertion would refuse', async () => {
+      settings.dailyNotesAliasFallbackPresetId = 'locale-long';
+      const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+
+      // The selection says "tomorrow"; the user then asks for another day
+      typeNLP(modal, 'next friday');
+      const promised = preview(modal).textContent ?? '';
+
+      const parsed = modal.parseNLPExpression('next friday');
+      await modal.selectDate(parsed!.date);
+      const [inserted] = onSelect.mock.calls[0];
+
+      expect(promised).toContain(inserted);
+    });
+
+    it('promises the alias the insertion does produce, on the date the text names', async () => {
+      const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+      const parsed = modal.parseNLPExpression('tomorrow');
+
+      typeNLP(modal, 'tomorrow');
+      const promised = preview(modal).textContent ?? '';
+
+      await modal.selectDate(parsed!.date);
+      const [inserted] = onSelect.mock.calls[0];
+
+      expect(promised).toContain(inserted);
+      expect(inserted).toContain('|tomorrow]]');
     });
   });
 
@@ -523,30 +565,30 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
     });
   });
 
-  describe('Original Text option lifecycle', () => {
+  describe('Typed text option lifecycle', () => {
     it('adds/relabels/removes the option as NLP text availability changes', () => {
-      settings.dailyNotesAliasPresetId = 'original-text';
+      settings.dailyNotesAliasPresetId = 'typed-text';
       settings.dailyNotesAliasFallbackPresetId = 'iso8601';
       const modal = openModal('insert-daily-note');
       const select = formatSelector(modal);
       if (!select) throw new Error('format selector missing');
 
-      // No text yet: no original-text option
-      expect(select.options[0].value).not.toBe('original-text');
+      // No text yet: no typed-text option
+      expect(select.options[0].value).not.toBe('typed-text');
 
-      // Text appears: option added first and selected (configured as original-text)
+      // Text appears: option added first and selected (configured as typed-text)
       typeNLP(modal, 'tomorrow');
-      expect(select.options[0].value).toBe('original-text');
-      expect(select.options[0].text).toBe('Original Text (tomorrow)');
+      expect(select.options[0].value).toBe('typed-text');
+      expect(select.options[0].text).toBe('Typed text (tomorrow)');
       expect(select.options[0].selected).toBe(true);
 
       // Label follows the text
       typeNLP(modal, 'next friday');
-      expect(select.options[0].text).toBe('Original Text (next friday)');
+      expect(select.options[0].text).toBe('Typed text (next friday)');
 
       // Text cleared: option removed, fallback preset selected
       typeNLP(modal, '');
-      expect(select.options[0].value).not.toBe('original-text');
+      expect(select.options[0].value).not.toBe('typed-text');
       expect(select.value).toBe('iso8601');
     });
   });
@@ -576,7 +618,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       datePresets.forEach((preset, i) => {
         const example = formatterService.getFormatExample(preset.format, newDay);
         expect(select.options[i].text).toBe(
-          `${presetName(preset, key => i18n.t(key))} (${example})`
+          `${presetName(preset, translateWith(i18n))} (${example})`
         );
         // One literal, independent of the resolver: a wrong key prefix or a
         // wrong fallback order inside presetName would leave the line above green

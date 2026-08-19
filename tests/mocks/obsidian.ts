@@ -17,6 +17,7 @@ export class Plugin {
   loadData = jest.fn(async (): Promise<any> => ({}));
   saveData = jest.fn(async (_data: any): Promise<void> => {});
   registerEvent(_event: any): void {}
+  registerDomEvent = jest.fn((_el: any, _type: string, _handler: any, _options?: any): void => {});
 }
 
 export class PluginSettingTab {
@@ -170,8 +171,43 @@ export class Setting {
           inputEl.checked = value;
           return component;
         },
+        // Present because the real ToggleComponent has it and the settings
+        // section calls it — a toggle with no label of its own needs one.
+        setTooltip(tooltip: string) {
+          inputEl.setAttribute('aria-label', tooltip);
+          return component;
+        },
         onChange(handler: (value: boolean) => any) {
           inputEl.addEventListener('change', () => handler(inputEl.checked));
+          return component;
+        },
+      };
+      cb(component);
+    }
+    return this;
+  }
+
+  addExtraButton(cb: (button: any) => any): this {
+    if (this.hasDom) {
+      // A div, not a button: that is what ExtraButtonComponent creates, and a
+      // test that looked for `button` would pass here and find nothing in a
+      // real vault.
+      const extraSettingsEl = this.controlEl.createDiv({
+        cls: 'clickable-icon extra-setting-button',
+        attr: { tabIndex: 0 },
+      }) as HTMLElement;
+      const component = {
+        extraSettingsEl,
+        setIcon(icon: string) {
+          extraSettingsEl.setAttribute('data-icon', icon);
+          return component;
+        },
+        setTooltip(tooltip: string) {
+          extraSettingsEl.setAttribute('aria-label', tooltip);
+          return component;
+        },
+        onClick(handler: () => any) {
+          extraSettingsEl.addEventListener('click', () => handler());
           return component;
         },
       };
@@ -300,7 +336,16 @@ export class Modal {
     };
   }
 
-  open(): void {}
+  /**
+   * Every modal opened since the last reset, in order. A command that opens a
+   * picker hands it nothing a test can read otherwise: the real `open()` would
+   * render, this mock does not, and the constructor arguments are gone by then.
+   */
+  static opened: Modal[] = [];
+
+  open(): void {
+    Modal.opened.push(this);
+  }
   close(): void {
     this.containerEl.remove?.();
   }
@@ -320,6 +365,21 @@ export class Notice {
 
 export abstract class EditorSuggest<T> {
   app: any;
+  /**
+   * The trigger info of the popup currently open, as Obsidian sets it between
+   * onTrigger and selectSuggestion. A test drives the flow by assigning it.
+   */
+  context: any = null;
+  /** Key bindings the suggest registers (ESC and TAB dismissals) */
+  scope: { register: jest.Mock } = { register: jest.fn() };
+  /**
+   * A method on the prototype, never an instance field: a field assigned by
+   * this base class would shadow a subclass's own `close()` override, and a
+   * test of that override would pass without ever running it.
+   */
+  close(): void {}
+  /** On the prototype too, for the same reason: subclasses call it. */
+  setInstructions(_instructions: any[]): void {}
 
   constructor(app: any) {
     this.app = app;
@@ -328,5 +388,5 @@ export abstract class EditorSuggest<T> {
   abstract onTrigger(cursor: any, editor: any): any;
   abstract getSuggestions(context: any): T[];
   abstract renderSuggestion(value: T, el: HTMLElement): void;
-  abstract selectSuggestion(value: T): void;
+  abstract selectSuggestion(value: T, evt?: any): void;
 }

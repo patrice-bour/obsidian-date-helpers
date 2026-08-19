@@ -1,5 +1,5 @@
 import { FormatPreset } from '@/types/format-preset';
-import { TranslationKey, Translate } from '@/i18n/types';
+import { PlainTranslationKey, Translate } from '@/i18n/types';
 
 /**
  * Resolve a preset's label from its identity.
@@ -25,6 +25,8 @@ export function presetDescription(preset: FormatPreset, t: Translate): string {
 }
 
 function translated(t: Translate, key: string): string | null {
-  const value = t(key as TranslationKey);
+  // `PlainTranslationKey`, not `TranslationKey`: the wide union would let a
+  // parameterised key through with no argument, and render its raw template.
+  const value = t(key as PlainTranslationKey);
   return value === key ? null : value;
 }

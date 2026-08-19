@@ -4,6 +4,7 @@ import { DateService } from '@/services/date-service';
 import { DateHelpersSettings } from '@/types/settings';
 import { FormatPreset } from '@/types/format-preset';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
+import { SELECTED_TEXT_SOURCE, TYPED_TEXT_SOURCE } from '@/types/alias-source';
 
 describe('DatePickerState', () => {
   let dateService: DateService;
@@ -49,13 +50,38 @@ describe('DatePickerState', () => {
       expect(saveSettings).toHaveBeenCalled();
     });
 
-    it('resolves the original-text pseudo-preset to the fallback preset', () => {
+    it('resolves a text alias source to the fallback preset', () => {
       settings.lastUsedAction = 'insert-daily-note';
-      settings.dailyNotesAliasPresetId = 'original-text';
+      settings.dailyNotesAliasPresetId = TYPED_TEXT_SOURCE;
       settings.dailyNotesAliasFallbackPresetId = 'locale-long';
       const state = new DatePickerState(presets, settings, dateService, saveSettings, {
         initialNLPText: 'tomorrow',
       });
+      expect(state.selectedPreset.id).toBe('locale-long');
+    });
+
+    it('opens on the remembered format when an expression is carried in', () => {
+      settings.defaultDatePresetId = 'locale-long';
+
+      const state = createState({ initialNLPText: 'next monday' });
+
+      expect(state.getPresetIdForAction('insert-text')).toBe('locale-long');
+      expect(state.selectedPreset.id).toBe('locale-long');
+    });
+
+    it('ignores a stale nlpDefaultPresetId left in stored settings', () => {
+      // The purge clears the key on load, so only a cast can reproduce it —
+      // and it has to be reproduced, because the rule under test is "one
+      // memory", not "the second key is absent". Both the resolved id and the
+      // preset the selector opens on are asserted: the read path and the
+      // construction site are two places a second memory can come back, and a
+      // test of either one alone stays green while the other regresses.
+      (settings as unknown as Record<string, string>).nlpDefaultPresetId = 'iso8601';
+      settings.defaultDatePresetId = 'locale-long';
+
+      const state = createState({ initialNLPText: 'tomorrow' });
+
+      expect(state.getPresetIdForAction('insert-text')).toBe('locale-long');
       expect(state.selectedPreset.id).toBe('locale-long');
     });
 
@@ -102,16 +128,16 @@ describe('DatePickerState', () => {
       expect(settings.dailyNotesAliasPresetId).toBe('iso8601');
     });
 
-    it('accepts original-text only for daily-note actions', () => {
+    it('accepts a text alias source only for daily-note actions', () => {
       const state = createState();
       const before = settings.dailyNotesAliasPresetId;
 
-      state.setSelectedPreset('original-text'); // insert-text: ignored
+      state.setSelectedPreset(TYPED_TEXT_SOURCE); // insert-text: ignored
       expect(settings.dailyNotesAliasPresetId).toBe(before);
 
       state.setSelectedAction('insert-daily-note');
-      state.setSelectedPreset('original-text');
-      expect(settings.dailyNotesAliasPresetId).toBe('original-text');
+      state.setSelectedPreset(TYPED_TEXT_SOURCE);
+      expect(settings.dailyNotesAliasPresetId).toBe(TYPED_TEXT_SOURCE);
     });
 
     it('ignores unknown preset ids', () => {
@@ -119,6 +145,15 @@ describe('DatePickerState', () => {
       const before = state.selectedPreset;
       state.setSelectedPreset('nope');
       expect(state.selectedPreset).toBe(before);
+    });
+
+    it('remembers a format chosen while the NLP field holds text', () => {
+      const state = createState({ initialNLPText: 'tomorrow' });
+
+      state.setSelectedPreset('locale-long');
+
+      expect(settings.defaultDatePresetId).toBe('locale-long');
+      expect(state.getPresetIdForAction('insert-text')).toBe('locale-long');
     });
   });
 
@@ -183,36 +218,103 @@ describe('DatePickerState', () => {
     });
   });
 
-  describe('Original Text rules', () => {
-    it('is available only for daily-note actions with text', () => {
+  describe('text alias sources', () => {
+    it('offers the typed source only for daily-note actions with text', () => {
       const state = createState({ initialNLPText: 'tomorrow' });
-      expect(state.isOriginalTextAvailable()).toBe(false); // insert-text
+      expect(state.availableAliasSources()).toEqual([]); // insert-text
 
       state.setSelectedAction('insert-daily-note');
-      expect(state.isOriginalTextAvailable()).toBe(true);
+      expect(state.availableAliasSources()).toEqual([TYPED_TEXT_SOURCE]);
 
       state.updateNLPText('');
-      expect(state.isOriginalTextAvailable()).toBe(false);
+      expect(state.availableAliasSources()).toEqual([]);
     });
 
-    it('canUseOriginalTextForDate requires a matching parsed date', () => {
+    it('offers the selected source while the selection exists, listed first', () => {
+      const state = new DatePickerState(presets, settings, dateService, saveSettings, {
+        initialAction: 'insert-daily-note',
+        selectionText: 'réunion de cadrage',
+      });
+      expect(state.availableAliasSources()).toEqual([SELECTED_TEXT_SOURCE]);
+
+      state.updateNLPText('tomorrow');
+      expect(state.availableAliasSources()).toEqual([SELECTED_TEXT_SOURCE, TYPED_TEXT_SOURCE]);
+
+      // Clearing the NLP field does not take the selection with it
+      state.updateNLPText('');
+      expect(state.availableAliasSources()).toEqual([SELECTED_TEXT_SOURCE]);
+    });
+
+    it('keeps each source pointing at its own text', () => {
+      const state = new DatePickerState(presets, settings, dateService, saveSettings, {
+        initialAction: 'insert-daily-note',
+        selectionText: 'réunion de cadrage',
+        initialNLPText: 'tomorrow',
+      });
+
+      expect(state.getAliasSourceText(SELECTED_TEXT_SOURCE)).toBe('réunion de cadrage');
+      expect(state.getAliasSourceText(TYPED_TEXT_SOURCE)).toBe('tomorrow');
+    });
+
+    it('pre-selects the selection over the configured source', () => {
+      settings.dailyNotesAliasPresetId = TYPED_TEXT_SOURCE;
+      const state = new DatePickerState(presets, settings, dateService, saveSettings, {
+        initialAction: 'insert-daily-note',
+        selectionText: 'réunion de cadrage',
+        initialNLPText: 'tomorrow',
+      });
+
+      expect(state.selectedAliasSource()).toBe(SELECTED_TEXT_SOURCE);
+    });
+
+    it('selects no source when the configured one has no text', () => {
+      settings.dailyNotesAliasPresetId = SELECTED_TEXT_SOURCE;
+      const state = createState({ initialAction: 'insert-daily-note' });
+
+      expect(state.selectedAliasSource()).toBeNull();
+    });
+
+    it('exempts a typed text that parsed to no date, exactly like a selection', () => {
+      // The spec exempts "text that parsed to no date", whatever source it came
+      // from: it has no date to contradict. Only the selection used to be.
+      const state = createState({ initialAction: 'insert-daily-note' });
+      state.updateNLPText('réunion de cadrage');
+      state.setNLPParseResult(null);
+
+      expect(state.canUseAliasSourceForDate(TYPED_TEXT_SOURCE, dateService.now())).toBe(true);
+    });
+
+    it('still refuses a typed text before anything has been parsed', () => {
+      const state = createState({ initialAction: 'insert-daily-note' });
+      state.updateNLPText('tomorrow');
+
+      // Nothing has been through the parser yet: nothing can be concluded
+      expect(state.canUseAliasSourceForDate(TYPED_TEXT_SOURCE, dateService.now())).toBe(false);
+    });
+
+    it('canUseAliasSourceForDate requires a matching parsed date', () => {
       const state = createState({ initialNLPText: 'tomorrow' });
       const tomorrow = dateService.now().plus({ days: 1 }).startOf('day');
 
-      expect(state.canUseOriginalTextForDate(tomorrow)).toBe(false); // not parsed yet
+      expect(state.canUseAliasSourceForDate(TYPED_TEXT_SOURCE, tomorrow)).toBe(false); // not parsed yet
 
-      state.nlpParsedDate = tomorrow;
-      expect(state.canUseOriginalTextForDate(tomorrow)).toBe(true);
-      expect(state.canUseOriginalTextForDate(tomorrow.plus({ days: 1 }))).toBe(false);
+      state.setNLPParseResult(tomorrow);
+      expect(state.canUseAliasSourceForDate(TYPED_TEXT_SOURCE, tomorrow)).toBe(true);
+      expect(state.canUseAliasSourceForDate(TYPED_TEXT_SOURCE, tomorrow.plus({ days: 1 }))).toBe(
+        false
+      );
     });
 
     it('tolerates parsed dates carrying a different locale (field comparison)', () => {
       const state = createState({ initialNLPText: 'tomorrow' });
       const tomorrow = dateService.now().plus({ days: 1 }).startOf('day');
-      state.nlpParsedDate = tomorrow.setLocale('fr-FR');
-      expect(state.canUseOriginalTextForDate(DateTime.fromISO(tomorrow.toISODate() ?? ''))).toBe(
-        true
-      );
+      state.setNLPParseResult(tomorrow.setLocale('fr-FR'));
+      expect(
+        state.canUseAliasSourceForDate(
+          TYPED_TEXT_SOURCE,
+          DateTime.fromISO(tomorrow.toISODate() ?? '')
+        )
+      ).toBe(true);
     });
   });
 });

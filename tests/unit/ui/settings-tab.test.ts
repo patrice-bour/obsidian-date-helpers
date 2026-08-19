@@ -9,12 +9,14 @@
  * Obsidian's contract, verified in the manual test plan — not here.
  */
 
-import { App } from 'obsidian';
-import type { SettingDefinitionList } from 'obsidian';
+import { App, Setting } from 'obsidian';
+import { Modal } from '../../mocks/obsidian';
+import type { SettingDefinitionGroup, SettingDefinitionList } from 'obsidian';
 import { createMockApp } from '../../helpers/mock-app';
 import {
   findControl,
   findGroup,
+  findList,
   flattenDefinitions,
   groupHeadings,
   isDisabled,
@@ -23,6 +25,22 @@ import {
 import DateHelpersPlugin from '@/main';
 import { DateHelpersSettingTab } from '@/ui/settings-tab';
 import { LOCALE_REFRESH_DEBOUNCE_MS, MAX_TRIGGER_LENGTH } from '@/utils/constants';
+import { TriggerConfig } from '@/types/settings';
+import { translateByName } from '../../helpers/translate';
+
+/** A trigger opening the modal picker */
+const picker = (sequence: string): TriggerConfig => ({ sequence, mode: 'picker' });
+/** A trigger opening the inline suggestion popup */
+const inline = (sequence: string): TriggerConfig => ({ sequence, mode: 'inline' });
+
+/**
+ * A row that draws itself: the description rows a section emits around its
+ * list, and the trigger rows inside it. The `render` callback is what separates
+ * them from the declarative controls and the groups beside them.
+ */
+type RenderRow = { render: (setting: unknown) => void };
+const isRenderRow = <T>(item: T): item is T & RenderRow =>
+  typeof (item as RenderRow | undefined)?.render === 'function';
 
 /** Drain the microtask queue so post-await continuations have run. */
 const flush = async (): Promise<void> => {
@@ -35,7 +53,8 @@ describe('DateHelpersSettingTab', () => {
   let app: App;
   let plugin: DateHelpersPlugin & { saveData: jest.Mock; loadData: jest.Mock };
   let tab: DateHelpersSettingTab;
-  const t = (key: string): string => plugin.i18n.t(key as never);
+  // Lazy: `plugin` is assigned in `beforeEach`, well after this line runs.
+  const t = (key: string): string => translateByName(plugin.i18n)(key);
 
   /**
    * `update()` and `refreshDomState()` belong to Obsidian, not to us: the mock
@@ -87,15 +106,12 @@ describe('DateHelpersSettingTab', () => {
         'dailyNotesAliasFallbackPresetId',
         'dailyNotesCreateIfMissing',
         'defaultDatePresetId',
-        'defaultTimePresetId',
-        'defaultDateTimePresetId',
         'locale',
         'weekStart',
         'enableDatePicker',
         'enableNLP',
         'nlpAutoDetectLanguage',
         'nlpStrictMode',
-        'showParsingWarning',
       ];
       const definitions = tab.getSettingDefinitions();
 
@@ -227,9 +243,13 @@ describe('DateHelpersSettingTab', () => {
       update().mockClear();
       refreshDomState().mockClear();
 
-      await tab.setControlValue('showParsingWarning', false);
+      // Must be a key that still exists: setControlValue returns early on an
+      // unknown one, which would make the assertions below true by vacuity.
+      // A dropdown always hands over a string, so 'true' is the real path.
+      await tab.setControlValue('nlpStrictMode', 'true');
       jest.advanceTimersByTime(LOCALE_REFRESH_DEBOUNCE_MS * 2);
 
+      expect(plugin.settings.nlpStrictMode).toBe(true);
       expect(update()).not.toHaveBeenCalled();
       expect(refreshDomState()).not.toHaveBeenCalled();
     });
@@ -243,8 +263,8 @@ describe('DateHelpersSettingTab', () => {
       // still live, and Obsidian documents update() as the call a tab makes
       // when its data changes, on screen or not.
       jest.useRealTimers();
-      plugin.settings.triggerCharacters = ['@@', '##'];
-      const list = findGroup(tab.getSettingDefinitions(), t('settings.sections.triggers'));
+      plugin.settings.triggerCharacters = [picker('@@'), picker('##')];
+      const list = findList(tab.getSettingDefinitions());
       update().mockClear();
 
       (list as SettingDefinitionList).onDelete?.(0);
@@ -290,21 +310,21 @@ describe('DateHelpersSettingTab', () => {
         tab.hide();
         update().mockClear();
 
-        await tab.addTrigger('//d');
+        await tab.addTrigger(inline('//d'));
 
-        expect(plugin.settings.triggerCharacters).toContain('//d');
+        expect(plugin.settings.triggerCharacters).toContainEqual(inline('//d'));
         expect(update()).toHaveBeenCalled();
       });
 
       it('still rebuilds when a trigger is removed', async () => {
         jest.useRealTimers();
-        plugin.settings.triggerCharacters = ['@@', '##'];
+        plugin.settings.triggerCharacters = [picker('@@'), picker('##')];
         tab.hide();
         update().mockClear();
 
         await tab.removeTrigger('##');
 
-        expect(plugin.settings.triggerCharacters).not.toContain('##');
+        expect(plugin.settings.triggerCharacters).not.toContainEqual(picker('##'));
         expect(update()).toHaveBeenCalled();
       });
 
@@ -341,8 +361,68 @@ describe('DateHelpersSettingTab', () => {
     });
   });
 
+  describe('pinned presets for the inline suggest', () => {
+    /** The rows of the format-preset reference section that carry a toggle */
+    function pinRows() {
+      return flattenDefinitions(tab.getSettingDefinitions()).filter(
+        (item): item is typeof item & { render: (setting: unknown) => void } =>
+          'render' in item && typeof (item as { render?: unknown }).render === 'function'
+      );
+    }
+
+    /** Render every preset row into a container and return its checkboxes */
+    function renderPresetToggles(): HTMLInputElement[] {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      for (const row of pinRows()) {
+        row.render(new Setting(container) as never);
+      }
+      return Array.from(container.querySelectorAll('input[type="checkbox"]'));
+    }
+
+    afterEach(() => {
+      document.body.replaceChildren();
+    });
+
+    it('gives every date and datetime preset a toggle, reflecting its stored state', () => {
+      const pinnable = plugin.settings.formatPresets.filter(preset => preset.type !== 'time');
+      const toggles = renderPresetToggles();
+
+      expect(toggles).toHaveLength(pinnable.length);
+      pinnable.forEach((preset, i) => {
+        expect(toggles[i].checked).toBe(preset.showInSuggest === true);
+      });
+    });
+
+    it('saves the flag with the preset when toggled', async () => {
+      const pinnable = plugin.settings.formatPresets.filter(preset => preset.type !== 'time');
+      const target = pinnable[0];
+      const before = target.showInSuggest === true;
+
+      const toggles = renderPresetToggles();
+      toggles[0].checked = !before;
+      toggles[0].dispatchEvent(new Event('change'));
+      await flush();
+
+      const stored = plugin.settings.formatPresets.find(preset => preset.id === target.id);
+      expect(stored?.showInSuggest).toBe(!before);
+      expect(plugin.saveData).toHaveBeenCalled();
+    });
+
+    it('leaves the preset order alone when the pinned set changes', async () => {
+      const orderBefore = plugin.settings.formatPresets.map(preset => preset.id);
+
+      const toggles = renderPresetToggles();
+      toggles[0].checked = !toggles[0].checked;
+      toggles[0].dispatchEvent(new Event('change'));
+      await flush();
+
+      expect(plugin.settings.formatPresets.map(preset => preset.id)).toEqual(orderBefore);
+    });
+  });
+
   describe('preset dropdowns', () => {
-    it('offers the original-text option on the alias format only', () => {
+    it('offers both text alias sources on the alias format only', () => {
       const definitions = tab.getSettingDefinitions();
       const alias = findControl(definitions, 'dailyNotesAliasPresetId').control;
       const fallback = findControl(definitions, 'dailyNotesAliasFallbackPresetId').control;
@@ -350,9 +430,12 @@ describe('DateHelpersSettingTab', () => {
       if (alias.type !== 'dropdown' || fallback.type !== 'dropdown') {
         throw new Error('preset settings must be dropdowns');
       }
-      expect(Object.keys(alias.options)[0]).toBe('original-text');
-      expect(alias.options['original-text']).toBe('Original Text');
-      expect(Object.keys(fallback.options)).not.toContain('original-text');
+      expect(Object.keys(alias.options).slice(0, 2)).toEqual(['selected-text', 'typed-text']);
+      expect(alias.options['selected-text']).toBe('Selected text');
+      expect(alias.options['typed-text']).toBe('Typed text');
+
+      expect(Object.keys(fallback.options)).not.toContain('selected-text');
+      expect(Object.keys(fallback.options)).not.toContain('typed-text');
     });
 
     it('labels each preset with a rendered example', () => {
@@ -375,7 +458,7 @@ describe('DateHelpersSettingTab', () => {
   });
 
   describe('conditional NLP sub-settings', () => {
-    const nlpSubSettings = ['nlpAutoDetectLanguage', 'nlpStrictMode', 'showParsingWarning'];
+    const nlpSubSettings = ['nlpAutoDetectLanguage', 'nlpStrictMode'];
 
     it('shows them when NLP is enabled', () => {
       plugin.settings.enableNLP = true;
@@ -460,37 +543,295 @@ describe('DateHelpersSettingTab', () => {
   });
 
   describe('trigger characters', () => {
-    const triggerList = (): SettingDefinitionList => {
+    const triggerList = (): SettingDefinitionList => findList(tab.getSettingDefinitions());
+
+    /** The group carrying the section heading, its prose, and the add button. */
+    const triggerGroup = (): SettingDefinitionGroup => {
       const group = findGroup(tab.getSettingDefinitions(), t('settings.sections.triggers'));
-      if (!group || group.type !== 'list') throw new Error('triggers must be a list definition');
-      return group as SettingDefinitionList;
+      if (!group || group.type !== 'group') throw new Error('the triggers section has no group');
+      return group;
     };
 
+    /**
+     * The add affordance, rendered. It rides the group's header rather than the
+     * list: the list's own header is empty now that the title sits on the
+     * group, and a `+` alone in it belongs to nothing. Reaching it means running
+     * the `extraButtons` callback the group declares.
+     */
+    const addButton = (): HTMLElement => {
+      const [declare] = triggerGroup().extraButtons ?? [];
+      if (!declare) throw new Error('the triggers group declares no add affordance');
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      new Setting(container).addExtraButton(declare as never);
+
+      const button = container.querySelector('.extra-setting-button');
+      if (!button) throw new Error('the add affordance rendered nothing');
+      return button as HTMLElement;
+    };
+
+    /**
+     * Render the trigger rows into a container and return their mode selects,
+     * in row order.
+     */
+    function renderModeSelects(): HTMLSelectElement[] {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      for (const item of triggerList().items ?? []) {
+        if (isRenderRow(item)) item.render(new Setting(container) as never);
+      }
+      return Array.from(container.querySelectorAll('select'));
+    }
+
+    afterEach(() => {
+      document.body.replaceChildren();
+    });
+
     it('lists one item per configured trigger', () => {
-      plugin.settings.triggerCharacters = ['@@', '//d'];
+      plugin.settings.triggerCharacters = [picker('@@'), inline('//d')];
 
       const names = (triggerList().items ?? []).map(item => ('name' in item ? item.name : ''));
       expect(names).toEqual(['@@', '//d']);
     });
 
-    it('offers an add affordance', () => {
-      expect(triggerList().addItem).toBeDefined();
+    it('gives every row a mode control showing what that trigger opens', () => {
+      plugin.settings.triggerCharacters = [picker('@@'), inline('//d')];
+
+      const selects = renderModeSelects();
+
+      expect(selects).toHaveLength(2);
+      expect(selects.map(select => select.value)).toEqual(['picker', 'inline']);
+      // Both modes are offered on every row: length decides nothing any more.
+      for (const select of selects) {
+        expect(Array.from(select.options).map(option => option.value)).toEqual([
+          'picker',
+          'inline',
+        ]);
+      }
+    });
+
+    it('labels the two modes, rather than showing their stored values', () => {
+      plugin.settings.triggerCharacters = [picker('@@')];
+
+      const [select] = renderModeSelects();
+
+      expect(Array.from(select.options).map(option => option.text)).toEqual([
+        t('settings.triggers.mode.picker'),
+        t('settings.triggers.mode.inline'),
+      ]);
+    });
+
+    it('persists a mode change on the row it was made', async () => {
+      plugin.settings.triggerCharacters = [picker('@@'), inline('@')];
+      const saveSettings = jest.spyOn(plugin, 'saveSettings');
+      const [first] = renderModeSelects();
+
+      first.value = 'inline';
+      first.dispatchEvent(new Event('change'));
+      await flush();
+
+      expect(plugin.settings.triggerCharacters).toEqual([inline('@@'), inline('@')]);
+      expect(saveSettings).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the list alone when the mode is set to what it already is', async () => {
+      plugin.settings.triggerCharacters = [picker('@@'), inline('@')];
+      const saveSettings = jest.spyOn(plugin, 'saveSettings');
+      const [first] = renderModeSelects();
+
+      first.value = 'picker';
+      first.dispatchEvent(new Event('change'));
+      await flush();
+
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@'), inline('@')]);
+      expect(saveSettings).not.toHaveBeenCalled();
+    });
+
+    it('ignores a mode change for a row that has since been deleted', async () => {
+      // The rendered rows outlive the list they were built from: the mode
+      // select of a row deleted by a quicker click must not resurrect it.
+      plugin.settings.triggerCharacters = [picker('@@'), picker('##')];
+      const [, second] = renderModeSelects();
+
+      await tab.removeTrigger('##');
+      second.value = 'inline';
+      second.dispatchEvent(new Event('change'));
+      await flush();
+
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@')]);
+    });
+
+    it('hands the add dialog the sequences, not the trigger objects', async () => {
+      // The dialog's duplicate check compares against `existing`. Handing it
+      // objects would make it always miss: the user types `@@`, sees no error,
+      // the dialog closes — and `addTrigger` refuses in silence.
+      plugin.settings.triggerCharacters = [picker('@@'), inline('@')];
+      Modal.opened = [];
+      addButton().click();
+
+      // The mock records what `open()` was called on but does not render it.
+      const dialog = Modal.opened.at(-1) as unknown as {
+        onOpen: () => void;
+        contentEl: HTMLElement;
+      };
+      dialog.onOpen();
+      const input = dialog.contentEl.querySelector('input') as HTMLInputElement;
+      input.value = '@@';
+      input.dispatchEvent(new Event('input'));
+      Array.from(dialog.contentEl.querySelectorAll('button'))
+        .find(button => button.textContent === t('settings.triggers.add'))
+        ?.click();
+      await flush();
+
+      expect(dialog.contentEl.textContent).toContain(t('settings.triggers.validation.duplicate'));
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@'), inline('@')]);
+    });
+
+    it('stores the mode the add dialog collected, not a default', async () => {
+      // The dialog collects a mode and `addTrigger` stores the one it is given
+      // — both tested apart. The join between them was asserted nowhere, so
+      // `onSubmit` could flatten every new trigger to `picker`: the user picks
+      // Inline suggestions and the row appears as Date picker.
+      plugin.settings.triggerCharacters = [picker('@@')];
+      Modal.opened = [];
+      addButton().click();
+
+      const dialog = Modal.opened.at(-1) as unknown as {
+        onOpen: () => void;
+        contentEl: HTMLElement;
+      };
+      dialog.onOpen();
+      const input = dialog.contentEl.querySelector('input') as HTMLInputElement;
+      input.value = ';;';
+      input.dispatchEvent(new Event('input'));
+      const select = dialog.contentEl.querySelector('select') as HTMLSelectElement;
+      select.value = 'inline';
+      select.dispatchEvent(new Event('change'));
+      Array.from(dialog.contentEl.querySelectorAll('button'))
+        .find(button => button.textContent === t('settings.triggers.add'))
+        ?.click();
+      await flush();
+
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@'), inline(';;')]);
+    });
+
+    it('leaves no placeholder unresolved in the add dialog', async () => {
+      // The compiler now forces the argument, but not the agreement between
+      // `{{max}}` and the property feeding it. This is the only test that
+      // renders the string through the real call site, with the real parameter
+      // name, so `{{maxi}}` fed `{ max: 3 }` fails here and nowhere else — the
+      // locale-file scan builds its parameters from the template itself, so it
+      // always satisfies itself. The dialog's own tests translate with an
+      // identity stub, which never interpolates anything.
+      plugin.settings.triggerCharacters = [picker('@@')];
+      Modal.opened = [];
+      addButton().click();
+
+      const dialog = Modal.opened.at(-1) as unknown as {
+        onOpen: () => void;
+        contentEl: HTMLElement;
+      };
+      dialog.onOpen();
+      // Submitting an over-long sequence renders the second one, the error.
+      const input = dialog.contentEl.querySelector('input') as HTMLInputElement;
+      input.value = 'x'.repeat(MAX_TRIGGER_LENGTH + 1);
+      input.dispatchEvent(new Event('input'));
+      Array.from(dialog.contentEl.querySelectorAll('button'))
+        .find(button => button.textContent === t('settings.triggers.add'))
+        ?.click();
+      await flush();
+
+      expect(dialog.contentEl.textContent).not.toContain('{{');
+      expect(dialog.contentEl.textContent).toContain(String(MAX_TRIGGER_LENGTH));
+    });
+
+    it('refuses an unknown mode at the mutation point', async () => {
+      plugin.settings.triggerCharacters = [picker('@@')];
+
+      await tab.setTriggerMode('@@', 'sideways' as never);
+
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@')]);
+    });
+
+    it('introduces the section under its heading, not above it', () => {
+      // The intro says what the list below is for. It used to be emitted before
+      // the heading — a list draws its heading above everything it holds — so
+      // it read as a closing note on the previous section. The heading now sits
+      // on a group, which draws it above the prose the group holds.
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const prose = (triggerGroup().items ?? []).filter(isRenderRow).map(row => {
+        const el = container.createDiv();
+        row.render(new Setting(el) as never);
+        return el.textContent;
+      });
+
+      expect(prose).toEqual([
+        t('settings.triggers.description'),
+        t('settings.triggers.reloadNote'),
+      ]);
+    });
+
+    it('puts the rows after the prose that introduces them', () => {
+      // Two definitions, in this order: the group with the title and the prose,
+      // then the list with the rows.
+      const items = tab.getSettingDefinitions();
+      const groupAt = items.findIndex(
+        item => 'heading' in item && item.heading === t('settings.sections.triggers')
+      );
+      const listAt = items.findIndex(item => 'type' in item && item.type === 'list');
+
+      expect(groupAt).toBeGreaterThanOrEqual(0);
+      expect(groupAt).toBeLessThan(listAt);
+    });
+
+    it('warns once, at section level, that a change needs a reload', () => {
+      // Triggers are read at plugin load: adding, removing or reassigning one
+      // looks immediate and is not. Once above the list, not on every row —
+      // repeated on each it reads as a property of that trigger.
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const section = flattenDefinitions(tab.getSettingDefinitions()).filter(isRenderRow);
+      for (const row of section) row.render(new Setting(container) as never);
+
+      const occurrences = container.textContent?.split(t('settings.triggers.reloadNote')).length;
+      expect(occurrences).toBe(2); // one split point ⇒ exactly one occurrence
+    });
+
+    it('draws the add affordance as a button, not as a bare glyph', () => {
+      // An extra-setting button renders as a muted glyph. Alone at the right of
+      // a heading, with no row of controls to belong to, it reads as decoration.
+      expect(addButton().classList.contains('settings-heading-action')).toBe(true);
+    });
+
+    it('names an icon the button can actually draw', () => {
+      // An unknown icon name draws nothing at all: the button keeps its box and
+      // its click target, and shows an empty square.
+      expect(addButton().getAttribute('data-icon')).toBe('lucide-plus');
+    });
+
+    it('offers an add affordance beside the section title', () => {
+      expect(addButton().getAttribute('aria-label')).toBe(t('settings.triggers.addTitle'));
+      expect(triggerList().addItem).toBeUndefined();
     });
 
     it('offers deletion when more than one trigger remains', () => {
-      plugin.settings.triggerCharacters = ['@@', '//d'];
+      plugin.settings.triggerCharacters = [picker('@@'), inline('//d')];
       expect(triggerList().onDelete).toBeDefined();
     });
 
     it('withholds deletion for the last remaining trigger', () => {
       // At least one trigger is required, so the affordance is absent rather
       // than present-and-failing.
-      plugin.settings.triggerCharacters = ['@@'];
+      plugin.settings.triggerCharacters = [picker('@@')];
       expect(triggerList().onDelete).toBeUndefined();
     });
 
     it('shows the minimum-trigger explanation when only one remains', () => {
-      plugin.settings.triggerCharacters = ['@@'];
+      plugin.settings.triggerCharacters = [picker('@@')];
       const items = triggerList().items ?? [];
 
       const explains = items.some(
@@ -503,21 +844,21 @@ describe('DateHelpersSettingTab', () => {
       // The rendered rows keep their original indices until update() rebuilds
       // the tree, and that only happens after an await. A second click landing
       // in that window carries an index that no longer means what it meant.
-      plugin.settings.triggerCharacters = ['@@', '##', '$$', '%%'];
+      plugin.settings.triggerCharacters = [picker('@@'), picker('##'), picker('$$'), picker('%%')];
       const list = triggerList();
 
       list.onDelete?.(0);
       list.onDelete?.(1);
       await flush();
 
-      expect(plugin.settings.triggerCharacters).toEqual(['$$', '%%']);
+      expect(plugin.settings.triggerCharacters).toEqual([picker('$$'), picker('%%')]);
     });
 
     it('never empties the list, whatever the click sequence', async () => {
       // An empty list passes validateSettings on every later load, and main.ts
       // then skips registerTriggerCharacters — the picker stays dead until the
       // user notices and re-adds a trigger by hand.
-      plugin.settings.triggerCharacters = ['@@', '##'];
+      plugin.settings.triggerCharacters = [picker('@@'), picker('##')];
       const list = triggerList();
 
       // Two *different* rows, both clicked before the rebuild. Resolving by
@@ -532,7 +873,7 @@ describe('DateHelpersSettingTab', () => {
     });
 
     it('ignores a delete for a trigger that is already gone', async () => {
-      plugin.settings.triggerCharacters = ['@@', '##', '$$'];
+      plugin.settings.triggerCharacters = [picker('@@'), picker('##'), picker('$$')];
       const list = triggerList();
 
       list.onDelete?.(1);
@@ -540,21 +881,22 @@ describe('DateHelpersSettingTab', () => {
       list.onDelete?.(1); // same stale row, clicked twice
       await flush();
 
-      expect(plugin.settings.triggerCharacters).toEqual(['@@', '$$']);
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@'), picker('$$')]);
     });
 
     it('refuses an invalid trigger at the mutation point, not only in the dialog', async () => {
-      plugin.settings.triggerCharacters = ['@@'];
+      plugin.settings.triggerCharacters = [picker('@@')];
 
-      await tab.addTrigger('@@');
-      await tab.addTrigger('');
-      await tab.addTrigger('x'.repeat(MAX_TRIGGER_LENGTH + 1));
+      await tab.addTrigger(inline('@@')); // the sequence is what makes it a duplicate
+      await tab.addTrigger(picker(''));
+      await tab.addTrigger(picker('x'.repeat(MAX_TRIGGER_LENGTH + 1)));
+      await tab.addTrigger({ sequence: ';;', mode: 'sideways' } as unknown as TriggerConfig);
 
-      expect(plugin.settings.triggerCharacters).toEqual(['@@']);
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@')]);
     });
 
     it('deletes the trigger at the given index and rebuilds', async () => {
-      plugin.settings.triggerCharacters = ['@@', '//d', ';;'];
+      plugin.settings.triggerCharacters = [picker('@@'), inline('//d'), picker(';;')];
       const list = triggerList();
       update().mockClear();
 
@@ -562,7 +904,7 @@ describe('DateHelpersSettingTab', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(plugin.settings.triggerCharacters).toEqual(['@@', ';;']);
+      expect(plugin.settings.triggerCharacters).toEqual([picker('@@'), picker(';;')]);
       expect(update()).toHaveBeenCalled();
     });
   });

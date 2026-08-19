@@ -1,47 +1,40 @@
-import type { SettingDefinitionControl, SettingDefinitionGroup } from 'obsidian';
-import { FormatPreset } from '@/types/format-preset';
+import type { SettingDefinitionGroup } from 'obsidian';
 import { SettingsKey, SettingsSectionContext, descriptionRow } from '../section-context';
 import { buildPresetOptions } from '../preset-dropdown';
 
 /**
- * Text formatting section: default date / time / datetime presets.
+ * Text formatting section: the default date preset. Time and datetime have no
+ * equivalent — each preset command carries its own preset.
+ *
+ * The translation keys are spelled out rather than built from a variable: a
+ * template lookup makes `unused-translation-keys` accept any
+ * `settings.text.*.name`, so an orphan key would go unnoticed.
  */
 export function buildTextFormatsSection(
   ctx: SettingsSectionContext
 ): SettingDefinitionGroup<SettingsKey> {
+  const { plugin, t } = ctx;
+  const datePresets = plugin.settings.formatPresets.filter(p => p.type === 'date');
+
   return {
     type: 'group',
-    heading: ctx.t('settings.sections.text'),
+    heading: t('settings.sections.text'),
     items: [
-      descriptionRow(ctx.t('settings.text.description')),
-      defaultFormatSetting(ctx, 'date', 'defaultDatePresetId', 'defaultDateFormat'),
-      defaultFormatSetting(ctx, 'time', 'defaultTimePresetId', 'defaultTimeFormat'),
-      defaultFormatSetting(ctx, 'datetime', 'defaultDateTimePresetId', 'defaultDateTimeFormat'),
+      descriptionRow(t('settings.text.description')),
+      {
+        name: t('settings.text.defaultDateFormat.name'),
+        desc: t('settings.text.defaultDateFormat.desc'),
+        control: {
+          type: 'dropdown',
+          key: 'defaultDatePresetId',
+          disabled: datePresets.length === 0,
+          options: buildPresetOptions({
+            presets: datePresets,
+            formatterService: plugin.formatterService,
+            t,
+          }),
+        },
+      },
     ],
-  };
-}
-
-function defaultFormatSetting(
-  ctx: SettingsSectionContext,
-  presetType: FormatPreset['type'],
-  key: SettingsKey,
-  labelKey: 'defaultDateFormat' | 'defaultTimeFormat' | 'defaultDateTimeFormat'
-): SettingDefinitionControl<SettingsKey> {
-  const { plugin, t } = ctx;
-  const presets = plugin.settings.formatPresets.filter(p => p.type === presetType);
-
-  return {
-    name: t(`settings.text.${labelKey}.name`),
-    desc: t(`settings.text.${labelKey}.desc`),
-    control: {
-      type: 'dropdown',
-      key,
-      disabled: presets.length === 0,
-      options: buildPresetOptions({
-        presets,
-        formatterService: plugin.formatterService,
-        t,
-      }),
-    },
   };
 }

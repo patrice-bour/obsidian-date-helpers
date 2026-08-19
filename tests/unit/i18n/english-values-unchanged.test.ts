@@ -2,21 +2,23 @@ import en from '@/i18n/locales/en.json';
 import { lookupKey } from '../../helpers/translation-keys';
 
 /**
- * Every English literal moved into i18n must stay byte-identical to the text it
- * replaced. The published screenshots show an already-English picker and the
- * user guide quotes several of these strings verbatim, so an English user must
- * see no difference at all.
+ * Every English string the user reads is pinned here, byte for byte. The
+ * published screenshots show an English picker and the user guide quotes
+ * several of these strings verbatim, so no value drifts by accident.
  *
- * The right-hand side is the literal as it stood in the source before the move
- * (v0.1.4). It is a record, not a preference: changing one of these values is a
- * decision to retake the screenshots and update the guide.
+ * The right-hand side was the literal as it stood before the i18n move
+ * (v0.1.4). `add-alias-aware-date-entry` moves the record forward: the picker's
+ * labels go to sentence case, the three action commands gain a dialog ellipsis,
+ * and the split alias sources replace "Original Text". It is a record, not a
+ * preference: changing one of these values is a decision to retake the
+ * screenshots and update the guide — which that change does.
  */
-const LITERALS_BEFORE_THE_MOVE: Record<string, string> = {
-  // src/main.ts — fixed command names
-  'commands.insertText.name': 'Insert date as text',
-  'commands.insertDailyNote.name': 'Insert daily note link',
-  'commands.openDailyNote.name': 'Open daily note',
-  'commands.convertSelection.name': 'Convert selection to date',
+const PINNED_ENGLISH_VALUES: Record<string, string> = {
+  // src/main.ts — fixed command names. The ellipse marks a dialog: all three
+  // open the picker rather than inserting anything.
+  'commands.insertText.name': 'Insert date as text…',
+  'commands.insertDailyNote.name': 'Insert daily note link…',
+  'commands.openDailyNote.name': 'Open daily note…',
 
   // src/main.ts — preset-derived command names, prefix and separator
   'commands.presetCommand': '{{prefix}}: {{name}}',
@@ -25,9 +27,9 @@ const LITERALS_BEFORE_THE_MOVE: Record<string, string> = {
   'commands.prefix.datetime': 'Insert datetime',
 
   // src/ui/date-picker/action-selector.ts — tab labels (icons stay in the code)
-  'picker.tabs.insertText': 'Insert as Text',
-  'picker.tabs.insertDailyNote': 'Link to Daily Note',
-  'picker.tabs.openDailyNote': 'Open Daily Note',
+  'picker.tabs.insertText': 'Insert as text',
+  'picker.tabs.insertDailyNote': 'Link to daily note',
+  'picker.tabs.openDailyNote': 'Open daily note',
 
   // src/ui/date-picker/nlp-input.ts
   'picker.nlp.name': 'Natural language',
@@ -40,9 +42,20 @@ const LITERALS_BEFORE_THE_MOVE: Record<string, string> = {
   'picker.today': 'Today',
   'picker.openPreview': 'Open: {{date}}',
 
-  // src/ui/date-picker/format-selector.ts
-  'picker.originalText': 'Original Text',
-  'picker.originalTextWith': 'Original Text ({{text}})',
+  // src/ui/date-picker/format-selector.ts — the single "Original Text" entry
+  // split into two named sources in add-alias-aware-date-entry; the record
+  // moves forward with it, in the sentence case the change settled on.
+  'picker.selectedText': 'Selected text',
+  'picker.selectedTextWith': 'Selected text ({{text}})',
+  'picker.typedText': 'Typed text',
+  'picker.typedTextWith': 'Typed text ({{text}})',
+
+  // src/ui/date-picker-suggest.ts — the inline popup's own entries
+  'suggest.dailyNoteLink': 'Daily note link',
+  'suggest.openPicker': 'Open the picker…',
+
+  // src/ui/settings/sections/presets-list-section.ts — the per-preset toggle
+  'settings.presets.showInSuggest': 'Show in the inline suggestion popup',
 
   // Notices
   'errors.selectFailed': 'Failed to select date',
@@ -50,9 +63,7 @@ const LITERALS_BEFORE_THE_MOVE: Record<string, string> = {
   'errors.openDailyNoteFailed': 'Failed to open daily note',
   'errors.dailyNoteMissing':
     'Daily note does not exist: {{date}}. Enable "Auto-create" in settings to create automatically.',
-  'errors.parseFailed': 'Could not parse date from: {{text}}',
   'errors.invalidFormat': '[Invalid format: {{format}}]',
-  'notices.parsed': 'Parsed: {{text}} → {{date}}',
   'notices.settingsMigrated':
     'Date Helpers: Settings updated to Phase 6. Please reload the plugin (Cmd/Ctrl+R) to see updated commands.',
 
@@ -73,8 +84,8 @@ const LITERALS_BEFORE_THE_MOVE: Record<string, string> = {
   'settings.presets.formats.datetime-standard.name': 'Standard',
 };
 
-describe('English values are byte-identical to the literals they replaced', () => {
-  it.each(Object.entries(LITERALS_BEFORE_THE_MOVE))('%s', (key, literal) => {
+describe('English values are pinned byte for byte', () => {
+  it.each(Object.entries(PINNED_ENGLISH_VALUES))('%s', (key, literal) => {
     expect(lookupKey(en, key)).toBe(literal);
   });
 });
