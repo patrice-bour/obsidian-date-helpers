@@ -56,7 +56,7 @@ in `main.ts` as `addCommand({ id, name, editorCallback })`.
 | `date-picker-state.ts` | All non-DOM state: selected action, selected preset, view month, focused day, natural-language text |
 | `calendar-renderer.ts` | Month header, day labels, the 42-cell grid |
 | `nlp-input.ts` | The natural-language field and its preview |
-| `format-selector.ts` | The format dropdown, including the "Original Text" pseudo-preset |
+| `format-selector.ts` | The format dropdown, including the two text alias sources |
 | `action-selector.ts` | The three action tabs |
 | `keyboard-navigation.ts` | 13 bindings, registered on the modal's `Scope` |
 | `action-executor.ts` | Runs the selected action for a date |
@@ -67,10 +67,16 @@ that to the user, through Settings → Hotkeys.
 
 ## Three real flows
 
-**Trigger.** `DatePickerSuggest` extends `EditorSuggest` but never suggests anything: it uses
-`onTrigger` to spot a trigger sequence ending at the cursor, then opens the modal from
-`getSuggestions` and returns an empty list. On confirm the trigger text is replaced by the
-result; on cancel it is removed, which is why the modal's `onClose` is wrapped.
+**Trigger.** `DatePickerSuggest` extends `EditorSuggest`, and the `mode` stored beside each
+sequence decides the behaviour — the length decides nothing. `onTrigger` walks back from the
+caret: the nearest trigger wins, and at each position the longest one does, so `@@` is never
+read as a bare `@`. A `picker` trigger must end at the caret and opens the modal from
+`getSuggestions`, which returns an empty list; on confirm the trigger text is replaced by the
+result, on cancel it is removed, which is why the modal's `onClose` is wrapped. An `inline`
+trigger takes everything between it and the caret as the query, reparses it on each keystroke
+and lists the candidate insertions; validating one writes a single `replaceRange` over trigger
+and expression together, so one undo restores what was typed. Neither fires after a word
+character.
 
 **Command.** `main.ts` → `showUnifiedPicker(editor, action)` → the modal → `executeDateAction`
 → `onSelect` writes at the cursor or over the selection.
