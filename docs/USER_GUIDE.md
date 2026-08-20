@@ -53,7 +53,7 @@ There are two ways to open the date picker:
 
 `@` and `@@` are just the defaults. Each trigger carries a **mode** saying which of the two it opens, and you can change it, rename the sequence, or add your own — see [Trigger characters](#trigger-characters). The length of a sequence has no bearing on what it opens.
 
-Neither trigger fires in the middle of a word: `patrice@` and `blabla@` stay ordinary text.
+Neither trigger fires in the middle of a word: `any.pattern@` and `blabla@` stay ordinary text.
 
 The plugin registers **no default keyboard shortcuts** — Obsidian's community plugin policy leaves the choice to you. Assign your own in **Settings → Hotkeys**, filtering on `Date Helpers`.
 
@@ -353,7 +353,7 @@ Check that **Enable natural language parsing** is on. If your expression is in a
 Verify **Enable date picker** is on, and that no other plugin intercepts the sequence. You can add a different trigger with **+** and delete the one that clashes — as long as one remains — or ignore the trigger entirely and use the command palette.
 
 **Typing an email address opens a popup.**
-It should not: a trigger placed right after a word character is inert, so `patrice@` inserts a plain `@`. If a popup does open there, report it — that is a bug.
+It should not: a trigger placed right after a word character is inert, so `any.pattern@` inserts a plain `@`. If a popup does open there, report it — that is a bug.
 
 **The inline popup lists nothing but two entries.**
 That is what it does when your expression reads as no date: a daily note link carrying what you typed as its alias, and **Open the picker…**. Plain formats are left out on purpose — they cannot carry your words.

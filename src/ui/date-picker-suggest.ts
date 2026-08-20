@@ -64,7 +64,7 @@ export type DateSuggestion =
  * Length decides nothing: a one-character picker trigger and a
  * multi-character inline one are both legal.
  *
- * Neither fires mid-word: `blabla@` and `patrice@` stay ordinary text.
+ * Neither fires mid-word: `blabla@` and `any.pattern@` stay ordinary text.
  */
 export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
   private plugin: DateHelpersPlugin;
