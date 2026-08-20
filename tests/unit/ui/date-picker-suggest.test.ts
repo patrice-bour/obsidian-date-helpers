@@ -80,7 +80,7 @@ describe('DatePickerSuggest', () => {
     });
 
     it('stays inert when an email-like address is being typed', () => {
-      expect(triggerAtEndOf('write to patrice@')).toBeNull();
+      expect(triggerAtEndOf('write to any.pattern@')).toBeNull();
     });
 
     it('does not fire on a line with no trigger', () => {

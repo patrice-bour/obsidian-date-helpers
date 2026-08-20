@@ -41,7 +41,7 @@ That makes the plugin usable on text you wrote for humans, not only on text shap
 | **Insert daily note link…** | `[[Journal/2026-08-17\|August 17, 2026]]` |
 | **Open daily note…** | Opens the note, creating it if you asked for that |
 
-Which sequence opens what is yours to decide: every trigger declares its own mode, so `;` can open the picker and `//d` can open the popup. Neither fires in the middle of a word, so `patrice@` stays an email address.
+Which sequence opens what is yours to decide: every trigger declares its own mode, so `;` can open the picker and `//d` can open the popup. Neither fires in the middle of a word, so `any.pattern@` stays an email address.
 
 There is also one command per format preset, which inserts straight away without opening anything.
 
