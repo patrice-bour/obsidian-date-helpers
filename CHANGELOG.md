@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Both triggers were redrawn around one thing: the date your words resolved to. The `@` popup now states that date before it lists anything, the `@@` picker leads with the expression field instead of its tabs, and the picker's alias — the words that end up inside a wikilink — became a field you can edit before inserting. Five changes are breaking, all of them to the interface rather than to your stored settings.
+
+### Breaking changes
+
+- **The format selector stops naming presets and shows what it would write.** An option used to read `ISO 8601` or `Verbose`, and you inferred the output. Each option now carries the output itself — `2026-08-23`, `Sunday 23 August 2026` — and on a daily note link it carries the complete wikilink, brackets and path included, shortening the alias alone on a word boundary so the outputs stay tellable apart. The options keep a stable order, alias sources then format presets.
+- **`Tab` no longer dismisses the inline popup.** Dismissing and cancelling were the same action under two names. `Esc` keeps it, and `Tab` now opens the picker, carrying what you typed.
+- **`Open the picker…` leaves the popup's list.** It was an entry you scrolled to; it is a footer action on `Tab`. The list holds insertable results only.
+- **The picker's three action tabs become icon-only buttons**, 34 px, to the right of the expression field. Their labels move to the tooltip and the accessible name, so screen readers still announce them.
+- **The action icons are stroke SVG instead of emoji**, which renders the same across platforms.
+
+### Added
+
+- **The picker's alias is editable.** The result line pinned in the footer became a text field holding the alias, on the daily note link action. Fix a typo, drop a trailing word, adjust the case, then confirm: the edited text is what goes inside the wikilink. It is not held to the date your expression parsed to — the alias is your own word about the day you are confirming, not a restatement of it.
+- The alias field greys out, reversibly, when the option you picked does not use the alias, and it keeps showing the text while greyed. Your captured selection is not consumed: pick an alias output again and the field comes back with your edits intact.
+- The field is **absent** — not empty, not greyed — on the actions that carry no alias, and when there is neither a selection nor typed text. Start typing and it appears.
+- A long alias scrolls inside the field rather than wrapping, so the footer keeps its height.
+- **The inline popup leads with the resolved date.** A header row carries a calendar icon, the date in full words, and your query on the right. When nothing parses it says so instead of leaving you to guess.
+- The popup's entries are grouped under **Formats** and **Daily note**, and a footer bar shows the keys — `⏎ insert`, `esc cancel`.
+- With a captured selection, the popup's header carries a second row naming the held text and the key that gives it back.
+- **The picker names the day the open action would reach.** On **Open daily note**, a read-only line in the footer says what confirming would navigate to, and it follows the focused day. That action offers no format choice, so no option label can carry the preview.
+
+### Changed
+
+- **The picker leads with the expression field**, full width and monospace, at the top of the modal. Typing is the fastest path to a date and it now looks like it.
+- The calendar drops below the field and becomes a confirmation surface rather than the main event.
+- A parse failure is stated on one line under the field, and only then. When the expression resolves, the calendar already shows the month and marks the day — nothing is said twice.
+- The footer pins the alias field, then the format selector, `Today`, and an explicit `Insert` button on the right.
+
 ## [0.2.0] - 2026-08-19
 
 Selections stop being thrown away: a selection becomes the wikilink's alias — in the picker, under a trigger, and in the new `@` inline suggestion popup. Each trigger now declares what it opens. Five changes are breaking, and going back to 0.1.6 or earlier disables every trigger.
