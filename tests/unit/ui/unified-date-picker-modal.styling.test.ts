@@ -13,8 +13,16 @@
  * in `docs/testing/modal-layout-and-published-assets_manual_test_plan.md`.
  */
 
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
+
+/** Every file under `dir`, recursively. */
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap(nom => {
+    const chemin = join(dir, nom);
+    return statSync(chemin).isDirectory() ? walk(chemin) : [chemin];
+  });
+}
 import { App } from 'obsidian';
 import { createMockApp } from '../../helpers/mock-app';
 import { UnifiedDatePickerModal } from '@/ui/unified-date-picker-modal';
@@ -47,7 +55,9 @@ const ROOT_STYLES = STYLES.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g
  */
 function rootRuleBody(selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const matches = [...ROOT_STYLES.matchAll(new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`, 'gm'))];
+  const matches = [
+    ...ROOT_STYLES.matchAll(new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`, 'gm')),
+  ];
   if (matches.length !== 1) {
     throw new Error(`${selector}: expected exactly one root-level rule, found ${matches.length}`);
   }
@@ -244,21 +254,19 @@ describe('UnifiedDatePickerModal styling contract', () => {
   });
 
   describe('the action tabs fit the bounded width', () => {
-    it('wraps rather than clipping the third tab', () => {
+    it('keeps a square that no label can stretch', () => {
       const modal = openModal();
-      const selector = styleOf(modal, '.action-selector');
       const button = styleOf(modal, '.action-button');
 
-      expect(selector.flexWrap).toBe('wrap');
-      // The basis must be the label's own width. `flex: 1` is `1 1 0%`, and a
-      // zero basis means the items always fit the line however long the labels
-      // are — the row never wraps, it truncates. Measured before the fix: three
-      // tabs pinned at 131px each on one row, the middle label clipped.
-      expect(button.flexBasis).toBe('auto');
-      expect(button.flexGrow).toBe('1');
-      // And no `min-width: 0`, which is what lets an item shrink under its own
-      // label instead of pushing the row to a second line.
-      expect(button.minWidth).toBe('');
+      // The tabs used to grow and wrap, because their labels varied in length:
+      // three of them pinned at 131px each clipped the middle one, and letting
+      // them wrap sent the third onto a line of its own, squeezing the field
+      // beside them down to a stub. They carry an icon and no text now, so the
+      // stylesheet alone decides their width.
+      expect(button.width).toBe('34px');
+      expect(button.height).toBe('34px');
+      expect(button.flexGrow).toBe('0');
+      expect(button.flexShrink).toBe('0');
     });
   });
 
@@ -267,13 +275,139 @@ describe('UnifiedDatePickerModal styling contract', () => {
       const modal = openModal();
       const footer = styleOf(modal, '.date-picker-footer');
 
+      // The footer is a column now — the result line above, the actions below.
+      // The row that must not have its controls touching is the actions one.
       expect(footer.display).toBe('flex');
-      expect(footer.alignItems).toBe('center');
+      expect(footer.flexDirection).toBe('column');
       expect(footer.gap).toBe('8px');
+
+      const actions = styleOf(modal, '.date-picker-actions');
+      expect(actions.display).toBe('flex');
+      expect(actions.alignItems).toBe('center');
+    });
+
+    // The class alone is not the colour. The field carried `is-error` while the
+    // stylesheet said nothing about it, so the border stayed grey and the
+    // manual pass marked the check failed on code that looked done.
+    // jsdom resolves the cascade but not custom properties, so both colours read
+    // back as the empty string. What is provable here is that the rule exists,
+    // targets the class the code applies, and names a different colour than the
+    // ordinary field. That it *renders* differently is measured by the CDP tir.
+    it('has a rule painting the field border when the expression fails to parse', () => {
+      const modal = openModal();
+      const field = (modal.modalEl as HTMLElement).querySelector<HTMLInputElement>('.nlp-input');
+      if (!field) throw new Error('NLP field missing');
+
+      const failing = rootRuleBody(".nlp-input-container input[type='text'].is-error");
+      expect(failing).toContain('border-color');
+      expect(failing).toContain('var(--text-error)');
+
+      const ordinary = rootRuleBody(".nlp-input-container input[type='text']");
+      expect(ordinary).not.toContain('--text-error');
+    });
+
+    // A `<select>` is as wide as its longest option, and one of its options
+    // carries the whole selected text. With a long selection the control took
+    // the full row and pushed `Today` and `Insert` outside the modal — measured
+    // at 450 px wide with the buttons ending at 1019 px.
+    it('lets the format selector shrink, and never the two buttons', () => {
+      const modal = openModal();
+      const select = styleOf(modal, '.date-picker-format-selector');
+
+      expect(select.minWidth).toBe('0');
+      expect(select.flexShrink).toBe('1');
+
+      for (const selector of ['.date-picker-today-button', '.date-picker-insert-button']) {
+        expect(styleOf(modal, selector).flexShrink).toBe('0');
+      }
     });
   });
 
   describe('the stylesheet selects only classes the code applies', () => {
+    // The named check below only ever looked for one literal, so it missed the
+    // four `.nlp-preview*` rules that outlived the element they painted — 22
+    // lines the pre-merge review found by hand. This reads every class the
+    // plugin owns out of the stylesheet and asks `src/` whether anything still
+    // writes it.
+    //
+    // Ours by prefix: Obsidian's own classes (`.modal`, `.suggestion-item`,
+    // `.theme-dark`) are not this plugin's to justify.
+    it('applies every class it selects', () => {
+      const PREFIXES = ['date-picker-', 'date-suggest-', 'nlp-', 'action-', 'unified-date-picker'];
+      const css = STYLES.replace(/\/\*[\s\S]*?\*\//g, '');
+      const selected = new Set(
+        [...css.matchAll(/\.([a-zA-Z][\w-]*)/g)]
+          .map(m => m[1])
+          .filter(nom => PREFIXES.some(p => nom.startsWith(p)))
+      );
+
+      const sources = ['src/ui', 'src/services']
+        .flatMap(dir => walk(join(__dirname, '../../../', dir)))
+        .map(f => readFileSync(f, 'utf8'))
+        .join('\n');
+
+      const orphelines = [...selected].filter(nom => !sources.includes(nom)).sort();
+      expect(orphelines).toEqual([]);
+    });
+
+    it('greys the alias field, and says so in a rule of its own', () => {
+      // jsdom resolves no custom property, so the painted colour is proved at
+      // the CDP pass; what a unit test can pin is that the rule exists, that it
+      // is keyed on the disabled state, and that it dims rather than hides.
+      const body = rootRuleBody('.date-picker-alias:disabled');
+
+      expect(body).toMatch(/color:\s*var\(--text-muted\)/);
+      expect(body).not.toMatch(/display:\s*none/);
+    });
+
+    it('lets a long alias scroll instead of wrapping the footer', () => {
+      const body = rootRuleBody('.date-picker-alias');
+
+      expect(body).toMatch(/font-family:\s*var\(--font-monospace\)/);
+      expect(body).toMatch(/width:\s*100%/);
+      // Un `<input>` fait défiler son contenu tout seul ; le clipper, c'est
+      // cacher la fin de l'alias au lieu de laisser le caret l'atteindre.
+      // (`white-space: normal` ne s'écrit jamais : l'assertion serait vide.)
+      expect(body).not.toMatch(/text-overflow|overflow:\s*hidden/);
+    });
+
+    // Le garde-fou ci-dessus va du CSS vers le code. Le sens inverse manquait,
+    // et c'est celui qui a laissé passer un renommage : `.date-picker-result`
+    // est devenue `.date-picker-alias` dans la feuille pendant que le code
+    // continuait de poser les deux — la ligne de « Open daily note » a perdu
+    // sa bordure, sa monospace et son `nowrap` sans qu'un test bronche.
+    it('styles every class it applies', () => {
+      const PREFIXES = ['date-picker-', 'date-suggest-', 'nlp-', 'action-', 'unified-date-picker'];
+      const sources = ['src/ui', 'src/services']
+        .flatMap(dir => walk(join(__dirname, '../../../', dir)))
+        .map(f => readFileSync(f, 'utf8'))
+        .join('\n');
+
+      // Les classes que le code POSE : `cls: '…'`, `addClass('…')`,
+      // `classList.toggle('…')`. Pas les sélecteurs qu'il interroge.
+      const posees = new Set(
+        [
+          ...sources.matchAll(/cls:\s*'([^']+)'/g),
+          ...sources.matchAll(/(?:addClass|classList\.(?:add|toggle))\(\s*'([^']+)'/g),
+        ]
+          .flatMap(m => m[1].split(/\s+/))
+          .filter(nom => PREFIXES.some(p => nom.startsWith(p)))
+      );
+
+      // `date-suggest-held-label` n'a jamais eu de règle, sur `main` non plus :
+      // le span hérite du style de `.date-suggest-held`, ses trois voisins ont
+      // la leur. Nommé ici plutôt que toléré en silence — si quelqu'un lui
+      // donne un style un jour, cette ligne s'en va.
+      const SANS_STYLE_ASSUME = ['date-suggest-held-label'];
+
+      const css = STYLES.replace(/\/\*[\s\S]*?\*\//g, '');
+      const sansRegle = [...posees]
+        .filter(nom => !SANS_STYLE_ASSUME.includes(nom))
+        .filter(nom => !css.includes(`.${nom}`))
+        .sort();
+      expect(sansRegle).toEqual([]);
+    });
+
     it('no longer selects the class no code applies', () => {
       // Comments stripped: one of them recounts why `.date-picker-modal` went
       // away, and that history is worth keeping in the file.

@@ -110,23 +110,28 @@ export type TranslationKey =
   | 'suggest.dailyNoteLink'
   | 'suggest.openPicker'
   | 'suggest.instructions.selection'
-  | 'suggest.instructions.date'
   | 'suggest.instructions.cancel'
+  | 'suggest.instructions.insert'
+  | 'suggest.groups.formats'
+  | 'suggest.groups.dailyNote'
+  | 'suggest.header.unparsable'
+  | 'suggest.replacesSelection'
+  | 'suggest.givesItBack'
   // Picker
   | 'picker.tabs.insertText'
   | 'picker.tabs.insertDailyNote'
   | 'picker.tabs.openDailyNote'
-  | 'picker.nlp.name'
-  | 'picker.nlp.desc'
   | 'picker.nlp.placeholder'
-  | 'picker.nlp.previewEmpty'
   | 'picker.nlp.previewError'
+  | 'picker.alias.label'
+  | 'picker.alias.placeholder'
   | 'picker.today'
+  | 'picker.insert'
   | 'picker.openPreview'
+  // Named in the settings, where the alias source is chosen by name; the
+  // picker itself labels its options with their output.
   | 'picker.selectedText'
-  | 'picker.selectedTextWith'
   | 'picker.typedText'
-  | 'picker.typedTextWith'
   | 'picker.cancel';
 
 /**
@@ -158,8 +163,6 @@ export interface TranslationParams {
   'errors.dailyNoteMissing': { date: string };
   'errors.invalidFormat': { format: string };
   'picker.openPreview': { date: string };
-  'picker.selectedTextWith': { text: string };
-  'picker.typedTextWith': { text: string };
   // Both name MAX_TRIGGER_LENGTH. A key listed here MUST be called with its
   // parameter: `Translate` and `I18nService.t` take a variadic tuple, so
   // omitting the argument is a compile error, not a `{{max}}` on screen.

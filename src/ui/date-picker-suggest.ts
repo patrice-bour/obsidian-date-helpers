@@ -6,6 +6,7 @@ import {
   EditorSuggestContext,
   EditorSuggestTriggerInfo,
   TFile,
+  setIcon,
 } from 'obsidian';
 import { DateTime } from 'luxon';
 import DateHelpersPlugin from '@/main';
@@ -41,13 +42,25 @@ const BAR_TEXT_LIMIT = 40;
 /**
  * One entry of the inline popup.
  *
- * `output` is what validating the entry writes to the editor — empty for the
- * picker entry, which writes nothing itself.
+ * `output` is what validating the entry writes to the editor.
  */
-export type DateSuggestion =
+export type DateSuggestion = (
   | { kind: 'preset'; presetId: string; date: DateTime; output: string; label: string }
   | { kind: 'daily-note'; date: DateTime; alias: string; output: string; label: string }
-  | { kind: 'open-picker'; expression: string; output: string; label: string };
+) & {
+  /**
+   * Set on the first entry of a group, and only there. Obsidian has no
+   * non-selectable item, so the heading is drawn by the entry under it — which
+   * is also why the arrow keys can never rest on one.
+   */
+  groupHeading?: string;
+  /**
+   * Set while a selection is held, on the entries that would replace it by a
+   * formatted date. The link is never marked: it is the entry that keeps the
+   * text.
+   */
+  replacesSelection?: true;
+};
 
 /**
  * EditorSuggest for the configured triggers.
@@ -71,8 +84,16 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
   /** Longest sequence first, so `@@` is matched before its own `@`; order is
    * irrelevant to the boundary check, so this one array serves both. */
   private triggersByLength: TriggerConfig[];
+  /**
+   * What the header row shows: the date the expression resolved to, the query
+   * it came from, and whether the parse failed. Null before the first render.
+   */
+  header: { resolved: string; query: string; failed: boolean } | null = null;
+
   /** Set by the last successful onTrigger; read by getSuggestions */
   private lastTriggerIsModal = false;
+  /** The sequence the last trigger matched, echoed in the header row */
+  private lastTriggerSequence = '';
   /** The kept text the last successful onTrigger found, if any */
   private lastKeptText: string | null = null;
   /**
@@ -109,11 +130,15 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
     this.triggersByLength = [...triggers].sort((a, b) => b.sequence.length - a.sequence.length);
     this.selectionCapture = new SelectionCapture(triggers);
 
-    // TAB dismisses without inserting. ENTER and ESC are Obsidian's own: the
-    // popup validates on ENTER alone, so SPACE stays an ordinary character and
-    // `@mardi prochain` does not stop at `@mardi`.
+    // TAB opens the picker. It used to dismiss, which ESC already did through
+    // the same `close()` — two names for one action. ENTER and ESC are
+    // Obsidian's own: the popup validates on ENTER alone, so SPACE stays an
+    // ordinary character and `@mardi prochain` does not stop at `@mardi`.
+    //
+    // The registration must stay whatever TAB does: it is what keeps Obsidian's
+    // default off the key.
     this.scope.register([], 'Tab', () => {
-      this.close();
+      this.openPicker();
       return false;
     });
   }
@@ -165,6 +190,7 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
       if (isModal && end !== cursor.ch) continue;
 
       this.lastTriggerIsModal = isModal;
+      this.lastTriggerSequence = trigger.sequence;
       const kept = this.selectionCapture.keptAt(
         { line: cursor.line, ch: start },
         file?.path ?? null
@@ -292,16 +318,24 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
    */
   getSuggestions(context: EditorSuggestContext): DateSuggestion[] {
     if (this.isModalTrigger()) {
-      // Cleared before the modal opens — see `selectSuggestion` for why the
-      // order matters.
-      this.selectionCapture.clear();
-
       this.handOverToPicker(context);
       return [];
     }
 
     const expression = context.query.trim();
-    const parsed = expression ? this.plugin.nlpService.parse(expression) : null;
+
+    // What names the date: the typed expression, or — with nothing typed — a
+    // held selection that reads as one.
+    //
+    // The selection stays the alias either way. Reading it as a date as well
+    // is what stops the link from lying: `demain` selected, nothing typed,
+    // used to give a link to TODAY labelled "demain". The picker, opened on
+    // the same keystrokes, already answered tomorrow, so the two surfaces
+    // disagreed on the same input.
+    //
+    // The typed expression wins whenever there is one: it is the later word.
+    const named = expression || this.lastKeptText?.trim() || '';
+    const parsed = named ? this.plugin.nlpService.parse(named) : null;
     const date = parsed?.date ?? this.plugin.dateService.now();
 
     const entries: DateSuggestion[] = [];
@@ -332,7 +366,6 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
     // `[[2026-08-19|réunion de lancement]]`. With no capture the expression does
     // both, as it always has.
     const alias = this.lastKeptText ?? expression;
-    this.showCapturedSelection(expression);
     const dailyNote: DateSuggestion = {
       kind: 'daily-note',
       date,
@@ -356,59 +389,149 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
       entries.push(dailyNote);
     }
 
-    entries.push({
-      kind: 'open-picker',
-      expression,
-      output: '',
-      label: this.translate('suggest.openPicker'),
-    });
+    // A held selection makes the format entries destructive: choosing one
+    // writes the date over the user's own words. The link leads the list so
+    // that confirming without moving is safe, but one arrow press is not, and
+    // nothing on the row said so.
+    if (this.lastKeptText) {
+      for (const entry of entries) {
+        if (entry.kind === 'preset') entry.replacesSelection = true;
+      }
+    }
+
+    // The heading belongs to the first entry of its group, so a group with no
+    // entry takes its heading with it and nothing has to be hidden.
+    const firstPreset = entries.find(e => e.kind === 'preset');
+    if (firstPreset) firstPreset.groupHeading = this.translate('suggest.groups.formats');
+    const firstLink = entries.find(e => e.kind === 'daily-note');
+    if (firstLink) firstLink.groupHeading = this.translate('suggest.groups.dailyNote');
+
+    // The same rule the entries follow above: an empty expression resolves to
+    // today, and only a typed expression can fail. Naming the failure here
+    // while the list below offers today would make the two disagree.
+    this.header = {
+      resolved:
+        parsed || !expression
+          ? this.plugin.formatterService.format(date, 'DDDD')
+          : this.translate('suggest.header.unparsable'),
+      query: context.query ? `${this.lastTriggerSequence}${context.query}` : '',
+      failed: Boolean(expression) && !parsed,
+    };
+
+    this.renderChrome();
 
     return entries;
   }
 
   /**
-   * Say in the popup where the selection went.
+   * The popup's root element.
    *
-   * Typing the trigger replaced the selection on screen, and nothing else tells
-   * the user their text is still held: the note shows the trigger where their
-   * words were. The bar names the text, names what the typing is doing instead
-   * — the date — and says which key gives everything back.
-   *
-   * No capture, no bar: the ordinary case gains no furniture.
+   * Obsidian names it `suggestEl` and does not publish it: `PopoverSuggest`
+   * declares only `app`, `scope`, `open` and `close`. It is reached through a
+   * cast, and every caller must cope with it being absent — a missing header is
+   * a plainer popup, never a broken one.
    */
-  private showCapturedSelection(expression: string): void {
+  private get popupEl(): HTMLElement | null {
+    return (this as unknown as { suggestEl?: HTMLElement }).suggestEl ?? null;
+  }
+
+  /**
+   * Draw the header above the list and the footer under it.
+   *
+   * Obsidian offers no slot above the list — `setInstructions` fills the bottom
+   * with plain text, and the footer needs a link the user can click. So both
+   * bars are ours, built into the popup's own root.
+   *
+   * Redrawn on every keystroke, from scratch: keeping the elements and patching
+   * their text would mean tracking which parts changed, for two rows.
+   */
+  private renderChrome(): void {
+    const root = this.popupEl;
+    if (!root) return;
+
+    root
+      .querySelectorAll('.date-suggest-header, .date-suggest-held, .date-suggest-footer')
+      .forEach(el => el.remove());
+
+    const header = createDiv({ cls: 'date-suggest-header' });
+    if (this.header?.failed) header.addClass('is-error');
+    setIcon(header.createSpan({ cls: 'date-suggest-header-icon' }), 'calendar');
+    header.createSpan({ cls: 'date-suggest-header-date', text: this.header?.resolved ?? '' });
+    header.createSpan({ cls: 'date-suggest-header-query', text: this.header?.query ?? '' });
+    root.prepend(header);
+
+    // The held text sits under the date it is being given, so the two roles
+    // read one above the other rather than side by side in a strip.
     const captured = this.lastKeptText;
-    if (!captured) {
-      this.setInstructions([]);
-      return;
+    if (captured) {
+      const held = createDiv({ cls: 'date-suggest-held' });
+      held.createSpan({
+        cls: 'date-suggest-held-label',
+        text: this.translate('suggest.instructions.selection'),
+      });
+      held.createSpan({ cls: 'date-suggest-held-text', text: shortenForBar(captured) });
+      const back = held.createSpan({ cls: 'date-suggest-held-back' });
+      back.createSpan({ cls: 'date-suggest-key', text: 'Esc' });
+      back.createSpan({ text: ` ${this.translate('suggest.givesItBack')}` });
+      header.insertAdjacentElement('afterend', held);
     }
 
-    this.setInstructions([
-      {
-        command: this.translate('suggest.instructions.selection'),
-        purpose: shortenForBar(captured),
-      },
-      ...(expression
-        ? [{ command: this.translate('suggest.instructions.date'), purpose: expression }]
-        : []),
-      { command: 'Esc', purpose: this.translate('suggest.instructions.cancel') },
-    ]);
+    const footer = root.createDiv({ cls: 'date-suggest-footer' });
+    for (const [key, purpose] of [
+      ['↵', this.translate('suggest.instructions.insert')],
+      ['Esc', this.translate('suggest.instructions.cancel')],
+    ] as const) {
+      const hint = footer.createSpan({ cls: 'date-suggest-hint' });
+      hint.createSpan({ cls: 'date-suggest-key', text: key });
+      hint.createSpan({ text: ` ${purpose}` });
+    }
+
+    // The same hand-over TAB performs, for the pointer. Both doors, one room.
+    //
+    // The key sits beside the link, never inside it: the link's text is the
+    // action's name, and nothing else.
+    const action = footer.createSpan({ cls: 'date-suggest-action' });
+    action.createSpan({ cls: 'date-suggest-key', text: '⇥' });
+    const link = action.createSpan({
+      cls: 'date-suggest-open-picker',
+      text: this.translate('suggest.openPicker'),
+    });
+    link.addEventListener('click', () => this.openPicker());
+  }
+
+  /**
+   * Leave the popup for the modal, carrying what the popup already knows.
+   *
+   * Shared by TAB and by the footer link, so the two doors cannot drift apart.
+   */
+  private openPicker(): void {
+    const context = this.context;
+    if (!context) return;
+    this.handOverToPicker(context, context.query.trim());
   }
 
   renderSuggestion(value: DateSuggestion, el: HTMLElement): void {
-    if (value.kind === 'open-picker') {
-      el.setText(value.label);
-      return;
-    }
-
     // The rendering the entry would insert, with its name beside it: what the
     // user picks from is the result, not the format's name.
     //
     // Both go inside a container of ours. Laying them out would otherwise mean
     // styling `.suggestion-item`, which Obsidian shares with every other
     // plugin's popup.
+    if (value.groupHeading) {
+      el.createDiv({ cls: 'date-suggest-group', text: value.groupHeading });
+    }
+
     const row = el.createDiv({ cls: 'date-suggest-item' });
     row.createDiv({ cls: 'date-suggest-output', text: value.output });
+
+    if (value.replacesSelection) {
+      const warn = row.createSpan({ cls: 'date-suggest-warning' });
+      // The label is what a screen reader reads and what the tooltip shows, so
+      // the sign says what it means even when the icon does not draw.
+      warn.setAttribute('aria-label', this.translate('suggest.replacesSelection'));
+      setIcon(warn, 'alert-triangle');
+    }
+
     row.createDiv({ cls: 'date-suggest-label', text: value.label });
   }
 
@@ -419,8 +542,14 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
    * part of what confirming replaces — as on the inline path. The trigger's own
    * position travels with it so that cancelling can take back the trigger and
    * leave the text.
+   *
+   * The capture is cleared here, before the modal opens, for the reason spelled
+   * out in `selectSuggestion`: one still armed restores the selection under the
+   * modal. Here rather than at each door, so neither can forget it. The cached
+   * `lastKeptText`/`lastKeptAnchor` survive it — they are what travels.
    */
   private handOverToPicker(context: EditorSuggestContext, expression?: string): void {
+    this.selectionCapture.clear();
     const anchor = this.lastKeptAnchor;
     this.plugin.showDatePickerFromTrigger(
       context.editor,
@@ -444,22 +573,6 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
     // the trigger would leave `réunion de lancement` standing in front of the
     // wikilink that already carries it as its alias.
     const from = this.lastKeptAnchor ?? context.start;
-
-    if (value.kind === 'open-picker') {
-      // Cleared BEFORE the modal opens, never after: Obsidian dismisses the
-      // popup while `modal.open()` runs, so `close()` lands in the middle of
-      // this hand-over. A capture still armed then restores the selection under
-      // the modal, which goes on to write its wikilink over the one-character
-      // trigger range — eating the first letter and leaving the rest behind.
-      //
-      // The modal owns the capture from here, and restores it on its own cancel.
-      this.selectionCapture.clear();
-
-      // The picker takes over: it replaces the same range, and the expression
-      // lands in its NLP field rather than being retyped.
-      this.handOverToPicker(context, value.expression);
-      return;
-    }
 
     // The capture has served: no later trigger inherits it.
     this.selectionCapture.clear();

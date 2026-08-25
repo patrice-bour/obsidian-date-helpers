@@ -27,31 +27,33 @@
 /* Action Selector (Tabs) */
 .action-selector {
   display: flex;
-  /* Three tabs need more room than the 450px box gives them, and a longer
-     locale needs more still; wrapping degrades where clipping did not. */
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
+  /* No wrapping to arrange for: three fixed squares fit any width the modal
+     has. They used to carry labels, which a longer locale could push onto a
+     second line. */
+  flex: 0 0 auto;
+  gap: 4px;
   padding: 4px;
   background-color: var(--background-secondary);
   border-radius: 8px;
 }
 
 .action-button {
-  /* `1 1 auto`, not `1`: `flex: 1` is `1 1 0%`, and a zero basis makes the
-     items fit the line whatever their labels say, so the row truncates instead
-     of wrapping. With the label's own width as the basis, a row that no longer
-     fits moves a tab to a second line. */
-  flex: 1 1 auto;
-  padding: 8px 12px;
+  /* A square that never grows and never wraps: the buttons carry an icon and
+     no text, so no label can stretch them and the row cannot reach a second
+     line in any locale. The expression field takes the room they leave. */
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   cursor: pointer;
   border-radius: 6px;
   background-color: transparent;
   border: none;
-  font-size: 0.9em;
-  font-weight: 500;
   transition: all 0.15s ease;
-  color: var(--text-normal);
+  color: var(--text-muted);
 }
 
 .action-button:hover {
@@ -70,64 +72,58 @@
 }
 
 /* NLP Input Container */
+/* The top row: the expression takes the width the tabs leave */
+.date-picker-top {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-2-2);
+}
+
 .nlp-input-container {
-  margin-bottom: 16px;
-  padding: 12px;
-  background-color: var(--background-secondary);
-  border-radius: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.nlp-input-container .setting-item {
-  border: none;
-  padding: 0;
+/*
+ * The row under the expression: a failure on the left, the armed action on the
+ * right. It keeps its height whether or not anything failed, so the calendar
+ * does not jump as the user types.
+ */
+.date-picker-status {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  min-height: 1.5em;
+  margin-bottom: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
 }
 
-.nlp-input-container .setting-item-info {
-  flex-grow: 0;
-  width: auto;
-  margin-right: 12px;
+.date-picker-status-error {
+  color: var(--text-error);
 }
 
-.nlp-input-container .setting-item-name {
-  font-size: 0.9em;
-  font-weight: 600;
+/* The field wears the failure too. A line in the error colour under a field of
+   the ordinary colour reads as a remark about the calendar; the border is what
+   ties the words to the control that caused them. */
+.nlp-input-container input[type='text'].is-error {
+  border-color: var(--text-error);
 }
 
-.nlp-input-container .setting-item-description {
-  font-size: 0.8em;
+/* The action is named on the right, under the tabs it names */
+.date-picker-status-action {
+  margin-left: auto;
   color: var(--text-muted);
 }
 
-.nlp-input-container input[type="text"] {
+.nlp-input-container input[type='text'] {
   width: 100%;
+  font-family: var(--font-monospace);
   padding: 6px 10px;
   border-radius: 4px;
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   font-size: 0.9em;
-}
-
-.nlp-preview {
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 0.85em;
-  font-family: var(--font-monospace);
-}
-
-.nlp-preview-empty {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.nlp-preview-success {
-  background-color: var(--background-modifier-success);
-  color: var(--text-success);
-}
-
-.nlp-preview-error {
-  background-color: var(--background-modifier-error);
-  color: var(--text-error);
 }
 
 /* Header */
@@ -167,6 +163,12 @@
 }
 
 .date-picker-format-selector {
+  /* A `<select>` is as wide as its longest option, and one option carries the
+     whole selected text. Without a shrink floor a long selection took the whole
+     row and pushed `Today` and `Insert` outside the modal — the control is the
+     one that gives way, never the two buttons. */
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 4px 8px;
   border-radius: 4px;
   background-color: var(--interactive-normal);
@@ -280,17 +282,20 @@
 /* Footer */
 .date-picker-footer {
   margin-top: 8px;
-  /* The select and the Today button carry different paddings, so a baseline
-     row left them misaligned and touching. */
+  /* A column now: the alias field sits above the actions — the result line
+     does the same, on the one action that has no alias. The actions keep
+     their own row, where the select and the Today button carry different
+     paddings and a baseline row left them misaligned and touching. */
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--background-modifier-border);
 }
 
 .date-picker-today-button {
+  /* Never gives way: the select above is what shrinks. */
+  flex: 0 0 auto;
   padding: 6px 16px;
   cursor: pointer;
   border-radius: 4px;
@@ -365,12 +370,218 @@
    plugin), so nothing here touches it: the entry's two lines live in a
    container of ours, and only that container is laid out. */
 
+/*
+ * The header, above the list: the date the expression resolved to, and the
+ * query it came from. Drawn into the popup's own root, because Obsidian offers
+ * no slot there.
+ */
+.date-suggest-header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+}
+
+.date-suggest-header-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--interactive-accent);
+}
+
+.date-suggest-header-date {
+  font-weight: var(--font-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The failure is stated where the date would have been, in the error colour */
+.date-suggest-header.is-error .date-suggest-header-date {
+  color: var(--text-error);
+}
+
+.date-suggest-header.is-error .date-suggest-header-icon {
+  color: var(--text-error);
+}
+
+/* The query keeps to the right, in the face the note types it in */
+.date-suggest-header-query {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--font-monospace);
+  color: var(--text-muted);
+}
+
+/*
+ * The row that names the held selection, under the date it is being given.
+ */
+.date-suggest-held {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-modifier-hover);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.date-suggest-held-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+}
+
+.date-suggest-held-back {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/*
+ * The footer: one key per role, and the picker action on the right. Ours rather
+ * than Obsidian's instruction bar, which cannot hold a link.
+ */
+.date-suggest-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  padding: var(--size-2-2) var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.date-suggest-hint,
+.date-suggest-action {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-1);
+}
+
+.date-suggest-action {
+  margin-left: auto;
+}
+
+.date-suggest-key {
+  font-family: var(--font-monospace);
+  font-weight: var(--font-semibold);
+}
+
+.date-suggest-open-picker {
+  color: var(--interactive-accent);
+  cursor: pointer;
+}
+
+.date-suggest-open-picker:hover {
+  text-decoration: underline;
+}
+
+/*
+ * The group heading, drawn by the first entry of its group.
+ *
+ * Obsidian has no non-selectable item, so the heading rides on the entry under
+ * it. The negative margins pull it out of that entry's padding, so it reads as
+ * a heading over the group rather than as part of one row.
+ */
+.date-suggest-group {
+  margin: var(--size-2-1) calc(-1 * var(--size-4-2)) var(--size-2-1);
+  padding: var(--size-2-1) var(--size-4-2) 0;
+  font-size: var(--font-smallest);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
 .date-suggest-item {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--size-4-3);
   min-width: 0;
+}
+
+/*
+ * The sign on an entry that would replace the held selection.
+ *
+ * It sits between the result and the format's name: on the side the eye reads
+ * last, but inside the row it belongs to.
+ */
+.date-suggest-warning {
+  display: flex;
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-warning);
+}
+
+/*
+ * What confirming would write, pinned above the actions. It never wraps: the
+ * footer would grow and shrink as the user types.
+ */
+/*
+ * What confirming would navigate to, on the open action — the one that offers
+ * no format to pick, and so has no selector label to carry its preview.
+ *
+ * It never wraps: the footer would grow and shrink with the length of a path,
+ * and the modal would jump under the pointer.
+ */
+.date-picker-result {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: var(--size-2-2) var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background-color: var(--background-primary);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+
+/*
+ * The alias, open to the keyboard. It sits where the read-only result line
+ * used to, in the same monospace face: what changed is that the user can write
+ * in it. A long alias scrolls inside the field — an input does that on its own,
+ * which is why nothing here clips or ellipses it, and why the footer keeps its
+ * height whatever the alias holds.
+ */
+.date-picker-alias {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--size-2-2) var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background-color: var(--background-primary);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+
+/*
+ * Greyed, never emptied: the active output does not use the alias, and the
+ * text stays on screen to say it is still held. Dimmed rather than hidden —
+ * a field that vanished would take the user's own words off the screen.
+ */
+.date-picker-alias:disabled {
+  color: var(--text-muted);
+  background-color: var(--background-secondary);
+  cursor: not-allowed;
+}
+
+.date-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-2-2);
+}
+
+/* Insert closes the row on the right, where a confirmation is looked for.
+   Never gives way, like `Today`. */
+.date-picker-insert-button {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 /* The result, which is what the user is choosing between */

@@ -317,4 +317,182 @@ describe('DatePickerState', () => {
       ).toBe(true);
     });
   });
+
+  describe('the edited alias', () => {
+    function linkState(opts: object = {}) {
+      return new DatePickerState(presets, settings, dateService, saveSettings, {
+        initialAction: 'insert-daily-note',
+        ...opts,
+      });
+    }
+
+    it('holds the selection until the user edits it', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      expect(state.heldAliasText()).toBe('réunion de cadrage');
+
+      state.setEditedAlias('réunion de lancement');
+      expect(state.heldAliasText()).toBe('réunion de lancement');
+    });
+
+    it('holds the typed text when no selection was carried', () => {
+      const state = linkState();
+      state.updateNLPText('point hebdo');
+      expect(state.heldAliasText()).toBe('point hebdo');
+    });
+
+    it('puts the edited text in the alias options', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      state.setSelectionParseResult(null);
+      state.setEditedAlias('réunion de lancement');
+
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        customAlias: 'réunion de lancement',
+      });
+    });
+
+    it('is not held to the date the expression parsed to', () => {
+      const state = linkState();
+      const tomorrow = dateService.now().plus({ days: 1 }).startOf('day');
+      state.updateNLPText('tomorrow');
+      state.setNLPParseResult(tomorrow);
+
+      // Untouched, the text may only alias the day it parsed to
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        presetId: state.selectedPreset.id,
+      });
+
+      state.setEditedAlias('réunion de cadrage');
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        customAlias: 'réunion de cadrage',
+      });
+    });
+
+    it('falls back to the preset when the user empties the field', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      state.setSelectionParseResult(null);
+      state.setEditedAlias('   ');
+
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        presetId: state.selectedPreset.id,
+      });
+    });
+
+    it('records nothing while no alias source is active', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      state.setSelectionParseResult(null);
+      state.setSelectedPreset('iso8601'); // a format output: the field is greyed
+      expect(state.aliasFieldEnabled()).toBe(false);
+
+      state.setEditedAlias('intrus');
+
+      // Nothing was attached: the held text is still the source's, not the write
+      expect(state.heldAliasText()).toBe('réunion de cadrage');
+      state.setSelectedPreset(SELECTED_TEXT_SOURCE);
+      expect(state.heldAliasText()).toBe('réunion de cadrage');
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        customAlias: 'réunion de cadrage',
+      });
+    });
+
+    it('belongs to the source that was active when it was made', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      state.setSelectionParseResult(null);
+      state.updateNLPText('point hebdo');
+      state.setNLPParseResult(null);
+      state.setEditedAlias('réunion de lancement');
+
+      // The other source still speaks for itself
+      expect(state.aliasOptionsForOption(TYPED_TEXT_SOURCE, dateService.now())).toEqual({
+        customAlias: 'point hebdo',
+      });
+      expect(state.aliasOptionsForOption(SELECTED_TEXT_SOURCE, dateService.now())).toEqual({
+        customAlias: 'réunion de lancement',
+      });
+    });
+
+    it('says what a format option would produce, whichever is active', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      expect(state.aliasOptionsForOption('iso8601', dateService.now())).toEqual({
+        presetId: 'iso8601',
+      });
+    });
+
+    it('survives a round trip through a format output', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      state.setSelectionParseResult(null);
+      state.setEditedAlias('réunion de lancement');
+
+      state.setSelectedPreset('iso8601');
+      expect(state.heldAliasText()).toBe('réunion de lancement');
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({ presetId: 'iso8601' });
+
+      state.setSelectedPreset(SELECTED_TEXT_SOURCE);
+      expect(state.heldAliasText()).toBe('réunion de lancement');
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        customAlias: 'réunion de lancement',
+      });
+    });
+  });
+
+  describe('the alias field state', () => {
+    function linkState(opts: object = {}) {
+      return new DatePickerState(presets, settings, dateService, saveSettings, {
+        initialAction: 'insert-daily-note',
+        ...opts,
+      });
+    }
+
+    it('shows the field only on the daily note link action', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      expect(state.hasAliasField()).toBe(true);
+
+      state.setSelectedAction('insert-text');
+      expect(state.hasAliasField()).toBe(false);
+
+      state.setSelectedAction('open-daily-note');
+      expect(state.hasAliasField()).toBe(false);
+    });
+
+    it('hides the field when no text is held at all', () => {
+      const state = linkState();
+      expect(state.hasAliasField()).toBe(false);
+
+      state.updateNLPText('demain');
+      expect(state.hasAliasField()).toBe(true);
+    });
+
+    it('disables the field when a format output is active, without losing the text', () => {
+      const state = linkState({ selectionText: 'réunion de cadrage' });
+      state.setSelectionParseResult(null);
+      expect(state.aliasFieldEnabled()).toBe(true);
+
+      state.setSelectedPreset('iso8601');
+      expect(state.aliasFieldEnabled()).toBe(false);
+      expect(state.hasAliasField()).toBe(true);
+      expect(state.heldAliasText()).toBe('réunion de cadrage');
+      expect(state.selectionText).toBe('réunion de cadrage');
+
+      state.setSelectedPreset(SELECTED_TEXT_SOURCE);
+      expect(state.aliasFieldEnabled()).toBe(true);
+    });
+
+    it('keeps the field editable when the held text may not speak for the focused day', () => {
+      // Editing is how the user makes it speak for that day; greying here
+      // would close the only door out. The selector shows the fallback output.
+      const state = linkState();
+      const tomorrow = dateService.now().plus({ days: 1 }).startOf('day');
+      state.updateNLPText('tomorrow');
+      state.setNLPParseResult(tomorrow);
+
+      expect(state.aliasFieldEnabled()).toBe(true);
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        presetId: state.selectedPreset.id,
+      });
+
+      state.setEditedAlias('réunion de cadrage');
+      expect(state.aliasOptionsForDate(dateService.now())).toEqual({
+        customAlias: 'réunion de cadrage',
+      });
+    });
+  });
 });

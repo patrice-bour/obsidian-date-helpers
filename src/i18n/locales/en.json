@@ -172,9 +172,18 @@
     "openPicker": "Open the picker…",
     "instructions": {
       "selection": "selection",
-      "date": "date",
-      "cancel": "cancel"
-    }
+      "cancel": "cancel",
+      "insert": "insert"
+    },
+    "groups": {
+      "formats": "Formats",
+      "dailyNote": "Daily note"
+    },
+    "header": {
+      "unparsable": "Could not parse date"
+    },
+    "replacesSelection": "Replaces the selected text",
+    "givesItBack": "gives it back"
   },
   "picker": {
     "tabs": {
@@ -183,18 +192,18 @@
       "openDailyNote": "Open daily note"
     },
     "nlp": {
-      "name": "Natural language",
-      "desc": "For example: tomorrow, next monday, 3 days ago",
-      "placeholder": "Tomorrow",
-      "previewEmpty": "Enter a date expression to see preview",
+      "placeholder": "tomorrow, next monday, 3 days ago",
       "previewError": "Could not parse date"
+    },
+    "alias": {
+      "label": "Alias",
+      "placeholder": "Alias for the link"
     },
     "today": "Today",
     "openPreview": "Open: {{date}}",
     "selectedText": "Selected text",
-    "selectedTextWith": "Selected text ({{text}})",
     "typedText": "Typed text",
-    "typedTextWith": "Typed text ({{text}})",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "insert": "Insert"
   }
 }

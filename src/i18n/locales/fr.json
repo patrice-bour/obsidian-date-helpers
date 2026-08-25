@@ -172,9 +172,18 @@
     "openPicker": "Ouvrir le sélecteur…",
     "instructions": {
       "selection": "sélection",
-      "date": "date",
-      "cancel": "annuler"
-    }
+      "cancel": "annuler",
+      "insert": "insérer"
+    },
+    "groups": {
+      "formats": "Formats",
+      "dailyNote": "Note du jour"
+    },
+    "header": {
+      "unparsable": "Date non reconnue"
+    },
+    "replacesSelection": "Remplace le texte sélectionné",
+    "givesItBack": "la rend"
   },
   "picker": {
     "tabs": {
@@ -183,18 +192,18 @@
       "openDailyNote": "Ouvrir la Daily Note"
     },
     "nlp": {
-      "name": "Langage naturel",
-      "desc": "Par exemple : demain, lundi prochain, il y a 3 jours",
-      "placeholder": "Demain",
-      "previewEmpty": "Saisissez une expression de date pour voir l'aperçu",
-      "previewError": "Impossible d'analyser la date"
+      "placeholder": "demain, lundi prochain, il y a 3 jours",
+      "previewError": "Date non reconnue"
+    },
+    "alias": {
+      "label": "Alias",
+      "placeholder": "Alias du lien"
     },
     "today": "Aujourd'hui",
     "openPreview": "Ouvrir : {{date}}",
     "selectedText": "Texte sélectionné",
-    "selectedTextWith": "Texte sélectionné ({{text}})",
     "typedText": "Texte saisi",
-    "typedTextWith": "Texte saisi ({{text}})",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "insert": "Insérer"
   }
 }

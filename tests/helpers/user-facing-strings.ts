@@ -64,6 +64,11 @@ export interface UserFacingLiteral {
  */
 export const ALLOWLIST: Array<{ file: string; text: string; reason: string }> = [
   {
+    file: 'src/ui/date-picker-suggest.ts',
+    text: 'Esc',
+    reason: 'Key name, printed as Obsidian prints it in every locale',
+  },
+  {
     file: '*',
     text: 'yyyy-MM-dd HH:mm',
     reason: 'Luxon format pattern, not prose — never displayed as such',

@@ -11,6 +11,8 @@ import { DatePickerState } from '@/ui/date-picker/date-picker-state';
 import { DateService } from '@/services/date-service';
 import { FormatterService } from '@/services/formatter-service';
 import { I18nService } from '@/services/i18n-service';
+import { DailyNotesService } from '@/services/daily-notes-service';
+import { createMockApp } from '../../../helpers/mock-app';
 import { DateHelpersSettings } from '@/types/settings';
 import { FormatPreset } from '@/types/format-preset';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
@@ -24,6 +26,7 @@ describe('FormatSelector — text alias sources', () => {
   let dateService: DateService;
   let formatterService: FormatterService;
   let i18n: I18nService;
+  let dailyNotesService: DailyNotesService;
   let saveSettings: jest.Mock;
   let onChange: jest.Mock;
 
@@ -33,6 +36,7 @@ describe('FormatSelector — text alias sources', () => {
     dateService = new DateService('en-US');
     formatterService = new FormatterService('en-US');
     i18n = new I18nService('en');
+    dailyNotesService = new DailyNotesService(createMockApp(), formatterService, i18n, settings);
     saveSettings = jest.fn().mockResolvedValue(undefined);
     onChange = jest.fn();
   });
@@ -52,12 +56,20 @@ describe('FormatSelector — text alias sources', () => {
       initialNLPText: opts.typedText,
     });
 
+    // The modal puts every text through the parser before the selector reads
+    // it, and a text that parsed to no date may alias any day. Without this the
+    // labels here would show a fallback preset, which is not what the test is
+    // about — `canUseAliasSourceForDate` has its own tests.
+    if (opts.selectionText) state.setSelectionParseResult(null);
+    if (opts.typedText) state.setNLPParseResult(null);
+
     const selector = new FormatSelector({
       state,
       t: translateWith(i18n),
       presets,
       settings,
       formatterService,
+      dailyNotesService,
       onChange,
     });
 
@@ -87,16 +99,16 @@ describe('FormatSelector — text alias sources', () => {
       const select = renderSelector({ selectionText: 'réunion de cadrage' });
 
       expect(select.options[0].value).toBe(SELECTED_TEXT_SOURCE);
-      expect(select.options[0].text).toBe('Selected text (réunion de cadrage)');
+      expect(select.options[0].text).toMatch(/^\[\[.+\|réunion de cadrage\]\]$/);
       expect(values(select)).not.toContain(TYPED_TEXT_SOURCE);
       expect(select.options).toHaveLength(presets.length + 1);
     });
 
     it('lists "Typed text" when only NLP text exists', () => {
-      const select = renderSelector({ typedText: 'tomorrow' });
+      const select = renderSelector({ typedText: 'point hebdo' });
 
       expect(select.options[0].value).toBe(TYPED_TEXT_SOURCE);
-      expect(select.options[0].text).toBe('Typed text (tomorrow)');
+      expect(select.options[0].text).toMatch(/^\[\[.+\|point hebdo\]\]$/);
       expect(values(select)).not.toContain(SELECTED_TEXT_SOURCE);
       expect(select.options).toHaveLength(presets.length + 1);
     });
@@ -104,12 +116,12 @@ describe('FormatSelector — text alias sources', () => {
     it('lists both sources when both texts exist, selection first', () => {
       const select = renderSelector({
         selectionText: 'réunion de cadrage',
-        typedText: 'tomorrow',
+        typedText: 'point hebdo',
       });
 
       expect(values(select).slice(0, 2)).toEqual([SELECTED_TEXT_SOURCE, TYPED_TEXT_SOURCE]);
-      expect(select.options[0].text).toBe('Selected text (réunion de cadrage)');
-      expect(select.options[1].text).toBe('Typed text (tomorrow)');
+      expect(select.options[0].text).toMatch(/^\[\[.+\|réunion de cadrage\]\]$/);
+      expect(select.options[1].text).toMatch(/^\[\[.+\|point hebdo\]\]$/);
       expect(select.options).toHaveLength(presets.length + 2);
     });
 
@@ -140,15 +152,76 @@ describe('FormatSelector — text alias sources', () => {
       // insertion neutralises the brackets, and showing the raw text would
       // promise something else — the divergence the NLP preview already had.
       // (A line break would not prove it: `option.text` collapses those itself.)
-      const select = renderSelector({ selectionText: 'voir [[autre note]] demain' });
+      const select = renderSelector({ selectionText: 'voir [[note]] demain' });
 
-      expect(select.options[0].text).toBe('Selected text (voir autre note demain)');
+      expect(select.options[0].text).toMatch(/^\[\[.+\|voir note demain\]\]$/);
     });
 
     it('leaves an ordinary selection alone', () => {
       const select = renderSelector({ selectionText: 'réunion de cadrage' });
 
-      expect(select.options[0].text).toBe('Selected text (réunion de cadrage)');
+      expect(select.options[0].text).toMatch(/^\[\[.+\|réunion de cadrage\]\]$/);
+    });
+  });
+
+  describe('each option is labelled with the output it produces', () => {
+    it('labels a format preset with the wikilink it would write', () => {
+      const { select, state } = build({ selectionText: 'réunion de cadrage' });
+      const iso = Array.from(select.options).find(o => o.value === 'iso8601');
+
+      const day = state.focusedDay.toFormat('yyyy-MM-dd');
+      expect(iso?.text).toBe(`[[${day}|${day}]]`);
+    });
+
+    it('labels a format preset with the plain text it would write', () => {
+      const { select, state } = build({ action: 'insert-text' });
+      const iso = Array.from(select.options).find(o => o.value === 'iso8601');
+
+      expect(iso?.text).toBe(state.focusedDay.toFormat('yyyy-MM-dd'));
+    });
+
+    it('names no preset: the output is the whole label', () => {
+      const select = renderSelector({ action: 'insert-text' });
+
+      expect(
+        Array.from(select.options)
+          .map(o => o.text)
+          .join(' ')
+      ).not.toContain('ISO');
+    });
+
+    it('keeps the brackets and the path, and shortens a long alias alone', () => {
+      const { select, state } = build({
+        selectionText: 'réunion de cadrage et de lancement produit',
+      });
+      const day = state.focusedDay.toFormat('yyyy-MM-dd');
+
+      expect(select.options[0].text).toBe(`[[${day}|réunion de cadrage…]]`);
+    });
+
+    it('shows the active output on the control, and keeps the order stable', () => {
+      const { select, state, selector } = build({ selectionText: 'réunion de cadrage' });
+
+      state.setSelectedPreset('iso8601');
+      selector.updateExamples();
+      selector.setValue('iso8601');
+
+      const day = state.focusedDay.toFormat('yyyy-MM-dd');
+      expect(select.options[select.selectedIndex].text).toBe(`[[${day}|${day}]]`);
+      // The alias source still leads the list, active or not
+      expect(select.options[0].value).toBe(SELECTED_TEXT_SOURCE);
+    });
+
+    it('relabels every option against the focused day', () => {
+      const { select, state, selector } = build({ selectionText: 'réunion de cadrage' });
+
+      state.setFocusedDay(state.focusedDay.plus({ days: 40 }));
+      selector.updateExamples();
+
+      const day = state.focusedDay.toFormat('yyyy-MM-dd');
+      expect(select.options[0].text).toBe(`[[${day}|réunion de cadrage]]`);
+      const iso = Array.from(select.options).find(o => o.value === 'iso8601');
+      expect(iso?.text).toBe(`[[${day}|${day}]]`);
     });
   });
 
@@ -188,10 +261,11 @@ describe('FormatSelector — text alias sources', () => {
 
       expect(values(select)).not.toContain(TYPED_TEXT_SOURCE);
 
-      state.updateNLPText('tomorrow');
+      state.updateNLPText('point hebdo');
+      state.setNLPParseResult(null);
       selector.syncOptions();
       expect(select.options[0].value).toBe(TYPED_TEXT_SOURCE);
-      expect(select.options[0].text).toBe('Typed text (tomorrow)');
+      expect(select.options[0].text).toMatch(/^\[\[.+\|point hebdo\]\]$/);
       expect(select.value).toBe(TYPED_TEXT_SOURCE);
 
       state.updateNLPText('');

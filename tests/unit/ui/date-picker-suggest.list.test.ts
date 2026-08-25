@@ -57,6 +57,14 @@ describe('DatePickerSuggest — list and keyboard', () => {
     };
   });
 
+  /** Press TAB, the key that opens the picker */
+  function pressTab(): unknown {
+    const register = suggest.scope.register as unknown as jest.Mock;
+    const tab = register.mock.calls.find(call => call[1] === 'Tab');
+    if (!tab) throw new Error('TAB is not registered');
+    return tab[2]();
+  }
+
   /** Drive the popup as Obsidian does: onTrigger, then getSuggestions */
   function suggestionsFor(line: string): DateSuggestion[] {
     editor.getLine = jest.fn().mockReturnValue(line);
@@ -83,7 +91,7 @@ describe('DatePickerSuggest — list and keyboard', () => {
 
       const list = suggestionsFor('@tomorrow');
 
-      expect(list.map(s => s.kind)).toEqual(['preset', 'preset', 'daily-note', 'open-picker']);
+      expect(list.map(s => s.kind)).toEqual(['preset', 'preset', 'daily-note']);
       const tomorrow = DateTime.now().plus({ days: 1 });
       expect(list[0].output).toBe(tomorrow.toISODate());
     });
@@ -102,7 +110,7 @@ describe('DatePickerSuggest — list and keyboard', () => {
 
       const list = suggestionsFor('@un alias vers une date');
 
-      expect(list.map(s => s.kind)).toEqual(['daily-note', 'open-picker']);
+      expect(list.map(s => s.kind)).toEqual(['daily-note']);
       // The typed string is kept, as the alias of today's note
       expect(list[0].output).toContain('|un alias vers une date]]');
       expect(list[0].output).toContain(DateTime.now().toISODate());
@@ -121,7 +129,7 @@ describe('DatePickerSuggest — list and keyboard', () => {
 
       const list = suggestionsFor('@tomorrow');
 
-      expect(list.map(s => s.kind)).toEqual(['daily-note', 'open-picker']);
+      expect(list.map(s => s.kind)).toEqual(['daily-note']);
     });
 
     it('follows the pinned set, not the preset order', () => {
@@ -181,7 +189,10 @@ describe('DatePickerSuggest — list and keyboard', () => {
       });
 
       expect(rendered.every(text => text.length > 0)).toBe(true);
-      expect(rendered.at(-1)).toBe('Open the picker…');
+      // The last entry is the daily note link now: the picker left the list.
+      // Its row carries its group heading, drawn by the entry under it.
+      expect(rendered.at(-1)).toContain('Daily note');
+      expect(rendered.at(-1)).toContain('Daily note link');
     });
 
     it('lays the two lines out inside a container of ours', () => {
@@ -229,10 +240,9 @@ describe('DatePickerSuggest — list and keyboard', () => {
 
     it('opens the picker with the expression in its NLP field', () => {
       pin('iso8601');
-      const list = suggestionsFor('@mardi prochain');
-      const openPicker = list.find(s => s.kind === 'open-picker');
+      suggestionsFor('@mardi prochain');
 
-      suggest.selectSuggestion(openPicker as DateSuggestion);
+      pressTab();
 
       expect(editor.replaceRange).not.toHaveBeenCalled();
       expect(plugin.showDatePickerFromTrigger).toHaveBeenCalledWith(
@@ -248,17 +258,16 @@ describe('DatePickerSuggest — list and keyboard', () => {
   });
 
   describe('keyboard', () => {
-    it('dismisses on TAB without inserting anything', () => {
+    it('opens the picker on TAB without inserting anything', () => {
       // `close` is a real method here — the suggest overrides it to give a
       // captured selection back — so the spy wraps it rather than replaces it.
       const close = jest.spyOn(suggest, 'close');
-      const register = suggest.scope.register as unknown as jest.Mock;
-      const tab = register.mock.calls.find(call => call[1] === 'Tab');
-      expect(tab).toBeDefined();
+      suggestionsFor('@tomorrow');
 
-      const handled = tab![2]();
+      const handled = pressTab();
 
-      expect(close).toHaveBeenCalled();
+      expect(plugin.showDatePickerFromTrigger).toHaveBeenCalled();
+      expect(close).not.toHaveBeenCalled();
       expect(editor.replaceRange).not.toHaveBeenCalled();
       // Returning false lets nothing else act on the key
       expect(handled).toBe(false);

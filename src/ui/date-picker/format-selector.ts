@@ -1,11 +1,12 @@
 import { FormatterService } from '@/services/formatter-service';
+import { DailyNotesService } from '@/services/daily-notes-service';
 import { FormatPreset } from '@/types/format-preset';
 import { DateHelpersSettings } from '@/types/settings';
 import { Translate } from '@/i18n/types';
-import { presetName } from '@/i18n/preset-labels';
-import { AliasSourceId, isAliasSourceId, SELECTED_TEXT_SOURCE } from '@/types/alias-source';
-import { sanitizeAlias } from '@/services/daily-notes-service';
+import { AliasSourceId, isAliasSourceId } from '@/types/alias-source';
 import { DatePickerState } from './date-picker-state';
+import { outputForOption, OutputDeps } from './output';
+import { shortenOutputLabel } from './option-label';
 
 export interface FormatSelectorDeps {
   state: DatePickerState;
@@ -14,14 +15,20 @@ export interface FormatSelectorDeps {
   presets: FormatPreset[];
   settings: DateHelpersSettings;
   formatterService: FormatterService;
+  dailyNotesService: DailyNotesService;
   /** User picked a preset in the dropdown */
   onChange(presetId: string): void;
 }
 
 /**
  * The format preset <select>, including the text alias source pseudo-presets
- * ("Selected text" and "Typed text") whose lifecycle follows their own text
- * availability, and example refresh against the focused day.
+ * whose lifecycle follows their own text availability.
+ *
+ * It is the picker's preview surface: every option is labelled with the output
+ * it would write, not with the name of a preset. A name made the user imagine
+ * the result; the result itself needs no imagining. The options keep a stable
+ * order — alias sources, then format presets — and the closed control shows the
+ * active one, which is what puts the active output under the eye.
  */
 export class FormatSelector {
   private selectEl: HTMLSelectElement | null = null;
@@ -33,7 +40,7 @@ export class FormatSelector {
    * selector should exist at all (hidden for open-daily-note).
    */
   render(footer: HTMLElement): void {
-    const { state, presets, formatterService } = this.deps;
+    const { state, presets } = this.deps;
 
     this.selectEl = footer.createEl('select', {
       cls: 'date-picker-format-selector',
@@ -46,7 +53,7 @@ export class FormatSelector {
       if (!this.selectEl) return;
       const option = this.selectEl.createEl('option', {
         value: source,
-        text: this.aliasSourceLabel(source),
+        text: this.optionLabel(source),
       });
       if (source === selectedSource) {
         option.selected = true;
@@ -55,12 +62,11 @@ export class FormatSelector {
 
     // Add format presets
     presets.forEach(preset => {
-      const example = formatterService.getFormatExample(preset.format, state.focusedDay);
       if (!this.selectEl) return;
 
       const option = this.selectEl.createEl('option', {
         value: preset.id,
-        text: `${presetName(preset, this.deps.t)} (${example})`,
+        text: this.optionLabel(preset.id),
       });
 
       // Select this preset if it matches and no alias source is selected
@@ -76,30 +82,17 @@ export class FormatSelector {
   }
 
   /**
-   * Update each option's example text against the focused day
+   * Relabel every option against the focused day.
+   *
+   * The labels ARE the preview, so this runs wherever the focused day moves —
+   * an arrow key, a parsed expression, the Today button.
    */
   updateExamples(): void {
     if (!this.selectEl) return;
 
     const options = this.selectEl.options;
     for (let i = 0; i < options.length; i++) {
-      const option = options[i];
-      const presetId = option.value;
-
-      // Alias sources carry their text, not a formatted date
-      if (isAliasSourceId(presetId)) {
-        option.text = this.aliasSourceLabel(presetId);
-        continue;
-      }
-
-      const preset = this.deps.presets.find(p => p.id === presetId);
-      if (preset) {
-        const example = this.deps.formatterService.getFormatExample(
-          preset.format,
-          this.deps.state.focusedDay
-        );
-        option.text = `${presetName(preset, this.deps.t)} (${example})`;
-      }
+      options[i].text = this.optionLabel(options[i].value);
     }
   }
 
@@ -127,7 +120,7 @@ export class FormatSelector {
       if (!this.selectEl || !added.includes(source)) return;
       const option = this.selectEl.createEl('option', {
         value: source,
-        text: this.aliasSourceLabel(source),
+        text: this.optionLabel(source),
       });
       this.selectEl.insertBefore(option, this.selectEl.options[index] ?? null);
     });
@@ -139,12 +132,10 @@ export class FormatSelector {
       if (index >= 0) this.selectEl.remove(index);
     });
 
-    // Relabel the sources that stayed
-    available.forEach(source => {
-      if (!this.selectEl || added.includes(source)) return;
-      const option = Array.from(this.selectEl.options).find(o => o.value === source);
-      if (option) option.text = this.aliasSourceLabel(source);
-    });
+    // Relabel everything that stayed. Not only the alias sources: a keystroke
+    // moves the focused day when the expression parses, and every label — the
+    // format ones included — is built against that day.
+    this.updateExamples();
 
     if (added.length === 0 && removed.length === 0) return;
 
@@ -187,15 +178,20 @@ export class FormatSelector {
       .filter(isAliasSourceId);
   }
 
-  private aliasSourceLabel(source: AliasSourceId): string {
-    // Through the same cleanup the insertion applies: the option shows the
-    // alias that will be written, not the raw text it came from.
-    const text = sanitizeAlias(this.deps.state.getAliasSourceText(source) ?? undefined);
-    if (source === SELECTED_TEXT_SOURCE) {
-      return text
-        ? this.deps.t('picker.selectedTextWith', { text })
-        : this.deps.t('picker.selectedText');
-    }
-    return text ? this.deps.t('picker.typedTextWith', { text }) : this.deps.t('picker.typedText');
+  /**
+   * What this option would write, shortened to fit a dropdown line.
+   *
+   * Through the same path the insertion takes, so the label cannot promise an
+   * alias the insertion would refuse — including the cleanup a wikilink alias
+   * goes through.
+   */
+  private optionLabel(optionId: string): string {
+    const deps: OutputDeps = {
+      state: this.deps.state,
+      formatterService: this.deps.formatterService,
+      dailyNotesService: this.deps.dailyNotesService,
+      t: this.deps.t,
+    };
+    return shortenOutputLabel(outputForOption(optionId, this.deps.state.focusedDay, deps));
   }
 }
