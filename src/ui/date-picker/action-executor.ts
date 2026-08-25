@@ -7,6 +7,7 @@ import { DateHelpersSettings } from '@/types/settings';
 import { Translate } from '@/i18n/types';
 import { DateAction } from './types';
 import { DatePickerState } from './date-picker-state';
+import { activeOutput } from './output';
 
 export interface ActionExecutorContext {
   state: DatePickerState;
@@ -31,16 +32,18 @@ export async function executeDateAction(date: DateTime, ctx: ActionExecutorConte
 
   let result: string | null = null;
 
+  // What the selector's active option promised, built once. The preview used
+  // to be computed here a second time, and a preview that promises what the
+  // insertion refuses is a defect this project has already paid for.
+  const sortie = () => activeOutput(date, { state, formatterService, dailyNotesService, t });
+
   switch (state.selectedAction) {
     case 'insert-text':
-      // Format date as text with selected preset
-      result = formatterService.formatWithPreset(date, state.selectedPreset);
+      result = sortie();
       break;
 
     case 'insert-daily-note': {
-      // Text alias or format preset — the state decides, and the NLP preview
-      // asks it the same question, so the two cannot disagree.
-      result = dailyNotesService.generateWikilink(date, state.aliasOptionsForDate(date));
+      result = sortie();
       // Optionally create note if setting enabled
       if (settings.dailyNotesCreateIfMissing) {
         await dailyNotesService.createDailyNote(date).catch(error => {

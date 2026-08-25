@@ -14,13 +14,11 @@ import { UnifiedDatePickerModal } from '@/ui/unified-date-picker-modal';
 import { DateService } from '@/services/date-service';
 import { FormatterService } from '@/services/formatter-service';
 import { I18nService } from '@/services/i18n-service';
-import { presetName } from '@/i18n/preset-labels';
 import { NLPService } from '@/services/nlp-service';
 import { DailyNotesService } from '@/services/daily-notes-service';
 import { DateHelpersSettings } from '@/types/settings';
 import { FormatPreset } from '@/types/format-preset';
 import { DEFAULT_SETTINGS, DEFAULT_FORMAT_PRESETS } from '@/settings/defaults';
-import { translateWith } from '../../helpers/translate';
 
 type DateAction = 'insert-text' | 'insert-daily-note' | 'open-daily-note';
 
@@ -112,10 +110,25 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
     input.dispatchEvent(new Event('input'));
   }
 
+  /**
+   * What the picker promises to write.
+   *
+   * The format selector is the preview surface now: every option is labelled
+   * with the output it produces, so the active one says what confirming would
+   * write. The open action offers no choice and hides the selector — there the
+   * footer keeps a read-only line.
+   */
   function preview(modal: UnifiedDatePickerModal): HTMLElement {
-    const el = content(modal).querySelector<HTMLElement>('.nlp-preview');
-    if (!el) throw new Error('NLP preview not found');
+    const select = formatSelector(modal);
+    if (select) return select.options[select.selectedIndex];
+    const el = content(modal).querySelector<HTMLElement>('.date-picker-result');
+    if (!el) throw new Error('no preview surface found');
     return el;
+  }
+
+  /** The failure on the left of the status row, if any */
+  function statusError(modal: UnifiedDatePickerModal): HTMLElement | null {
+    return content(modal).querySelector<HTMLElement>('.date-picker-status-error');
   }
 
   function formatSelector(modal: UnifiedDatePickerModal): HTMLSelectElement | null {
@@ -138,7 +151,10 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
   const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
-  function monthNavButton(modal: UnifiedDatePickerModal, which: 'prev' | 'next'): HTMLButtonElement {
+  function monthNavButton(
+    modal: UnifiedDatePickerModal,
+    which: 'prev' | 'next'
+  ): HTMLButtonElement {
     const buttons = content(modal).querySelectorAll<HTMLButtonElement>('.date-picker-nav-button');
     const button = which === 'prev' ? buttons[0] : buttons[buttons.length - 1];
     if (!button) throw new Error('month nav button not found');
@@ -165,9 +181,11 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
       const buttons = el.querySelectorAll('.action-button');
       expect(buttons).toHaveLength(3);
-      expect(buttons[0].textContent).toContain('Insert as text');
-      expect(buttons[1].textContent).toContain('Link to daily note');
-      expect(buttons[2].textContent).toContain('Open daily note');
+      // Icon only: the status row names the armed action, and every button
+      // keeps its label as its accessible name.
+      expect(buttons[0].getAttribute('aria-label')).toBe('Insert as text');
+      expect(buttons[1].getAttribute('aria-label')).toBe('Link to daily note');
+      expect(buttons[2].getAttribute('aria-label')).toBe('Open daily note');
       expect(buttons[0].classList.contains('is-active')).toBe(true);
       expect(buttons[1].classList.contains('is-active')).toBe(false);
 
@@ -188,16 +206,11 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       expect(focusedCells[0]).toBe(todayCells[0]);
       expect(focusedCells[0].getAttribute('tabindex')).toBe('0');
 
-      // …and the DOM focus is actually on it. `is-focused` and `tabindex` only
-      // say the cell is focusable; without an explicit focus() the browser
-      // leaves focus on the first focusable element of the modal, which is an
-      // action-tab button. Enter then reaches a button that re-renders the
-      // modal, and typing reaches nothing at all.
-      //
-      // The focus is deferred by a turn — Obsidian focuses the modal itself
-      // after onOpen() returns — so let that timer run first.
+      // The cell is MARKED focused, and stays keyboard-reachable. The DOM focus
+      // itself goes to the expression field while NLP is on — see the block
+      // 'the focus on open' below.
       await flushPromises();
-      expect(document.activeElement).toBe(focusedCells[0]);
+      expect(document.activeElement).toBe(nlpInput(modal));
 
       // Footer: today button + format selector
       expect(el.querySelector('.date-picker-today-button')?.textContent).toBe('Today');
@@ -214,16 +227,95 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       expect(document.activeElement).not.toBe(cell);
     });
 
+    // The expression is the fastest path into the picker, so it is what opens
+    // ready to be typed into. Without NLP there is no field, and the day cell
+    // keeps the focus it has always had.
+    describe('the focus on open', () => {
+      it('lands on the expression field while NLP is on', async () => {
+        settings.enableNLP = true;
+        const modal = openModal('insert-text');
+
+        await flushPromises();
+
+        expect(document.activeElement).toBe(nlpInput(modal));
+      });
+
+      it('puts the caret after an expression carried in', async () => {
+        settings.enableNLP = true;
+        const modal = openModal('insert-text', 'next monday');
+
+        await flushPromises();
+
+        const input = nlpInput(modal);
+        expect(document.activeElement).toBe(input);
+        expect(input.selectionStart).toBe('next monday'.length);
+        expect(input.selectionEnd).toBe('next monday'.length);
+      });
+
+      it('lands on the marked day when NLP is off', async () => {
+        settings.enableNLP = false;
+        const modal = openModal('insert-text');
+        const cell = content(modal).querySelector('.date-picker-day.is-focused');
+
+        await flushPromises();
+
+        expect(document.activeElement).toBe(cell);
+      });
+    });
+
     it('shows NLP input iff enableNLP is true', () => {
       settings.enableNLP = true;
       const withNLP = openModal('insert-text');
       expect(content(withNLP).querySelector('.nlp-input-container')).not.toBeNull();
-      expect(preview(withNLP).textContent).toBe('Enter a date expression to see preview');
-      expect(preview(withNLP).classList.contains('nlp-preview-empty')).toBe(true);
 
       settings.enableNLP = false;
       const withoutNLP = openModal('insert-text');
       expect(content(withoutNLP).querySelector('.nlp-input-container')).toBeNull();
+    });
+
+    it('puts the field first and the tabs beside it', () => {
+      settings.enableNLP = true;
+      const modal = openModal('insert-text');
+      const top = content(modal).querySelector('.date-picker-top')!;
+
+      expect(top).not.toBeNull();
+      // The field leads the row, the tabs follow it.
+      expect(top.children[0].classList.contains('nlp-input-container')).toBe(true);
+      expect(top.children[1].classList.contains('action-selector')).toBe(true);
+      // And the row itself leads the modal.
+      expect(content(modal).children[0]).toBe(top);
+    });
+
+    it('lets the placeholder describe the field, and nothing else', () => {
+      settings.enableNLP = true;
+      const modal = openModal('insert-text');
+      const el = content(modal);
+
+      const input = el.querySelector<HTMLInputElement>('.nlp-input-container input');
+      expect(input!.placeholder).toBe('tomorrow, next monday, 3 days ago');
+      // No Setting row beside it, and no preview line under it.
+      expect(el.querySelector('.nlp-input-container .setting-item')).toBeNull();
+      expect(el.querySelector('.nlp-preview')).toBeNull();
+    });
+
+    it('names the active action on the right of the status row', () => {
+      const modal = openModal('insert-daily-note');
+      const status = content(modal).querySelector('.date-picker-status')!;
+
+      expect(status.querySelector('.date-picker-status-action')!.textContent).toBe(
+        'Link to daily note'
+      );
+      // Nothing failed, so the left of the row says nothing.
+      expect(status.querySelector('.date-picker-status-error')).toBeNull();
+    });
+
+    it('follows the tab the user picks', () => {
+      const modal = openModal('insert-text');
+      content(modal).querySelectorAll<HTMLButtonElement>('.action-button')[2].click();
+
+      expect(content(modal).querySelector('.date-picker-status-action')!.textContent).toBe(
+        'Open daily note'
+      );
     });
 
     it('hides the format selector for open-daily-note', () => {
@@ -233,7 +325,9 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       expect(content(modal).querySelector('.date-picker-today-button')).not.toBeNull();
     });
 
-    it('lists presets as "Name (example)" and selects the configured preset', () => {
+    // The selector no longer names its presets: each option is labelled with
+    // the output it would write, which is what makes it the preview surface.
+    it('lists presets by their output, and selects the configured preset', () => {
       settings.defaultDatePresetId = 'locale-long';
       const modal = openModal('insert-text');
       const select = formatSelector(modal);
@@ -243,15 +337,12 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       datePresets.forEach((preset, i) => {
         const example = formatterService.getFormatExample(preset.format, modal.getFocusedDay());
         expect(select.options[i].value).toBe(preset.id);
-        expect(select.options[i].text).toBe(
-          `${presetName(preset, translateWith(i18n))} (${example})`
-        );
-        // One literal, independent of the resolver: a wrong key prefix or a
-        // wrong fallback order inside presetName would leave the line above green
-        if (preset.id === 'locale-short') {
-          expect(select.options[i].text).toBe(`Locale short (${example})`);
-        }
+        expect(select.options[i].text).toBe(example);
       });
+      // One literal, so a change of preset order or of the example resolver
+      // cannot leave the loop above green on nothing
+      const iso = Array.from(select.options).find(o => o.value === 'iso8601');
+      expect(iso?.text).toBe(modal.getFocusedDay().toFormat('yyyy-MM-dd'));
       expect(select.value).toBe('locale-long');
     });
 
@@ -262,7 +353,9 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       if (!select) throw new Error('format selector missing');
 
       expect(select.options[0].value).toBe('typed-text');
-      expect(select.options[0].text).toBe('Typed text (tomorrow)');
+      expect(select.options[0].text).toBe(
+        `[[${modal.getFocusedDay().toFormat('yyyy-MM-dd')}|tomorrow]]`
+      );
       expect(select.options[0].selected).toBe(true);
       expect(select.options).toHaveLength(datePresets.length + 1);
     });
@@ -274,6 +367,176 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       expect(select.options[0].value).not.toBe('typed-text');
       expect(select.options[0].value).not.toBe('selected-text');
       expect(select.options).toHaveLength(datePresets.length);
+    });
+
+    // A selection reading as a date moves the calendar off today. Leaving the
+    // field empty left that move unexplained: the picker sat on tomorrow with
+    // nothing on screen saying why.
+    describe('a selection that reads as a date fills the field', () => {
+      it('shows the selection in the field, on the day it names', () => {
+        const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+
+        expect(nlpInput(modal).value).toBe('tomorrow');
+        expect(content(modal).querySelector('.date-picker-day.is-focused')?.textContent).toBe(
+          String(dateService.now().plus({ days: 1 }).day)
+        );
+      });
+
+      it('leaves the field empty when the selection reads as no date', () => {
+        const modal = openModal('insert-daily-note', undefined, 'kickoff meeting');
+
+        expect(nlpInput(modal).value).toBe('');
+        expect(statusError(modal)).toBeNull();
+      });
+
+      // One text, one option. The two sources would render the same alias, and
+      // a second entry saying the same thing is a choice with no difference.
+      it('does not list the same text twice as an alias source', () => {
+        const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+        const select = formatSelector(modal);
+        if (!select) throw new Error('format selector missing');
+
+        const sources = Array.from(select.options)
+          .map(o => o.value)
+          .filter(v => v === 'selected-text' || v === 'typed-text');
+        expect(sources).toEqual(['selected-text']);
+      });
+
+      // The dedup drops the typed source when it repeats the selection. It must
+      // not drop the source the user explicitly chose: the two write the same
+      // alias, so falling back to a format preset answers a question nobody
+      // asked, while the menu still shows a text source.
+      it('never strands a chosen text source on a format alias', () => {
+        settings.dailyNotesAliasPresetId = 'typed-text';
+        const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+        typeNLP(modal, 'kickoff');
+        const select = formatSelector(modal);
+        if (!select) throw new Error('format selector missing');
+        select.value = 'typed-text';
+        select.dispatchEvent(new Event('change'));
+        typeNLP(modal, 'tomorrow');
+
+        expect(preview(modal).textContent).toContain('|tomorrow]]');
+        expect(formatSelector(modal)!.value).toBe('selected-text');
+      });
+
+      it('lets an expression carried in win over the selection', () => {
+        const modal = openModal('insert-daily-note', 'next monday', 'tomorrow');
+
+        expect(nlpInput(modal).value).toBe('next monday');
+      });
+    });
+  });
+
+  // Four findings from the manual pass of 2026-08-22. The first three are what
+  // the eye caught that no assertion did; the fourth is older than this change.
+  describe('a parse failure is honest', () => {
+    it('marks the field itself, not only the status row', () => {
+      const modal = openModal('insert-text');
+      typeNLP(modal, 'nxt fridy');
+
+      expect(statusError(modal)).not.toBeNull();
+      expect(nlpInput(modal).classList.contains('is-error')).toBe(true);
+    });
+
+    it('takes the mark off as soon as the expression recovers', () => {
+      const modal = openModal('insert-text');
+      typeNLP(modal, 'nxt fridy');
+      typeNLP(modal, 'next friday');
+
+      expect(statusError(modal)).toBeNull();
+      expect(nlpInput(modal).classList.contains('is-error')).toBe(false);
+    });
+
+    it('takes the mark off when the field is emptied', () => {
+      const modal = openModal('insert-text');
+      typeNLP(modal, 'nxt fridy');
+      typeNLP(modal, '');
+
+      expect(nlpInput(modal).classList.contains('is-error')).toBe(false);
+    });
+
+    // The result line is pinned now. On main the failure REPLACED the preview,
+    // so no stale text could stand; here it is written elsewhere, and the line
+    // kept promising a link the insertion would not write.
+    it('keeps the result line showing what would really be inserted', () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
+      const modal = openModal('insert-daily-note');
+      typeNLP(modal, 'next frday');
+
+      expect(preview(modal).textContent).toContain('|next frday]]');
+    });
+  });
+
+  // Older than this change: `syncOptions` knows how to relabel, but its caller
+  // only ran it when the text flipped between empty and non-empty. The label
+  // froze on the first character typed — `Typed text (n)` for `next frday`.
+  describe('the alias source label follows the field', () => {
+    it('relabels on every keystroke, not only the first', () => {
+      settings.dailyNotesAliasPresetId = 'typed-text';
+      const modal = openModal('insert-daily-note');
+      typeNLP(modal, 'n');
+      typeNLP(modal, 'next frday');
+
+      const select = formatSelector(modal);
+      if (!select) throw new Error('format selector missing');
+      const typed = Array.from(select.options).find(o => o.value === 'typed-text');
+      expect(typed?.text).toBe(`[[${modal.getFocusedDay().toFormat('yyyy-MM-dd')}|next frday]]`);
+    });
+  });
+
+  // The field is rendered BEFORE the status row and the footer, and it calls
+  // back into the owner as it restores its text. The failure was written into a
+  // status row that did not exist yet — or, on a redraw, into the detached one.
+  // The border reddened and nothing said why.
+  describe('a failure survives the field being rebuilt', () => {
+    it('states the failure for an expression carried in from the popup', () => {
+      const modal = openModal('insert-text', 'nxt fridy');
+
+      expect(nlpInput(modal).classList.contains('is-error')).toBe(true);
+      expect(statusError(modal)).not.toBeNull();
+    });
+
+    it('keeps the failure when another action tab is picked', () => {
+      const modal = openModal('insert-text');
+      typeNLP(modal, 'nxt fridy');
+
+      content(modal).querySelectorAll<HTMLButtonElement>('.action-button')[1].click();
+
+      expect(nlpInput(modal).classList.contains('is-error')).toBe(true);
+      expect(statusError(modal)).not.toBeNull();
+    });
+
+    // Today is a calendar-driven interaction: it drops the expression on
+    // purpose. So the failure must go WITH it — the field empties, and neither
+    // the line nor the red border may outlive the text that caused them.
+    it('takes the failure away with the expression on Today', () => {
+      const modal = openModal('insert-text');
+      typeNLP(modal, 'nxt fridy');
+
+      todayButton(modal).click();
+
+      expect(nlpInput(modal).value).toBe('');
+      expect(nlpInput(modal).classList.contains('is-error')).toBe(false);
+      expect(statusError(modal)).toBeNull();
+    });
+  });
+
+  // Four paths write the result line; three read the focused day and one read
+  // the parsed instant. They agree today only because `main.ts` hands the picker
+  // date presets alone, and a date format shows no time — so the divergence was
+  // invisible rather than absent. Pinned with a datetime preset, which is what
+  // it would take to make it show.
+  describe('the result line reads one clock', () => {
+    it('shows the focused day, not the instant the expression parsed to', () => {
+      const withTime = DEFAULT_FORMAT_PRESETS.filter(p => p.id === 'datetime-standard');
+      datePresets = withTime;
+      settings.defaultDatePresetId = 'datetime-standard';
+      const modal = openModal('insert-text');
+      typeNLP(modal, 'tomorrow at 2pm');
+
+      const jour = dateService.now().plus({ days: 1 }).toFormat('yyyy-MM-dd');
+      expect(preview(modal).textContent).toBe(`${jour} 00:00:00`);
     });
   });
 
@@ -372,7 +635,6 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       ['ArrowLeft', []],
       ['ArrowDown', []],
       ['ArrowUp', []],
-      ['t', []],
     ] as Array<[string, string[]]>)(
       '%s with mods %p leaves the DOM focus on the newly focused day',
       async (key, mods) => {
@@ -390,6 +652,109 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
         expect(document.activeElement).toBe(cell);
       }
     );
+
+    // 't' left that list when the picker began opening on the field: it now
+    // yields to the field whatever the field holds, so it never moves the
+    // focus while NLP is on. With NLP off there is no field to yield to, and
+    // it lands on the day like the arrows do.
+    it('t lands on the newly focused day when NLP is off', async () => {
+      settings.enableNLP = false;
+      const modal = openModal('insert-text');
+      await flushPromises();
+
+      invokeKey(modal, [], 't');
+
+      const cell = content(modal).querySelector('.date-picker-day.is-focused');
+      expect(cell).not.toBeNull();
+      expect(document.activeElement).toBe(cell);
+    });
+
+    it('t leaves the focus in the field while NLP is on', async () => {
+      const modal = openModal('insert-text');
+      await flushPromises();
+      const input = nlpInput(modal);
+
+      invokeKey(modal, [], 't');
+
+      expect(document.activeElement).toBe(input);
+    });
+
+    // An empty field has no word to protect, and the picker now opens with the
+    // focus inside it. Without this, the arrows would be dead on open and the
+    // calendar unreachable by keyboard until the user left the field.
+    it.each([['ArrowLeft'], ['ArrowRight'], ['ArrowUp'], ['ArrowDown']])(
+      '%s moves the day while the focused NLP field is empty',
+      async key => {
+        const modal = openModal('insert-text');
+        await flushPromises();
+        const input = nlpInput(modal);
+        expect(document.activeElement).toBe(input);
+        expect(input.value).toBe('');
+
+        expect(invokeKey(modal, [], key)).toBe(false);
+      }
+    );
+
+    // 't' yields whenever the field has the focus, empty or not: `today`,
+    // `tomorrow` and `thursday` all start with it, and a jump to today instead
+    // of a typed letter makes the field unusable from its first keystroke.
+    // The picker opens with the focus in the field, so every calendar shortcut
+    // is now reachable mid-word. Each of these clears the expression through
+    // `clearNLPInput()` and moves the focus onto a day cell: the user loses
+    // both their text and their place. `Home` and `Mod+arrow` are text-editing
+    // keys on macOS — `Cmd+←` is "start of line" — so they are not exotic.
+    it.each([
+      ['Home', []],
+      ['PageDown', []],
+      ['PageUp', []],
+      ['ArrowLeft', ['Mod']],
+      ['ArrowRight', ['Mod']],
+      ['ArrowUp', ['Mod']],
+      ['ArrowDown', ['Mod']],
+    ] as Array<[string, string[]]>)(
+      '%s with mods %p leaves a typed expression alone',
+      async (key, mods) => {
+        const modal = openModal('insert-text');
+        await flushPromises();
+        const input = nlpInput(modal);
+        input.value = 'next friday';
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+
+        expect(invokeKey(modal, mods, key)).toBe(true);
+        expect(nlpInput(modal).value).toBe('next friday');
+        expect(document.activeElement).toBe(input);
+      }
+    );
+
+    // …and they keep their calendar meaning while the field is empty, which is
+    // the state the picker opens in.
+    it.each([
+      ['Home', []],
+      ['PageDown', []],
+      ['PageUp', []],
+      ['ArrowLeft', ['Mod']],
+      ['ArrowRight', ['Mod']],
+      ['ArrowUp', ['Mod']],
+      ['ArrowDown', ['Mod']],
+    ] as Array<[string, string[]]>)(
+      '%s with mods %p still moves the calendar from an empty field',
+      async (key, mods) => {
+        const modal = openModal('insert-text');
+        await flushPromises();
+        expect(nlpInput(modal).value).toBe('');
+
+        expect(invokeKey(modal, mods, key)).toBe(false);
+      }
+    );
+
+    it('t passes through to an empty focused NLP field', async () => {
+      const modal = openModal('insert-text');
+      await flushPromises();
+      expect(nlpInput(modal).value).toBe('');
+
+      expect(invokeKey(modal, [], 't')).toBe(true);
+    });
 
     it.each([['ArrowLeft'], ['ArrowRight'], ['ArrowUp'], ['ArrowDown']])(
       '%s passes through while typing in the NLP field',
@@ -500,26 +865,30 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
   });
 
   describe('NLP preview transitions', () => {
-    it('empty → error → success class transitions', () => {
+    it('says nothing until something fails, then stops saying it', () => {
+      settings.defaultDatePresetId = 'iso8601';
       const modal = openModal('insert-text');
-      const previewEl = preview(modal);
+      const today = dateService.now().startOf('day');
 
-      expect(previewEl.classList.contains('nlp-preview-empty')).toBe(true);
+      // Nothing typed: no failure, and the line already shows today's output.
+      expect(statusError(modal)).toBeNull();
+      expect(preview(modal).textContent).toBe(today.toFormat('yyyy-MM-dd'));
 
       typeNLP(modal, 'xyzzy gibberish');
-      expect(previewEl.textContent).toBe('Could not parse date');
-      expect(previewEl.classList.contains('nlp-preview-error')).toBe(true);
-      expect(previewEl.classList.contains('nlp-preview-empty')).toBe(false);
+      expect(statusError(modal)!.textContent).toBe('Could not parse date');
 
+      // It resolves again: the failure goes, and nothing names the date in
+      // words — the calendar marks it. The line shows the output for the new
+      // day, and nothing else.
+      //
+      // It used to assert the absence of a `✓`, a tick a removed renderer drew.
+      // No code has written one since, so the assertion could no longer fail.
       typeNLP(modal, 'tomorrow');
-      expect(previewEl.classList.contains('nlp-preview-success')).toBe(true);
-      expect(previewEl.classList.contains('nlp-preview-error')).toBe(false);
-      expect(previewEl.textContent?.startsWith('✓')).toBe(true);
+      expect(statusError(modal)).toBeNull();
+      expect(preview(modal).textContent).toBe(today.plus({ days: 1 }).toFormat('yyyy-MM-dd'));
 
       typeNLP(modal, '');
-      expect(previewEl.textContent).toBe('Enter a date expression to see preview');
-      expect(previewEl.classList.contains('nlp-preview-empty')).toBe(true);
-      expect(previewEl.classList.contains('nlp-preview-success')).toBe(false);
+      expect(statusError(modal)).toBeNull();
     });
 
     it('moves the focused day to the parsed date', () => {
@@ -535,7 +904,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       const tomorrow = dateService.now().plus({ days: 1 }).startOf('day');
 
       typeNLP(modal, 'tomorrow');
-      expect(preview(modal).textContent).toBe(`✓  ${tomorrow.toFormat('yyyy-MM-dd')}`);
+      expect(preview(modal).textContent).toBe(tomorrow.toFormat('yyyy-MM-dd'));
 
       modal.setSelectedAction('open-daily-note');
       typeNLP(modal, 'tomorrow');
@@ -545,7 +914,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
     it('restores NLP text across re-renders until explicitly cleared', () => {
       const modal = openModal('insert-text', 'tomorrow');
       expect(nlpInput(modal).value).toBe('tomorrow');
-      expect(preview(modal).classList.contains('nlp-preview-success')).toBe(true);
+      expect(statusError(modal)).toBeNull();
 
       // Full re-render (e.g. via action change) restores the text
       modal.setSelectedAction('insert-daily-note');
@@ -556,7 +925,7 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       typeNLP(modal, '');
       (modal as unknown as { renderModal: () => void }).renderModal();
       expect(nlpInput(modal).value).toBe('');
-      expect(preview(modal).classList.contains('nlp-preview-empty')).toBe(true);
+      expect(statusError(modal)).toBeNull();
 
       // Typing again resets the cleared flag
       typeNLP(modal, 'next monday');
@@ -579,12 +948,16 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
       // Text appears: option added first and selected (configured as typed-text)
       typeNLP(modal, 'tomorrow');
       expect(select.options[0].value).toBe('typed-text');
-      expect(select.options[0].text).toBe('Typed text (tomorrow)');
+      expect(select.options[0].text).toBe(
+        `[[${modal.getFocusedDay().toFormat('yyyy-MM-dd')}|tomorrow]]`
+      );
       expect(select.options[0].selected).toBe(true);
 
       // Label follows the text
       typeNLP(modal, 'next friday');
-      expect(select.options[0].text).toBe('Typed text (next friday)');
+      expect(select.options[0].text).toBe(
+        `[[${modal.getFocusedDay().toFormat('yyyy-MM-dd')}|next friday]]`
+      );
 
       // Text cleared: option removed, fallback preset selected
       typeNLP(modal, '');
@@ -617,13 +990,11 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
 
       datePresets.forEach((preset, i) => {
         const example = formatterService.getFormatExample(preset.format, newDay);
-        expect(select.options[i].text).toBe(
-          `${presetName(preset, translateWith(i18n))} (${example})`
-        );
-        // One literal, independent of the resolver: a wrong key prefix or a
-        // wrong fallback order inside presetName would leave the line above green
-        if (preset.id === 'locale-short') {
-          expect(select.options[i].text).toBe(`Locale short (${example})`);
+        expect(select.options[i].text).toBe(example);
+        // One literal, independent of the example resolver: a label built
+        // from the wrong day would leave the line above green
+        if (preset.id === 'iso8601') {
+          expect(select.options[i].text).toBe(newDay.toFormat('yyyy-MM-dd'));
         }
       });
     });

@@ -63,13 +63,13 @@ describe('I18nService', () => {
     // setName all assign textContent. Escaping them would show the entity to
     // the user — an apostrophe is common in the selected text these carry.
     it('should insert the value verbatim, entities included', () => {
-      const result = service.t('picker.selectedTextWith', { text: "l'année prochaine" });
-      expect(result).toBe("Selected text (l'année prochaine)");
+      const result = service.t('picker.openPreview', { date: "l'année prochaine" });
+      expect(result).toBe("Open: l'année prochaine");
     });
 
     it('should not escape angle brackets or ampersands', () => {
-      const result = service.t('picker.selectedTextWith', { text: '<b> A & B' });
-      expect(result).toBe('Selected text (<b> A & B)');
+      const result = service.t('picker.openPreview', { date: '<b> A & B' });
+      expect(result).toBe('Open: <b> A & B');
     });
 
     // The following cases exercise interpolate()'s runtime behaviour for
@@ -79,29 +79,29 @@ describe('I18nService', () => {
     const callT = (params: Record<string, unknown>): string =>
       (
         service.t as unknown as (
-          key: 'picker.selectedTextWith',
+          key: 'picker.openPreview',
           params: Record<string, unknown>
         ) => string
-      ).call(service, 'picker.selectedTextWith', params);
+      ).call(service, 'picker.openPreview', params);
 
     it('should emit empty string when param is empty string', () => {
-      expect(callT({ text: '' })).toBe('Selected text ()');
+      expect(callT({ date: '' })).toBe('Open: ');
     });
 
     it('should emit "0" when param is the number zero', () => {
-      expect(callT({ text: 0 })).toBe('Selected text (0)');
+      expect(callT({ date: 0 })).toBe('Open: 0');
     });
 
     it('should emit "false" when param is the boolean false', () => {
-      expect(callT({ text: false })).toBe('Selected text (false)');
+      expect(callT({ date: false })).toBe('Open: false');
     });
 
     it('should preserve placeholder when param value is null', () => {
-      expect(callT({ text: null })).toBe('Selected text ({{text}})');
+      expect(callT({ date: null })).toBe('Open: {{date}}');
     });
 
     it('should preserve placeholder when param key is missing', () => {
-      expect(callT({ other: 'x' })).toBe('Selected text ({{text}})');
+      expect(callT({ other: 'x' })).toBe('Open: {{date}}');
     });
   });
 

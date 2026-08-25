@@ -1,4 +1,3 @@
-import { Setting } from 'obsidian';
 import { Translate } from '@/i18n/types';
 import { DatePickerState } from './date-picker-state';
 
@@ -13,84 +12,55 @@ export interface NLPInputDeps {
 }
 
 /**
- * The natural-language input field and its preview element, including
- * the restore-after-re-render semantics (never restores after an
- * explicit clear) and the preview CSS state transitions.
+ * The natural-language input field, including the restore-after-re-render
+ * semantics: it never restores after an explicit clear.
+ *
+ * The field describes itself. Its placeholder names example expressions, so a
+ * reader meeting it for the first time sees what it accepts — where a label and
+ * a description used to take three lines to say the same thing.
+ *
+ * What the expression resolves to is not shown here: the calendar marks the day,
+ * and the footer's result line shows what will be inserted. Only a failure needs
+ * words, and the modal's status row carries it.
+ *
+ * Which is why `render()` does NOT call back into the owner with the restored
+ * text. It used to, and it runs before the status row and the footer exist, so
+ * a failure was written into a row that was not there — or, on a redraw, into
+ * the detached one. The border reddened and nothing said why. The owner reads
+ * the field itself, once everything it drives has been built.
  */
 export class NLPInputController {
   private nlpInputEl: HTMLInputElement | null = null;
-  private nlpPreviewEl: HTMLElement | null = null;
 
   constructor(private deps: NLPInputDeps) {}
 
   render(container: HTMLElement): void {
     const nlpContainer = container.createDiv({ cls: 'nlp-input-container' });
 
-    new Setting(nlpContainer)
-      .setName(this.deps.t('picker.nlp.name'))
-      .setDesc(this.deps.t('picker.nlp.desc'))
-      .addText(text => {
-        this.nlpInputEl = text.inputEl;
-        text
-          .setPlaceholder(this.deps.t('picker.nlp.placeholder'))
-          .onChange(value => this.deps.onInput(value));
+    const input = nlpContainer.createEl('input', { cls: 'nlp-input' });
+    input.type = 'text';
+    this.nlpInputEl = input;
+    input.placeholder = this.deps.t('picker.nlp.placeholder');
+    input.addEventListener('input', () => this.deps.onInput(input.value));
 
-        // Restore NLP text (currentNLPText preserves user edits across re-renders)
-        // Don't fall back to initialNLPText if user explicitly cleared the field
-        const textToRestore = this.deps.state.getRestorableNLPText();
-        if (textToRestore) {
-          text.setValue(textToRestore);
-          this.deps.onInput(textToRestore);
-        }
-
-        // Submit on Enter key
-        this.nlpInputEl?.addEventListener('keydown', e => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            this.deps.onSubmit();
-          }
-        });
-      });
-
-    // Preview
-    this.nlpPreviewEl = nlpContainer.createDiv({ cls: 'nlp-preview' });
-    this.showEmpty();
-
-    // Re-trigger NLP preview now that nlpPreviewEl exists
-    // (the addText callback above runs before nlpPreviewEl is created)
-    const textForPreview = this.deps.state.getRestorableNLPText();
-    if (textForPreview) {
-      this.deps.onInput(textForPreview);
+    // Restore NLP text (currentNLPText preserves user edits across re-renders)
+    // Don't fall back to initialNLPText if user explicitly cleared the field
+    const textToRestore = this.deps.state.getRestorableNLPText();
+    if (textToRestore) {
+      input.value = textToRestore;
     }
-  }
 
-  showEmpty(): void {
-    if (!this.nlpPreviewEl) return;
-    this.nlpPreviewEl.setText(this.deps.t('picker.nlp.previewEmpty'));
-    this.nlpPreviewEl.removeClass('nlp-preview-success', 'nlp-preview-error');
-    this.nlpPreviewEl.addClass('nlp-preview-empty');
-  }
-
-  showError(): void {
-    if (!this.nlpPreviewEl) return;
-    this.nlpPreviewEl.setText(this.deps.t('picker.nlp.previewError'));
-    this.nlpPreviewEl.removeClass('nlp-preview-success', 'nlp-preview-empty');
-    this.nlpPreviewEl.addClass('nlp-preview-error');
-  }
-
-  showSuccess(preview: string): void {
-    if (!this.nlpPreviewEl) return;
-    this.nlpPreviewEl.setText(`✓  ${preview}`);
-    this.nlpPreviewEl.removeClass('nlp-preview-error', 'nlp-preview-empty');
-    this.nlpPreviewEl.addClass('nlp-preview-success');
+    // Submit on Enter key
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.deps.onSubmit();
+      }
+    });
   }
 
   get inputEl(): HTMLInputElement | null {
     return this.nlpInputEl;
-  }
-
-  get hasPreview(): boolean {
-    return this.nlpPreviewEl !== null;
   }
 
   /**
@@ -98,6 +68,5 @@ export class NLPInputController {
    */
   reset(): void {
     this.nlpInputEl = null;
-    this.nlpPreviewEl = null;
   }
 }

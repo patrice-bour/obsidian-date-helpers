@@ -32,10 +32,7 @@ const PINNED_ENGLISH_VALUES: Record<string, string> = {
   'picker.tabs.openDailyNote': 'Open daily note',
 
   // src/ui/date-picker/nlp-input.ts
-  'picker.nlp.name': 'Natural language',
-  'picker.nlp.desc': 'For example: tomorrow, next monday, 3 days ago',
-  'picker.nlp.placeholder': 'Tomorrow',
-  'picker.nlp.previewEmpty': 'Enter a date expression to see preview',
+  'picker.nlp.placeholder': 'tomorrow, next monday, 3 days ago',
   'picker.nlp.previewError': 'Could not parse date',
 
   // src/ui/unified-date-picker-modal.ts
@@ -46,9 +43,9 @@ const PINNED_ENGLISH_VALUES: Record<string, string> = {
   // split into two named sources in add-alias-aware-date-entry; the record
   // moves forward with it, in the sentence case the change settled on.
   'picker.selectedText': 'Selected text',
-  'picker.selectedTextWith': 'Selected text ({{text}})',
   'picker.typedText': 'Typed text',
-  'picker.typedTextWith': 'Typed text ({{text}})',
+  'picker.alias.label': 'Alias',
+  'picker.alias.placeholder': 'Alias for the link',
 
   // src/ui/date-picker-suggest.ts — the inline popup's own entries
   'suggest.dailyNoteLink': 'Daily note link',

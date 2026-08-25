@@ -381,6 +381,14 @@ export abstract class EditorSuggest<T> {
   /** On the prototype too, for the same reason: subclasses call it. */
   setInstructions(_instructions: any[]): void {}
 
+  /**
+   * The popup's root element, as Obsidian names it internally. It is absent
+   * from the published typings, so the plugin reaches it through a cast — and
+   * the mock has to carry it for the chrome to be testable at all.
+   */
+  suggestEl: HTMLElement =
+    typeof document !== 'undefined' ? document.createElement('div') : (null as never);
+
   constructor(app: any) {
     this.app = app;
   }
@@ -389,4 +397,12 @@ export abstract class EditorSuggest<T> {
   abstract getSuggestions(context: any): T[];
   abstract renderSuggestion(value: T, el: HTMLElement): void;
   abstract selectSuggestion(value: T, evt?: any): void;
+}
+
+/**
+ * Obsidian's icon helper. The real one injects a lucide SVG; here it only
+ * records which icon was asked for, which is what a test can assert on.
+ */
+export function setIcon(parent: HTMLElement, iconId: string): void {
+  parent.setAttribute('data-icon', iconId);
 }

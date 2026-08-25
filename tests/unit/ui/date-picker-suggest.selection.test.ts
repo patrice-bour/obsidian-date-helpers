@@ -44,6 +44,14 @@ describe('DatePickerSuggest — a selection typed over', () => {
   let suggest: DatePickerSuggest;
   let editor: any;
 
+  /** Press TAB, the key that now opens the picker */
+  function pressTab(): void {
+    const register = suggest.scope.register as unknown as jest.Mock;
+    const tab = register.mock.calls.find(call => call[1] === 'Tab');
+    if (!tab) throw new Error('TAB is not registered');
+    tab[2]();
+  }
+
   beforeEach(() => {
     app = createMockApp();
     settings = { ...DEFAULT_SETTINGS, formatPresets: [...DEFAULT_SETTINGS.formatPresets] };
@@ -155,6 +163,32 @@ describe('DatePickerSuggest — a selection typed over', () => {
 
       expect(entry.alias).toBe(KEPT);
       expect(entry.date.toISODate()).toBe(DateTime.now().toISODate());
+    });
+
+    // Selecting `demain` and typing nothing gave a link to TODAY labelled
+    // "demain" — a link that lies. The picker, opened on the same keystrokes,
+    // answered tomorrow. With nothing typed, a selection that reads as a date
+    // names it here too, and the two surfaces agree.
+    it('lets a kept text that reads as a date name that date', () => {
+      selectThenType('tomorrow');
+
+      const entry = dailyNoteEntry(suggestionsFor(keptLine('', 'tomorrow')));
+
+      expect(entry.alias).toBe('tomorrow');
+      expect(entry.date.toISODate()).toBe(DateTime.now().plus({ days: 1 }).toISODate());
+      expect(entry.output).toContain(`|tomorrow]]`);
+    });
+
+    // `in 5 days` rather than a weekday, and asserted for what it IS rather than
+    // for what it is not: `next monday` is tomorrow every Sunday, so the old
+    // pair collided one day in seven and the suite failed on the calendar.
+    it('lets what the user types win over a kept text that also reads as a date', () => {
+      selectThenType('tomorrow');
+
+      const entry = dailyNoteEntry(suggestionsFor(keptLine('in 5 days', 'tomorrow')));
+
+      expect(entry.alias).toBe('tomorrow');
+      expect(entry.date.toISODate()).toBe(DateTime.now().plus({ days: 5 }).toISODate());
     });
 
     it('keeps the alias when the expression names no date', () => {
@@ -468,12 +502,11 @@ describe('DatePickerSuggest — a selection typed over', () => {
       );
     });
 
-    it('gives the "open the picker" entry the kept text and the trigger position', () => {
+    it('gives TAB the kept text and the trigger position', () => {
       selectThenType(KEPT);
-      const list = suggestionsFor(keptLine());
-      const opener = list.find(s => s.kind === 'open-picker');
+      suggestionsFor(keptLine());
 
-      suggest.selectSuggestion(opener!);
+      pressTab();
 
       expect(plugin.showDatePickerFromTrigger).toHaveBeenCalledWith(
         editor,
@@ -485,10 +518,9 @@ describe('DatePickerSuggest — a selection typed over', () => {
     });
 
     it('hands over nothing when nothing was kept', () => {
-      const list = suggestionsFor('@');
-      const opener = list.find(s => s.kind === 'open-picker');
+      suggestionsFor('@');
 
-      suggest.selectSuggestion(opener!);
+      pressTab();
 
       expect(plugin.showDatePickerFromTrigger).toHaveBeenCalledWith(
         editor,
@@ -516,11 +548,10 @@ describe('DatePickerSuggest — a selection typed over', () => {
       // moment would have the popup cut the trigger out from under the modal,
       // which goes on to replace a range that no longer holds what it read.
       selectThenType(KEPT);
-      const list = suggestionsFor(keptLine());
-      const opener = list.find(s => s.kind === 'open-picker');
+      suggestionsFor(keptLine());
       (plugin.showDatePickerFromTrigger as jest.Mock).mockImplementation(() => suggest.close());
 
-      suggest.selectSuggestion(opener!);
+      pressTab();
 
       expect(editor.replaceRange).not.toHaveBeenCalled();
     });
@@ -529,10 +560,9 @@ describe('DatePickerSuggest — a selection typed over', () => {
       // Both would otherwise act on the same range: the modal on its cancel,
       // and the popup's own dismissal, which fires as the modal takes over.
       selectThenType(KEPT);
-      const list = suggestionsFor(keptLine());
-      const opener = list.find(s => s.kind === 'open-picker');
+      suggestionsFor(keptLine());
 
-      suggest.selectSuggestion(opener!);
+      pressTab();
       suggest.close();
 
       expect(suggest.selectionCapture.keptAt(TRIGGER, NOTE)).toBeNull();
@@ -554,57 +584,54 @@ describe('DatePickerSuggest — a selection typed over', () => {
       const kinds = suggestionsFor(keptLine('tomorrow')).map(s => s.kind);
 
       // Two presets are pinned in this harness, so the whole order is nameable.
-      expect(kinds).toEqual(['daily-note', 'preset', 'preset', 'open-picker']);
+      expect(kinds).toEqual(['daily-note', 'preset', 'preset']);
     });
 
     it('leaves the order alone without a capture', () => {
       const kinds = suggestionsFor('@tomorrow').map(s => s.kind);
 
       expect(kinds[0]).toBe('preset');
-      expect(kinds[kinds.length - 2]).toBe('daily-note');
-      expect(kinds[kinds.length - 1]).toBe('open-picker');
+      expect(kinds[kinds.length - 1]).toBe('daily-note');
     });
   });
 
-  describe('the help bar tells what the two parts are', () => {
-    /** What the popup's instruction bar was last set to */
-    function instructions(): Array<{ command: string; purpose: string }> {
-      const calls = (suggest.setInstructions as jest.Mock).mock.calls;
-      if (calls.length === 0) throw new Error('setInstructions was never called');
-      return calls[calls.length - 1][0];
+  describe('the row names the kept text', () => {
+    /** The text of the row the popup draws under its header, if any */
+    function heldRow(): string | null {
+      const root = (suggest as unknown as { suggestEl: HTMLElement }).suggestEl;
+      return root.querySelector('.date-suggest-held')?.textContent ?? null;
     }
 
-    beforeEach(() => {
-      jest.spyOn(suggest, 'setInstructions');
-    });
+    /** Just the kept text, without the label or the key beside it */
+    function instructions(): Array<{ purpose: string }> {
+      const root = (suggest as unknown as { suggestEl: HTMLElement }).suggestEl;
+      const text = root.querySelector('.date-suggest-held-text')?.textContent;
+      return text === undefined ? [] : [{ purpose: text }];
+    }
 
-    it('names the kept text and how to cancel', () => {
+    it('names the kept text', () => {
       selectThenType(KEPT);
 
       suggestionsFor(keptLine());
 
-      expect(instructions()).toEqual([
-        { command: 'selection', purpose: KEPT },
-        { command: 'Esc', purpose: 'cancel' },
-      ]);
+      expect(heldRow()).toContain(KEPT);
     });
 
-    it('adds what was typed, as the date', () => {
+    it('leaves the date to the header', () => {
       selectThenType(KEPT);
 
       suggestionsFor(keptLine('demain'));
 
-      expect(instructions()).toEqual([
-        { command: 'selection', purpose: KEPT },
-        { command: 'date', purpose: 'demain' },
-        { command: 'Esc', purpose: 'cancel' },
-      ]);
+      // The row carries the text; naming the date here would say it twice.
+      expect(heldRow()).toContain(KEPT);
+      expect(heldRow()).not.toContain('demain');
+      expect(suggest.header?.query).toBe('@demain');
     });
 
-    it('shows no bar at all without a capture', () => {
+    it('draws no row at all without a capture', () => {
       suggestionsFor('@demain');
 
-      expect(instructions()).toEqual([]);
+      expect(heldRow()).toBeNull();
     });
 
     it('flattens a kept selection spanning several lines', () => {

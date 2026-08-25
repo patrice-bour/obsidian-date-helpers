@@ -8,6 +8,7 @@ import {
   AliasSourceId,
   isAliasSourceId,
   SELECTED_TEXT_SOURCE,
+  TYPED_TEXT_SOURCE,
 } from '@/types/alias-source';
 import { DateAction } from './types';
 
@@ -84,6 +85,30 @@ export class DatePickerState {
   private selectionParseAttempted = false;
 
   /**
+   * The alias as the user last left it in the field, or null while it is
+   * untouched. Null is not the empty string: an emptied field is an edit, and
+   * it falls back to a format preset rather than to the source text.
+   */
+  private editedAlias: string | null = null;
+
+  /**
+   * The source the edit belongs to. Two sources can be offered at once, and an
+   * edit made over one must not speak for the other: the label of the option
+   * the user did not touch keeps saying what that option would write.
+   */
+  private editedAliasSource: AliasSourceId | null = null;
+
+  /**
+   * The source that was active the last time one was.
+   *
+   * A greyed field announces what will come back, so it must show the source
+   * the user just left — not whichever one a fixed order would pick. With two
+   * sources offered, reading the selection first showed the selection to a
+   * user who had been on the typed text.
+   */
+  private lastActiveAliasSource: AliasSourceId | null = null;
+
+  /**
    * Set once the user picks an entry in the format selector. Until then the
    * selection, when there is one, outranks the stored preference — after that
    * the user's explicit choice holds for the rest of the session.
@@ -132,6 +157,17 @@ export class DatePickerState {
   }
 
   /**
+   * The preset an id names, or the active one when the id names none — a stale
+   * setting, an alias source on the text path.
+   *
+   * Deliberately not `resolveBackingPreset`, which falls back to `presets[0]`:
+   * that one runs during construction, where there is no active preset yet.
+   */
+  presetById(id: string): FormatPreset {
+    return this.presets.find(p => p.id === id) ?? this.selectedPreset;
+  }
+
+  /**
    * Resolve a preset id to a concrete preset. A text alias source has no
    * matching FormatPreset — the fallback preset backs it.
    */
@@ -172,6 +208,11 @@ export class DatePickerState {
    * the current action. Handles the text alias sources.
    */
   setSelectedPreset(presetId: string): void {
+    // Read before the change: this is the one place a source is left for a
+    // format output, and the greyed field must keep showing the source left.
+    const quittee = this.selectedAliasSource();
+    if (quittee) this.lastActiveAliasSource = quittee;
+
     if (isAliasSourceId(presetId)) {
       if (
         this.selectedAction === 'insert-daily-note' ||
@@ -279,6 +320,15 @@ export class DatePickerState {
     this.initialNLPText = null;
     this.nlpParsedDate = null;
     this.nlpParseAttempted = false;
+
+    // An edit made over the typed text belongs to the words that were just
+    // erased. Keeping it would re-attach it to whatever is typed next, and
+    // insert an alias written for something else — the source is an id, so
+    // nothing else would notice the text underneath had changed.
+    if (this.editedAliasSource === TYPED_TEXT_SOURCE) {
+      this.editedAlias = null;
+      this.editedAliasSource = null;
+    }
   }
 
   /**
@@ -327,7 +377,12 @@ export class DatePickerState {
 
       const presetId = this.settings.dailyNotesAliasPresetId;
       if (!isAliasSourceId(presetId)) return presetId;
-      if (this.getAliasSourceText(presetId)) return presetId;
+      // OFFERED, not merely holding text. A source can hold text and still be
+      // absent from the list: the dedup drops the typed source when it repeats
+      // the selection. Returning it then named a source the control does not
+      // show, and the alias fell through to a format preset while the menu
+      // still read `Selected text` — the control and the result disagreeing.
+      if (sources.includes(presetId)) return presetId;
 
       // The configured source holds no text, but the setting says "use my own
       // words": honour that with whichever source does hold some. Falling
@@ -342,6 +397,76 @@ export class DatePickerState {
   }
 
   /**
+   * Record what the user typed in the alias field.
+   *
+   * Editing lifts the date validation: the text is no longer the parsed
+   * expression, so it can no longer contradict the day being confirmed — the
+   * user wrote it while looking at that day.
+   */
+  setEditedAlias(text: string): void {
+    const source = this.selectedAliasSource();
+    // No source active means a greyed field, which accepts no keystroke. A
+    // call here would attach the edit to nothing and leak into the next source.
+    if (!source) return;
+    this.editedAlias = text;
+    this.editedAliasSource = source;
+  }
+
+  /** The edit made over a given source, or null when that source is untouched */
+  private editedAliasFor(source: AliasSourceId): string | null {
+    return this.editedAliasSource === source ? this.editedAlias : null;
+  }
+
+  /**
+   * The text the alias field shows.
+   *
+   * The edit when there is one, the chosen source's text otherwise. With no
+   * source chosen — a format output is active, and the field is greyed — the
+   * held text is still shown, so a round trip through a format output loses
+   * nothing.
+   */
+  heldAliasText(): string | null {
+    const source = this.selectedAliasSource() ?? this.lastActiveAliasSource;
+    // Greyed: it keeps showing what the source it left held, so the round trip
+    // loses nothing and announces what will come back. The last two terms only
+    // answer for a source that has since lost its text.
+    if (source) {
+      const tenu = this.editedAliasFor(source) ?? this.getAliasSourceText(source);
+      if (tenu) return tenu;
+    }
+    return this.selectionText ?? this.currentNLPText;
+  }
+
+  /**
+   * Whether the footer carries an alias field at all.
+   *
+   * Only the daily note link produces a wikilink, so only there can an output
+   * carry an alias. Elsewhere no option would ever re-enable the field, and a
+   * control that can never be used is furniture, not information.
+   */
+  hasAliasField(): boolean {
+    if (this.selectedAction !== 'insert-daily-note') return false;
+    return !!(this.selectionText || this.currentNLPText);
+  }
+
+  /**
+   * Whether the alias field accepts an edit.
+   *
+   * It follows the option the user picked, not the date validation. A text
+   * that may not speak for the focused day keeps an editable field, because
+   * editing is exactly how the user makes it speak for that day — greying it
+   * there would close the only door out. The selector still shows the fallback
+   * output, so nothing is promised that the insertion would refuse.
+   *
+   * Greying is a display state, not a consumption: the text stays on screen
+   * and the captured selection stays held, so choosing the alias output again
+   * brings the field back unchanged.
+   */
+  aliasFieldEnabled(): boolean {
+    return this.selectedAliasSource() !== null;
+  }
+
+  /**
    * The text alias sources currently offerable, in display order: the editor
    * selection first, then the NLP field. Only the Daily Notes actions produce
    * a wikilink, so only they can carry an alias.
@@ -353,7 +478,18 @@ export class DatePickerState {
   /** The same, for an action the state has not switched to yet */
   private aliasSourcesWithText(action: DateAction): AliasSourceId[] {
     if (action !== 'insert-daily-note' && action !== 'open-daily-note') return [];
-    return ALIAS_SOURCE_IDS.filter(source => !!this.getAliasSourceText(source));
+    const withText = ALIAS_SOURCE_IDS.filter(source => !!this.getAliasSourceText(source));
+
+    // One text, one option. A selection reading as a date is copied into the
+    // field, so both sources then hold the same words and would render the
+    // same alias — a second entry offering no difference. The selection is the
+    // one kept: it names where the text came from.
+    const selected = this.getAliasSourceText(SELECTED_TEXT_SOURCE)?.trim();
+    if (!selected) return withText;
+    return withText.filter(
+      source =>
+        source === SELECTED_TEXT_SOURCE || this.getAliasSourceText(source)?.trim() !== selected
+    );
   }
 
   /**
@@ -402,9 +538,29 @@ export class DatePickerState {
    * validation the preview promised an alias the insertion then refused.
    */
   aliasOptionsForDate(date: DateTime): { customAlias?: string; presetId?: string } {
-    const source = this.selectedAliasSource();
-    if (source && this.canUseAliasSourceForDate(source, date)) {
-      return { customAlias: this.getAliasSourceText(source) ?? undefined };
+    return this.aliasOptionsForOption(this.selectedAliasSource() ?? this.selectedPreset.id, date);
+  }
+
+  /**
+   * The same question, asked of an option the user has not picked: what would
+   * confirming write if this one were active? The format selector labels every
+   * option with its own answer, which is what makes it the preview surface.
+   */
+  aliasOptionsForOption(
+    optionId: string,
+    date: DateTime
+  ): { customAlias?: string; presetId?: string } {
+    if (!isAliasSourceId(optionId)) return { presetId: optionId };
+
+    const edited = this.editedAliasFor(optionId);
+    if (edited !== null) {
+      // An emptied field is an edit like any other, and `[[path|]]` is not a
+      // link — the preset takes over, and the field stays there to type in.
+      const trimmed = edited.trim();
+      return trimmed ? { customAlias: trimmed } : { presetId: this.selectedPreset.id };
+    }
+    if (this.canUseAliasSourceForDate(optionId, date)) {
+      return { customAlias: this.getAliasSourceText(optionId) ?? undefined };
     }
     return { presetId: this.selectedPreset.id };
   }
