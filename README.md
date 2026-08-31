@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](./CHANGELOG.md)
 [![Community Portal](https://img.shields.io/badge/Obsidian-community-7c3aed)](https://community.obsidian.md/plugins/date-helpers)
 
-An Obsidian plugin to effortlessly manage the dates that interrupt your writing: a **date picker**, **eleven format presets** and **daily note links**. All of it answers to a trigger you type as you write, one or two characters long, or up to five if you prefer.
+An Obsidian plugin to effortlessly manage the dates that interrupt your writing: a **date picker**, **format presets** — eleven of them, plus the ones you write yourself — and **daily note links**. All of it answers to a trigger you type as you write, one or two characters long, or up to five if you prefer.
 
 You are mid-sentence and a date gets in the way: *next monday* — which date is that, again?
 Type `@next monday`, press `Enter`, and the date lands in the format you chose, as text or as a link to that day's note.
@@ -41,7 +41,7 @@ BRAT and manual installation are covered in the [User Guide](./docs/USER_GUIDE.m
 Four chores, all without leaving the keyboard:
 
 - **the mental calendar** — type `next monday` in any of six languages and get the date, computed for you
-- **the format** — that date rendered in the preset you choose, `2026-08-17` or `August 17, 2026`
+- **the format** — that date rendered in the preset you choose, `2026-08-17` or `August 17, 2026`, or in a format you wrote yourself
 - **the link syntax** — your own words kept as a daily note link's alias, brackets and pipe written for you
 - **the lookup** — a date picker, on the default `@@` trigger or from the command palette, for the days you would rather see than name
 
@@ -124,9 +124,16 @@ The plugin's own interface — settings tab, picker and popup — speaks English
 
 The [User Guide](./docs/USER_GUIDE.md#natural-language-parsing) has examples for each language.
 
-### Eleven formats, in your locale
+### Eleven formats, plus the ones you write
 
-Eleven built-in presets cover ISO, locale-aware and verbose renderings of dates, times and datetimes — and they are the full set: custom presets are not implemented yet. Month names, weekday names and component order follow your locale, through Luxon.
+Eleven built-in presets cover ISO, locale-aware and verbose renderings of dates, times and datetimes. Month names, weekday names and component order follow your locale, through Luxon.
+
+**When none of the eleven writes what you want, write it.** The **+** on the preset list asks for a name, a format string and a kind — and it takes the `YYYY-MM-DD` syntax Daily Notes and Templater already use, so you are not learning a second one: `GGGG-[W]WW` gives `2026-W36`, `dddd D MMMM YYYY` gives `Thursday 3 September 2026`. A line under the field renders today's date as you type, and a token the plugin cannot place is refused by name instead of being printed as it stands. Your format then behaves like any other: the picker offers it, the popup can list it, and it gets a command of its own.
+
+![The + on the preset list opens an editor: a name, a format written GGGG-[W]WW, a live preview reading 2026-W36, and the saved row in the list](./docs/media/format-preset-editor.gif)
+*A name, a format written the way Daily Notes writes it, and the preview reads it back as you type — the saved format then sits among the eleven.*
+
+<br>
 
 The first day of the week is a setting of its own, and the format you choose is remembered for the next insertion.
 
@@ -148,6 +155,8 @@ Wondering what you can rebind here? Three answers, one rule each.
 ## Settings
 
 Open **Settings → Date Helpers**. Six groups cover the daily note link, text insertion, locale and first day of week, the feature switches, your trigger characters, and the format presets — each date and datetime preset carrying its **Show in the inline suggestion popup** toggle. Most are reachable from Obsidian's settings search; the [settings reference](./docs/USER_GUIDE.md#settings-reference) documents each one.
+
+Three of them — the triggers, the set of presets and the locale — are only read when the plugin starts, so the tab warns you at the top when one of them is waiting for a reload.
 
 ## Privacy and permissions
 

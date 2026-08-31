@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - Unreleased
+
+Formats stop being something only the plugin ships: you can write your own, in the syntax the rest of Obsidian already uses. The settings tab also learns to tell you when a change you just made is waiting for a reload, instead of saying so permanently about settings you never touched. Nothing breaks, and no stored setting changes shape.
+
+### Added
+
+- **Write your own formats.** The **+** on the format preset list opens an editor asking for a name, a format string and a kind — date, time or both. Your formats then behave like the eleven that ship: the picker offers them, the popup can list them, each gets its own insertion command. The shipped eleven stay as they are, with no edit and no delete button, since their format is re-applied every time the plugin loads.
+- **Both format syntaxes are accepted.** `YYYY-MM-DD`, the syntax Daily Notes and Templater use, and `yyyy-MM-dd`, the syntax of Luxon, the library doing the formatting. You are not learning a second one: whichever you type, the format is read and stored the same. A line under the field renders today's date in what you have typed, so you read the format before saving it.
+- **A format string is now checked.** A token the plugin cannot place is refused by name, a `[literal]` left open is named too, and a string naming no date or time at all is refused. Until now nothing was checked: the formatting library does not reject `YYYY-MM-DD` — it prints what it does not recognise and reads the rest its own way, so that string quietly produced `YYYY-08-Aug 31, 2026`.
+- **A format still in use cannot be deleted**, nor change kind — while it is your **Default date format** or one of the two daily note alias formats. A notice says so; the setting is not left pointing at nothing.
+- **Reload to apply**, a warning at the top of the settings tab. Three settings are only read when the plugin loads — the trigger list, the set of format presets, and the locale, since Obsidian fixes command names at registration — and the warning appears as soon as one of them differs from the value the plugin started with. Put the value back and it goes away. Change a setting far below it and the tab scrolls the warning into view rather than leaving it unread above the fold.
+- **Selection can name the date**, a new setting under **Features**, on by default. Turned off, text you select is only ever the link's label, never the day. The `@` popup and the `@@` picker follow it together.
+
+### Changed
+
+- **A held selection keeps naming its day while what you type reads as nothing.** Select `tomorrow`, type `@blabla`, and the link pointed at today: any keystroke dropped the selection as a date source. It stays on tomorrow now, until what you type actually reads as a date — the target no longer walks back and forth as you write.
+- **The permanent line under the trigger list is gone**, replaced by the warning above. A standing notice could not tell "you have just changed something" from "nothing has moved".
+
+### Fixed
+
+- **Cancelling the picker gives your selection back, selected.** Typing `@@` over selected words and then backing out left the words in the note but the selection gone, caret at the end — so trying another trigger over the same words meant picking them out again. `Escape`, the close button and a click outside now all restore the selection itself.
+
 ## [0.3.0] - 2026-08-25
 
 Both triggers were redrawn around one thing: the date your words resolved to. The `@` popup now states that date before it lists anything, the `@@` picker leads with the expression field instead of its tabs, and the picker's alias — the words that end up inside a wikilink — became a field you can edit before inserting. Five changes are breaking, all of them to the interface rather than to your stored settings.
