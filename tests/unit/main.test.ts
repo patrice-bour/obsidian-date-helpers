@@ -278,6 +278,7 @@ describe('DateHelpersPlugin lifecycle', () => {
         getCursor: jest.fn(() => ({ line: 0, ch: 0 })),
         replaceRange: jest.fn(),
         setCursor: jest.fn(),
+        setSelection: jest.fn(),
         getRange: jest.fn(() => '@@'),
         getLine: jest.fn(() => ''),
       };
@@ -859,6 +860,151 @@ describe('DateHelpersPlugin lifecycle', () => {
       });
 
       /**
+       * Giving the text back is not giving the gesture back: the words return,
+       * but not the selection over them, so the trigger cannot be retried
+       * without picking them out again.
+       */
+      it('selects the kept text again when the picker is cancelled', async () => {
+        const plugin = createPlugin();
+        await plugin.onload();
+        const editor = mockEditor();
+        editor.getLine.mockReturnValue('réunion de lancement @@');
+
+        const keptFrom = { line: 0, ch: 0 };
+        const caret = { line: 0, ch: 23 };
+
+        plugin.showDatePickerFromTrigger(editor as never, keptFrom, caret, undefined, {
+          text: 'réunion de lancement',
+          triggerStart: { line: 0, ch: 21 },
+        });
+        openedModals[0].onClose();
+
+        // The separator bounds it on the right: the trigger and the space are
+        // gone, so what is left of the handed-over range is the kept text.
+        expect(editor.setSelection).toHaveBeenCalledWith(keptFrom, { line: 0, ch: 20 });
+      });
+
+      /**
+       * The left bound must be the kept text's own start, not the line's. Every
+       * other fixture on this path selects from column 0, where the two
+       * coincide — and a bound hard-wired to 0 would pass them all.
+       */
+      it('selects a kept text that starts mid-line again', async () => {
+        const plugin = createPlugin();
+        await plugin.onload();
+        const editor = mockEditor();
+        // `note pour la réunion de lancement @@ à préparer`: the text from 13 to
+        // 33, the separator at 33, the trigger at 34, the caret at 36.
+        editor.getLine.mockReturnValue('note pour la réunion de lancement @@ à préparer');
+
+        const keptFrom = { line: 0, ch: 13 };
+        const caret = { line: 0, ch: 36 };
+
+        plugin.showDatePickerFromTrigger(editor as never, keptFrom, caret, undefined, {
+          text: 'réunion de lancement',
+          triggerStart: { line: 0, ch: 34 },
+        });
+        openedModals[0].onClose();
+
+        expect(editor.setSelection).toHaveBeenCalledWith(keptFrom, { line: 0, ch: 33 });
+      });
+
+      /**
+       * A selection spanning lines cannot have its end derived from the anchor's
+       * `ch` — the separator carries its own line. A fixture staying on line 0
+       * would let arithmetic on `ch` alone pass.
+       */
+      it('selects a kept text that spans two lines again', async () => {
+        const plugin = createPlugin();
+        await plugin.onload();
+        const editor = mockEditor();
+        editor.getLine.mockReturnValue('salle du fond @@');
+
+        // `réunion de lancement\nsalle du fond @@`: the text from 0:0 to 1:13,
+        // the separator at 1:13, the trigger at 1:14, the caret at 1:16.
+        const keptFrom = { line: 0, ch: 0 };
+        const caret = { line: 1, ch: 16 };
+
+        plugin.showDatePickerFromTrigger(editor as never, keptFrom, caret, undefined, {
+          text: 'réunion de lancement\nsalle du fond',
+          triggerStart: { line: 1, ch: 14 },
+        });
+        openedModals[0].onClose();
+
+        expect(editor.setSelection).toHaveBeenCalledWith(keptFrom, { line: 1, ch: 13 });
+      });
+
+      /**
+       * The selection is posted after the removal, never before: an edit
+       * collapses a selection standing over it, so the reversed order would
+       * leave the user with a caret again. The mock records both calls whatever
+       * their order, so only their sequence numbers can tell them apart.
+       */
+      it('selects only once the removal has been made', async () => {
+        const plugin = createPlugin();
+        await plugin.onload();
+        const editor = mockEditor();
+        editor.getLine.mockReturnValue('réunion de lancement @@');
+
+        plugin.showDatePickerFromTrigger(
+          editor as never,
+          { line: 0, ch: 0 },
+          { line: 0, ch: 23 },
+          undefined,
+          { text: 'réunion de lancement', triggerStart: { line: 0, ch: 21 } }
+        );
+        openedModals[0].onClose();
+
+        expect(editor.setSelection.mock.invocationCallOrder[0]).toBeGreaterThan(
+          editor.replaceRange.mock.invocationCallOrder[0]
+        );
+      });
+
+      /**
+       * The positions were taken when the trigger was typed and the modal has
+       * been open since; a sync or another plugin can have moved the line
+       * underneath. A stale removal costs a few characters, but a stale
+       * selection costs the user's words — their next keystroke replaces
+       * whatever it covers. So the separating space must still be there.
+       */
+      it('creates no selection when the line moved under the modal', async () => {
+        const plugin = createPlugin();
+        await plugin.onload();
+        const editor = mockEditor();
+        // The separating space the plugin wrote is no longer at column 20.
+        editor.getLine.mockReturnValue('réunion de lancement, salle du fond @@');
+
+        plugin.showDatePickerFromTrigger(
+          editor as never,
+          { line: 0, ch: 0 },
+          { line: 0, ch: 23 },
+          undefined,
+          { text: 'réunion de lancement', triggerStart: { line: 0, ch: 21 } }
+        );
+        openedModals[0].onClose();
+
+        expect(editor.setSelection).not.toHaveBeenCalled();
+      });
+
+      it('creates no selection when the picker is confirmed', async () => {
+        const plugin = createPlugin();
+        await plugin.onload();
+        const editor = mockEditor();
+
+        const keptFrom = { line: 0, ch: 0 };
+        const caret = { line: 0, ch: 23 };
+
+        plugin.showDatePickerFromTrigger(editor as never, keptFrom, caret, undefined, {
+          text: 'réunion de lancement',
+          triggerStart: { line: 0, ch: 21 },
+        });
+        await openedModals[0].selectFocusedDay();
+        openedModals[0].onClose();
+
+        expect(editor.setSelection).not.toHaveBeenCalled();
+      });
+
+      /**
        * Found by the pre-merge review. `start` stopped meaning "the trigger"
        * the day the replacement was widened to the kept text, and this branch
        * was never told: opening the daily note wiped the user's words and put
@@ -880,6 +1026,13 @@ describe('DateHelpersPlugin lifecycle', () => {
         await openedModals[0].selectFocusedDay();
 
         expect(editor.replaceRange).toHaveBeenCalledWith('', { line: 0, ch: 20 }, caret);
+
+        // This action navigates away, so the editor the trigger was typed in is
+        // no longer the one on screen: selecting into it would be selecting in a
+        // note the user has left. It cleans up from the callback, which marks
+        // the choice made, so the close that follows must do nothing at all.
+        openedModals[0].onClose();
+        expect(editor.setSelection).not.toHaveBeenCalled();
       });
 
       it('opening the daily note still removes the whole trigger with no kept text', async () => {
@@ -923,6 +1076,9 @@ describe('DateHelpersPlugin lifecycle', () => {
 
         modal.onClose(); // cancel without selecting
         expect(editor.replaceRange).toHaveBeenCalledWith('', start, end);
+        // Nothing was kept, so there is nothing to give back: this path must not
+        // create a selection the user never made.
+        expect(editor.setSelection).not.toHaveBeenCalled();
       });
 
       it('leaves the inline expression alone when the picker is cancelled', async () => {

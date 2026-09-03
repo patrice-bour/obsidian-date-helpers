@@ -414,6 +414,15 @@
   color: var(--text-muted);
 }
 
+/* What was typed named no day, and the day comes from the selection instead.
+   The date stays truthful, so only the query is marked — it is the part that
+   validating drops. Struck as well as coloured: colour alone is not a signal
+   for everyone. */
+.date-suggest-header-query.is-ignored {
+  color: var(--text-error);
+  text-decoration: line-through;
+}
+
 /*
  * The row that names the held selection, under the date it is being given.
  */
@@ -630,4 +639,17 @@
   color: var(--text-on-accent);
   background-color: var(--interactive-accent);
   transform: scale(0.94);
+}
+
+/*
+ * The banner saying a change waits for a reload.
+ *
+ * A row like any other in the tree, so without a face of its own it reads as
+ * one more setting rather than as a state of the tab. The title takes
+ * Obsidian's own `mod-warning`; only the frame is ours.
+ */
+.settings-reload-required {
+  border-left: 3px solid var(--text-warning);
+  padding-left: var(--size-4-3);
+  background-color: var(--background-modifier-hover);
 }

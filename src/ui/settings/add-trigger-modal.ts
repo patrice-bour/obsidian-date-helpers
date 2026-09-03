@@ -2,6 +2,7 @@ import { App, Modal, Setting } from 'obsidian';
 import { Translate } from '@/i18n/types';
 import { MAX_TRIGGER_LENGTH } from '@/utils/constants';
 import { TriggerConfig, TriggerMode } from '@/types/settings';
+import { dialogFooter, warningLine } from './dialog-parts';
 
 /**
  * The mode a new trigger gets unless the user says otherwise.
@@ -93,15 +94,14 @@ export class AddTriggerModal extends Modal {
           })
       );
 
-    this.errorEl = contentEl.createEl('p', {
-      cls: 'setting-item-description mod-warning',
-    });
+    this.errorEl = warningLine(contentEl);
 
-    new Setting(contentEl)
-      .addButton(button => button.setButtonText(t('picker.cancel')).onClick(() => this.close()))
-      .addButton(button =>
-        button.setButtonText(t('settings.triggers.add')).onClick(() => this.submit())
-      );
+    dialogFooter(contentEl, {
+      t,
+      submitLabel: t('settings.triggers.add'),
+      onSubmit: () => this.submit(),
+      onCancel: () => this.close(),
+    });
   }
 
   onClose(): void {

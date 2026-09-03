@@ -22,6 +22,8 @@ export type TranslationKey =
   | 'settings.locale.desc'
   | 'settings.locale.placeholder'
   | 'settings.locale.invalid'
+  | 'settings.reloadRequired.name'
+  | 'settings.reloadRequired.desc'
   | 'settings.saveFailed'
   | 'settings.weekStart.name'
   | 'settings.weekStart.desc'
@@ -35,6 +37,8 @@ export type TranslationKey =
   | 'settings.features.enableNLP.desc'
   | 'settings.features.nlpAutoDetect.name'
   | 'settings.features.nlpAutoDetect.desc'
+  | 'settings.features.selectionNamesDate.name'
+  | 'settings.features.selectionNamesDate.desc'
   | 'settings.features.nlpStrictMode.name'
   | 'settings.features.nlpStrictMode.desc'
   | 'settings.features.nlpStrictMode.casual'
@@ -53,7 +57,6 @@ export type TranslationKey =
   | 'settings.text.noPresetsAvailable'
   // Settings - Triggers
   | 'settings.triggers.description'
-  | 'settings.triggers.reloadNote'
   | 'settings.triggers.characters.name'
   | 'settings.triggers.characters.desc'
   | 'settings.triggers.characters.placeholder'
@@ -74,6 +77,26 @@ export type TranslationKey =
   | 'settings.presets.dateTimeFormats'
   | 'settings.presets.exampleRow'
   | 'settings.presets.showInSuggest'
+  | 'settings.presets.add'
+  | 'settings.presets.editor.notSaved'
+  | 'settings.presets.editor.editTitle'
+  | 'settings.presets.editor.edit'
+  | 'settings.presets.editor.delete'
+  | 'settings.presets.editor.save'
+  | 'settings.presets.editor.name'
+  | 'settings.presets.editor.nameDesc'
+  | 'settings.presets.editor.format'
+  | 'settings.presets.editor.formatDesc'
+  | 'settings.presets.editor.type'
+  | 'settings.presets.editor.typeDesc'
+  | 'settings.presets.editor.preview'
+  | 'settings.presets.editor.nameEmpty'
+  | 'settings.presets.editor.nameDuplicate'
+  | 'settings.presets.editor.formatEmpty'
+  | 'settings.presets.editor.formatNoToken'
+  | 'settings.presets.editor.formatUnclosed'
+  | 'settings.presets.editor.formatUnknownToken'
+  | 'settings.presets.editor.inUse'
   // Settings - Presets - Formats (built-in presets are labelled by id, never by
   // a stored name, so they follow the locale wherever they are displayed)
   | 'settings.presets.formats.iso8601.name'
@@ -159,6 +182,9 @@ export type Translate = <K extends TranslationKey>(
  */
 export interface TranslationParams {
   'settings.presets.exampleRow': { desc: string; example: string };
+  'settings.presets.editor.preview': { example: string };
+  'settings.presets.editor.formatUnclosed': { opener: string };
+  'settings.presets.editor.formatUnknownToken': { token: string };
   'commands.presetCommand': { prefix: string; name: string };
   'errors.dailyNoteMissing': { date: string };
   'errors.invalidFormat': { format: string };

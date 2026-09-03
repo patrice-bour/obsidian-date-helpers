@@ -15,6 +15,7 @@ import { DailyNotesService } from '@/services/daily-notes-service';
 import { validateSettings } from '@/utils/settings-validator';
 import { migrateSettings } from '@/utils/settings-migration';
 import { resolveLocale } from '@/utils/locale';
+import { ReloadSensitive, needsReload, reloadSensitive } from '@/settings/reload-required';
 
 /**
  * What a trigger typed over a selection hands the picker.
@@ -49,6 +50,14 @@ export default class DateHelpersPlugin extends Plugin {
   /** Set by loadSettings, reported once the i18n service exists */
   private migratedFromPhase5 = false;
 
+  /**
+   * The reload-sensitive settings as they stood when the commands were built.
+   *
+   * Kept so the tab can compare rather than raise a flag on the first edit: a
+   * value put back needs no reload, and the warning has to go when it does.
+   */
+  private loadedSensitive: ReloadSensitive | null = null;
+
   async onload() {
     try {
       // Load settings
@@ -69,6 +78,10 @@ export default class DateHelpersPlugin extends Plugin {
 
       // Register Phase 1 commands
       this.registerCommands();
+
+      // Read right after the commands were built from it, never before: what
+      // the warning compares against is the state the command set was made in.
+      this.loadedSensitive = reloadSensitive(this.settings);
 
       // Register Phase 2 trigger characters
       this.registerTriggerCharacters();
@@ -426,10 +439,24 @@ export default class DateHelpersPlugin extends Plugin {
       // equality test, not `startsWith`.
       if (!selectionMade) {
         if (triggerSeparator) {
+          // Read before writing: the separating space the plugin wrote must
+          // still be where it was left. A document moved underneath — a sync, a
+          // template, another plugin — makes these positions stale, and a stale
+          // selection is worse than a stale removal: the user's next keystroke
+          // replaces whatever it covers.
+          const separatorHolds = editor.getLine(triggerSeparator.line)[triggerSeparator.ch] === ' ';
+
           // The selected text was never taken away: it is still in the note,
           // with a separating space and the trigger written after it. There is
           // nothing to give back — only what the plugin wrote to take away.
           editor.replaceRange('', triggerSeparator, end);
+
+          // The separator is the right bound: it stands where the selection
+          // ended, and the removal above just closed the gap, so `start` to
+          // `triggerSeparator` is exactly the kept text — whatever lines it
+          // spans. Selected after the removal, never before: a selection posted
+          // ahead of the edit is collapsed by it.
+          if (separatorHolds) editor.setSelection(start, triggerSeparator);
         } else {
           const currentText = editor.getRange(start, end);
           if (isBareTrigger(currentText, this.settings.triggerCharacters)) {
@@ -442,6 +469,20 @@ export default class DateHelpersPlugin extends Plugin {
     };
 
     modal.open();
+  }
+
+  /**
+   * Whether a reload-sensitive setting has moved since the plugin loaded.
+   *
+   * False before the snapshot exists: during `onload` nothing has been edited
+   * yet, and a warning shown then would be about the plugin's own start-up.
+   */
+  reloadRequired(): boolean {
+    // Null in two cases, and false is right for both: during `onload`, where
+    // nothing has been edited yet, and after an `onload` that threw — where the
+    // plugin is half-registered and a reload notice would be the least of it.
+    if (this.loadedSensitive === null) return false;
+    return needsReload(this.loadedSensitive, reloadSensitive(this.settings));
   }
 
   onunload() {

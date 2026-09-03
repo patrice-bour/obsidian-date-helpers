@@ -32,6 +32,21 @@ export function flattenDefinitions(items: SettingDefinitionItem[]): SettingDefin
   );
 }
 
+/**
+ * The definitions Obsidian would actually draw.
+ *
+ * A `visible` predicate is Obsidian's to evaluate, so a harness that renders
+ * every row regardless is testing a tab nobody sees — and a row that appears
+ * only under a condition cannot be told from one that always appears.
+ */
+export function visibleDefinitions(items: SettingDefinitionItem[]): SettingDefinitionItem[] {
+  // Through `isVisible`, which already handles both shapes the API allows —
+  // `visible?: boolean | (() => boolean)`. Calling the field would have thrown
+  // on the literal form, and a cast to the function shape hid that from the
+  // compiler. A hidden container takes its children with it, as Obsidian does.
+  return flattenDefinitions(items.filter(isVisible)).filter(isVisible);
+}
+
 function isControl(item: SettingDefinitionItem): item is SettingDefinitionControl {
   return 'control' in item && (item as SettingDefinitionControl).control !== undefined;
 }

@@ -80,10 +80,7 @@ export function buildTriggersSection(
             .onClick(() => actions.onAdd())
             .extraSettingsEl.addClass('settings-heading-action'),
       ],
-      items: [
-        descriptionRow(t('settings.triggers.description')),
-        descriptionRow(t('settings.triggers.reloadNote')),
-      ],
+      items: [descriptionRow(t('settings.triggers.description'))],
     },
     list,
   ];

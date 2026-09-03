@@ -93,6 +93,14 @@ export interface DateHelpersSettings {
    */
   nlpAutoDetectLanguage: boolean;
 
+  /**
+   * Whether a captured selection may name the date, and not only carry the
+   * alias. Governs the inline popup and the picker together: a per-surface
+   * switch would let the two answer different days for the same keystrokes.
+   * @default true
+   */
+  selectionNamesDate: boolean;
+
   // Phase 5: Daily Notes Integration
   // Phase 6: Exclusive modes (simplified from Phase 5)
   // Phase 7.2: Contextual action selection (replaced mode with lastUsedAction)
@@ -147,6 +155,7 @@ export const DEFAULT_SETTINGS_BASE = {
   enableDatePicker: true,
   defaultDatePresetId: 'iso8601',
   nlpAutoDetectLanguage: true,
+  selectionNamesDate: true,
 
   // Phase 7.2: Contextual action selection
   // lastUsedAction is optional - no default needed

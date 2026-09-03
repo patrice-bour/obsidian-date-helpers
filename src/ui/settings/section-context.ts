@@ -46,6 +46,36 @@ export function descriptionRow(text: string): SettingDefinitionRender {
 }
 
 /**
+ * The banner warning that a reload-sensitive setting has moved.
+ *
+ * Declared like any other row rather than painted by hand, and carried by a
+ * `visible` predicate: Obsidian re-evaluates predicates when the tab rebuilds
+ * or on `refreshDomState()`, and hides the row rather than removing it, so the
+ * banner comes and goes without the tab tracking anything of its own.
+ *
+ * `role="status"` because it appears without being asked for: a row that shows
+ * up mid-session is announced by nothing otherwise.
+ */
+export function reloadRequiredRow(ctx: SettingsSectionContext): SettingDefinitionRender {
+  const { plugin, t } = ctx;
+  return {
+    name: t('settings.reloadRequired.name'),
+    // Nothing to search for: the row is a state of the tab, not a setting the
+    // user could go looking for.
+    searchable: false,
+    visible: () => plugin.reloadRequired(),
+    render: setting => {
+      setting.setDesc(t('settings.reloadRequired.desc'));
+      setting.settingEl.addClass('settings-reload-required');
+      setting.settingEl.setAttribute('role', 'status');
+      // On the title alone: `mod-warning` on the row would colour the
+      // description too, and that is prose to read, not an alarm to repeat.
+      setting.nameEl.addClass('mod-warning');
+    },
+  };
+}
+
+/**
  * A sub-heading inside a group. Groups cannot nest, so the per-type headings of
  * the format-preset reference are rendered as headings on a plain row.
  *

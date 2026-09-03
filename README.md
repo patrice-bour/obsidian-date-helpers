@@ -2,10 +2,12 @@
 
 [![CI](https://github.com/patrice-bour/obsidian-date-helpers/actions/workflows/ci.yml/badge.svg)](https://github.com/patrice-bour/obsidian-date-helpers/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](./CHANGELOG.md)
 [![Community Portal](https://img.shields.io/badge/Obsidian-community-7c3aed)](https://community.obsidian.md/plugins/date-helpers)
 
-An Obsidian plugin to effortlessly manage the dates that interrupt your writing: a **date picker**, **eleven format presets** and **daily note links**. All of it answers to a trigger you type as you write, one or two characters long, or up to five if you prefer.
+An Obsidian plugin for effortlessly managing the dates that interrupt your writing.
+This plugin facilitates the insertion of dates you count on your fingers, look up in a calendar, or wrap in wikilink brackets by hand. It brings a **date picker**, **format presets** (eleven of them to start with, plus the ones you write yourself) and **daily note links**.
+The picker and the suggestion popup open on a trigger you type, without leaving the line.
 
 You are mid-sentence and a date gets in the way: *next monday* — which date is that, again?
 Type `@next monday`, press `Enter`, and the date lands in the format you chose, as text or as a link to that day's note.
@@ -41,7 +43,7 @@ BRAT and manual installation are covered in the [User Guide](./docs/USER_GUIDE.m
 Four chores, all without leaving the keyboard:
 
 - **the mental calendar** — type `next monday` in any of six languages and get the date, computed for you
-- **the format** — that date rendered in the preset you choose, `2026-08-17` or `August 17, 2026`
+- **the format** — that date rendered in the preset you choose, `2026-08-17` or `August 17, 2026`, or in a format you wrote yourself
 - **the link syntax** — your own words kept as a daily note link's alias, brackets and pipe written for you
 - **the lookup** — a date picker, on the default `@@` trigger or from the command palette, for the days you would rather see than name
 
@@ -52,7 +54,9 @@ Four chores, all without leaving the keyboard:
 
 <br>
 
-Some days you would rather point at than phrase. `@@` — a trigger set by default — opens the picker: an expression field, three icon buttons that choose what confirming does, a calendar, and a format selector. The three actions:
+Some days you would rather point at than phrase. `@@` — a trigger set by default — opens the picker: an expression field, three icon buttons that choose what confirming does, a calendar, and a format selector.
+
+The three actions:
 
 - **Insert as text** — `2026-08-17`, or `August 17, 2026`, whichever preset you pick
 - **Link to daily note** — `[[Journal/2026-08-17|August 17, 2026]]`
@@ -60,11 +64,11 @@ Some days you would rather point at than phrase. `@@` — a trigger set by defau
 
 On **Link to daily note**, once there are words to carry — a selection, or what you typed in the expression field — the footer adds an **editable alias field**: the words the link will show stay yours to rewrite until you confirm.
 
-Triggers are yours to shape: each one declares whether it opens the picker or the popup, so `;;` can open the popup and `//d` the picker.
+Triggers are yours to shape: each one declares whether it opens the picker or the popup, so a one-character `;` can open the picker and a three-character `//d` the popup.
 
 **No trigger fires in the middle of a word**, so `any.pattern@` stays an email address while `@` is a trigger.
 
-There is also one command per format preset — **Insert date: ISO 8601**, for instance — which inserts straight away without opening anything. One caveat: these commands follow the picker's last action, so right after **Link to daily note** they write a wikilink, not plain text.
+There is also one command per format preset — **Insert date: ISO 8601**, for instance — which inserts straight away without opening anything. One caveat: these commands follow the picker's last action, so right after **Link to daily note** they write a wikilink, not plain text — until the picker stands on **Insert as text** again.
 
 The [User Guide](./docs/USER_GUIDE.md#core-workflows) walks through each workflow, capture by capture.
 
@@ -94,7 +98,9 @@ The command **Insert daily note link…** does the same over a selection: confir
 
 <br>
 
-**The swap is one edit**: cancelling leaves the note untouched, and a single undo brings your text back. And when the selection does read as a date, it also decides which day the calendar opens on.
+**The swap is one edit**: cancelling leaves the note untouched, and a single undo brings your text back.
+
+A selection that reads as a date also names the day the link points at. Type another date yourself and that one wins.
 
 A meeting name, a heading, a half-written thought: text you wrote for humans works here, not only text shaped like a date.
 
@@ -109,11 +115,12 @@ Step by step, variants included: [Turn a selection into a link](./docs/USER_GUID
 
 `next thursday`, `dans 3 semaines`, `übermorgen` — the point is that you stop converting them in your head. Relative expressions, weekdays and times are parsed in **English, French, German, Japanese, Portuguese and Dutch**: `@demain à 14h` and `@nächsten Montag um 14 Uhr` work just like `@next monday at 2pm`. The parsing comes from [chrono-node](https://github.com/wanasit/chrono).
 
-The six do not cover the same ground. **English, French and German are read in full; Portuguese, Japanese and Dutch each have a gap.** Portuguese and Japanese ignore the `next`/`last` modifier and do not read `in N days`: `sexta-feira passada` gives you whichever Friday is nearest — which may not be the one you meant. Dutch reads `over 3 dagen` but not its compound day names: `overmorgen` and `eergisteren` stay unparsed. Where a language has a gap, prefer the calendar.
+The six do not cover the same ground. **English, French and German are read in full; Portuguese, Japanese and Dutch each have a gap.** Portuguese and Japanese ignore the `next`/`last` modifier and do not read `in N days`: `sexta-feira passada` gives you whichever Friday is nearest — which may not be the one you meant. Dutch reads `over 3 dagen` but not its compound day names: `overmorgen` and `eergisteren` stay unparsed.
+Where a language has a gap, prefer the calendar.
 
 **Auto-detect language** extends your locale to the other five — your locale's language is always tried first — which matters when a vault mixes languages.
 
-Text the plugin cannot parse is never discarded, and never replaced by a date it invented.
+Text the plugin cannot parse is never discarded: it becomes the alias of a daily note link. Check which day that link points at, though — with nothing readable to go on, it falls back to today.
 
 The plugin's own interface — settings tab, picker and popup — speaks English and French; **the four other languages are read, not yet spoken**:
 
@@ -124,13 +131,24 @@ The plugin's own interface — settings tab, picker and popup — speaks English
 
 The [User Guide](./docs/USER_GUIDE.md#natural-language-parsing) has examples for each language.
 
-### Eleven formats, in your locale
+### Eleven formats, plus the ones you write
 
-Eleven built-in presets cover ISO, locale-aware and verbose renderings of dates, times and datetimes — and they are the full set: custom presets are not implemented yet. Month names, weekday names and component order follow your locale, through Luxon.
+The date lands in the shape you chose. Eleven presets ship with the plugin — five for a date, three for a time, three for both — from ISO to locale-aware to fully spelled out. Month names, weekday names and component order follow your locale, through Luxon. The [User Guide](./docs/USER_GUIDE.md#format-presets) lists every one with a rendered example.
 
-The first day of the week is a setting of its own, and the format you choose is remembered for the next insertion.
+**When none of them writes what you want, write it.** The **+** on the preset list asks for a name, a kind and a format string, which you write the way Daily Notes and Templater write theirs. A line under the field renders today's date as you type, and a token the plugin cannot place is named back to you, so you can try another.
 
-The [User Guide](./docs/USER_GUIDE.md#format-presets) lists every preset with a rendered example.
+**Your format comes back respelled, and nothing is wrong.** Write `DD/MM/YYYY`, save, and the row reads `dd/MM/yyyy`: the plugin stores every format in Luxon's syntax. Same format, other spelling — both write `31/08/2026`.
+
+What your format does next follows the kind you gave it — a date format joins the picker's format selector, a date or datetime format can be pinned to the popup, and every format gets a command of its own.
+
+![The + on the preset list opens an editor: the name Day first, a format written DD/MM/YYYY, a live preview reading Today: 31/08/2026, and the saved row appearing in the list as dd/MM/yyyy](./docs/media/format-preset-editor.gif)
+*A name — **Day first** — a format written the way Daily Notes writes it, and the preview reads it back as you type; the saved format then sits in the list beside the eleven that ship, respelled `dd/MM/yyyy`.*
+
+<br>
+
+The first day of the week is a setting of its own, and the format you pick in the picker is the one it offers you next time — each preset command keeps its own.
+
+[Writing your own format](./docs/USER_GUIDE.md#writing-your-own-format), in the guide, goes through the syntax token by token.
 
 ### Keyboard first
 
@@ -148,6 +166,8 @@ Wondering what you can rebind here? Three answers, one rule each.
 ## Settings
 
 Open **Settings → Date Helpers**. Six groups cover the daily note link, text insertion, locale and first day of week, the feature switches, your trigger characters, and the format presets — each date and datetime preset carrying its **Show in the inline suggestion popup** toggle. Most are reachable from Obsidian's settings search; the [settings reference](./docs/USER_GUIDE.md#settings-reference) documents each one.
+
+Four settings need the plugin to reload before they take effect: the triggers, the set of presets, the locale, and **Enable date picker**, when you switch it on. Nothing is lost in the meantime — a **Reload to apply** warning appears at the top of the tab and names what to do. The guide's [When a change needs a reload](./docs/USER_GUIDE.md#when-a-change-needs-a-reload) takes the four one by one.
 
 ## Privacy and permissions
 

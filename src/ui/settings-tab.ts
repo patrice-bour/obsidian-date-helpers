@@ -4,9 +4,12 @@ import DateHelpersPlugin from '@/main';
 import { DEFAULT_SETTINGS } from '@/settings/defaults';
 import { normalizeLocale } from '@/utils/locale';
 import { LOCALE_REFRESH_DEBOUNCE_MS, MAX_TRIGGER_LENGTH } from '@/utils/constants';
-import { SettingsKey, SettingsSectionContext } from './settings/section-context';
+import { SettingsKey, SettingsSectionContext, reloadRequiredRow } from './settings/section-context';
 import { TriggerConfig, TriggerMode, isTriggerMode } from '@/types/settings';
 import { AddTriggerModal } from './settings/add-trigger-modal';
+import { PresetEditorModal } from './settings/preset-editor-modal';
+import { PresetDraft, blocksDeletion, idForName, readDraft } from '@/utils/preset-editing';
+import { FormatPreset } from '@/types/format-preset';
 import { buildDailyNotesSection } from './settings/sections/daily-notes-section';
 import { buildTextFormatsSection } from './settings/sections/text-formats-section';
 import { buildGeneralSection } from './settings/sections/general-section';
@@ -90,6 +93,7 @@ export class DateHelpersSettingTab extends PluginSettingTab {
     };
 
     return [
+      reloadRequiredRow(ctx),
       buildDailyNotesSection(ctx),
       buildTextFormatsSection(ctx),
       buildGeneralSection(ctx),
@@ -99,7 +103,11 @@ export class DateHelpersSettingTab extends PluginSettingTab {
         onDelete: sequence => void this.removeTrigger(sequence),
         onModeChange: (sequence, mode) => void this.setTriggerMode(sequence, mode),
       }),
-      buildPresetsListSection(ctx),
+      buildPresetsListSection(ctx, {
+        onAdd: () => this.openPresetEditor(),
+        onEdit: preset => this.openPresetEditor(preset),
+        onDelete: preset => void this.removePreset(preset),
+      }),
     ];
   }
 
@@ -174,8 +182,14 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
     // Toggling NLP only flips `visible` on its sub-settings. Re-evaluating the
     // predicates in place avoids rebuilding the tab under the user's cursor.
-    if (key === 'enableNLP') {
+    //
+    // The picker toggle flips a predicate too — the reload banner's. Turning it
+    // on registers nothing until the plugin reloads, so without this the
+    // setting would read "enabled" while no trigger fired, and nothing on
+    // screen would say why.
+    if (key === 'enableNLP' || key === 'enableDatePicker') {
       this.refreshDomState();
+      this.revealReloadWarning();
     }
   }
 
@@ -206,7 +220,27 @@ export class DateHelpersSettingTab extends PluginSettingTab {
 
   /** Rebuild, unless the tab was torn down while the work was in flight. */
   private refresh(): void {
-    if (!this.disposed) this.update();
+    if (this.disposed) return;
+    this.update();
+    this.revealReloadWarning();
+  }
+
+  /**
+   * Bring the reload warning into view when it has something to say.
+   *
+   * The banner sits at the top, above six sections, while the settings that
+   * raise it are spread through them — the trigger list is the fifth. A rebuild
+   * keeps the scroll position, so a user who has just added a trigger gets the
+   * warning drawn about two thousand pixels above the fold: measured at −2083
+   * in Obsidian, which is to say never read.
+   *
+   * `nearest` rather than `start`: it scrolls the least that will do, so a
+   * banner already on screen does not jump.
+   */
+  private revealReloadWarning(): void {
+    if (!this.plugin.reloadRequired()) return;
+    const banner = this.containerEl.querySelector('.settings-reload-required');
+    banner?.scrollIntoView({ block: 'nearest' });
   }
 
   private openAddTriggerDialog(): void {
@@ -293,6 +327,85 @@ export class DateHelpersSettingTab extends PluginSettingTab {
       return;
     }
     // A row was added or removed: the definitions themselves changed, so
+    // predicates are not enough — the tree has to be rebuilt.
+    this.refresh();
+  }
+
+  /**
+   * Open the preset dialog, on a preset when one is being edited.
+   *
+   * The list of existing presets is read when the dialog opens, and re-read on
+   * submit: a name check against a list captured beforehand is a check the next
+   * caller can walk past, the same reason the trigger dialog re-asserts its own.
+   */
+  private openPresetEditor(editing?: FormatPreset): void {
+    new PresetEditorModal(this.app, {
+      existing: this.plugin.settings.formatPresets,
+      editing,
+      t: this.plugin.i18n.t.bind(this.plugin.i18n),
+      formatter: this.plugin.formatterService,
+      onSubmit: draft => void this.savePreset(draft, editing),
+    }).open();
+  }
+
+  /** Create or update a user preset from what the dialog collected. */
+  async savePreset(draft: PresetDraft, editing?: FormatPreset): Promise<void> {
+    const presets = this.plugin.settings.formatPresets;
+    // Re-read here as well as in the dialog — a check against a list captured
+    // beforehand is one the next caller walks past. Said rather than swallowed:
+    // the dialog has already closed by now, so a silent return would lose what
+    // was typed without a word.
+    const lu = readDraft(draft, presets, editing?.id);
+    if (!lu.ok) {
+      new Notice(this.plugin.i18n.t('settings.presets.editor.notSaved'));
+      return;
+    }
+
+    if (editing) {
+      // Changing the KIND of a preset something still names breaks that
+      // reference without removing it: the default text format would become a
+      // time preset, the validator only checks that the id exists, and the menu
+      // that offers it lists dates only — so the stored value stops appearing
+      // in the very menu that set it.
+      if (lu.preset.type !== editing.type && blocksDeletion(editing, this.plugin.settings)) {
+        new Notice(this.plugin.i18n.t('settings.presets.editor.inUse'));
+        return;
+      }
+
+      const stored = presets.find(preset => preset.id === editing.id);
+      if (!stored || stored.builtin) return;
+      Object.assign(stored, lu.preset);
+    } else {
+      presets.push({ id: idForName(lu.preset.name, presets), ...lu.preset, showInSuggest: false });
+    }
+
+    await this.persistPresets();
+  }
+
+  /** Remove a user preset, unless something still names it. */
+  async removePreset(preset: FormatPreset): Promise<void> {
+    const block = blocksDeletion(preset, this.plugin.settings);
+    if (block) {
+      new Notice(this.plugin.i18n.t('settings.presets.editor.inUse'));
+      return;
+    }
+
+    const presets = this.plugin.settings.formatPresets;
+    const at = presets.findIndex(candidate => candidate.id === preset.id);
+    if (at === -1) return;
+    presets.splice(at, 1);
+
+    await this.persistPresets();
+  }
+
+  private async persistPresets(): Promise<void> {
+    try {
+      await this.plugin.saveSettings();
+    } catch (error) {
+      this.reportFailure(error);
+      return;
+    }
+    // A row appeared or vanished: the definitions themselves changed, so
     // predicates are not enough — the tree has to be rebuilt.
     this.refresh();
   }

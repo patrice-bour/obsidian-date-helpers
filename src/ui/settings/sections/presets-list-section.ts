@@ -9,6 +9,12 @@ import {
   headingRow,
 } from '../section-context';
 
+export interface PresetListActions {
+  onAdd: () => void;
+  onEdit: (preset: FormatPreset) => void;
+  onDelete: (preset: FormatPreset) => void;
+}
+
 /**
  * Reference section listing the available format presets by type, with
  * localized names/descriptions falling back to the preset's own metadata.
@@ -23,8 +29,10 @@ import {
  * The per-type sub-headings are description rows rather than nested groups —
  * a group's items may only be settings or pages, not further groups.
  */
+
 export function buildPresetsListSection(
-  ctx: SettingsSectionContext
+  ctx: SettingsSectionContext,
+  actions: PresetListActions
 ): SettingDefinitionGroup<SettingsKey> {
   const { plugin, t } = ctx;
   const presets = plugin.settings.formatPresets;
@@ -32,11 +40,21 @@ export function buildPresetsListSection(
   return {
     type: 'group',
     heading: t('settings.sections.presets'),
+    // The `+` sits on the heading, as it does on the trigger list: one
+    // affordance for the section, not one per type.
+    extraButtons: [
+      button =>
+        button
+          .setIcon('lucide-plus')
+          .setTooltip(t('settings.presets.add'))
+          .onClick(() => actions.onAdd())
+          .extraSettingsEl.addClass('settings-heading-action'),
+    ],
     items: [
       descriptionRow(t('settings.presets.description')),
-      ...presetGroup(ctx, presets, 'date', 'settings.presets.dateFormats'),
-      ...presetGroup(ctx, presets, 'time', 'settings.presets.timeFormats'),
-      ...presetGroup(ctx, presets, 'datetime', 'settings.presets.dateTimeFormats'),
+      ...presetGroup(ctx, presets, 'date', 'settings.presets.dateFormats', actions),
+      ...presetGroup(ctx, presets, 'time', 'settings.presets.timeFormats', actions),
+      ...presetGroup(ctx, presets, 'datetime', 'settings.presets.dateTimeFormats', actions),
     ],
   };
 }
@@ -45,7 +63,8 @@ function presetGroup(
   ctx: SettingsSectionContext,
   presets: FormatPreset[],
   type: FormatPreset['type'],
-  headingKey: PlainTranslationKey
+  headingKey: PlainTranslationKey,
+  actions: PresetListActions
 ): SettingGroupItem<SettingsKey>[] {
   const { plugin, t } = ctx;
   const ofType = presets.filter(preset => preset.type === type);
@@ -62,7 +81,10 @@ function presetGroup(
         example,
       });
 
-      if (type === 'time') {
+      // Only the user's own are editable — see `blocksDeletion`.
+      const own = preset.builtin !== true;
+
+      if (type === 'time' && !own) {
         return { name, desc, searchable: false };
       }
 
@@ -73,10 +95,12 @@ function presetGroup(
         desc,
         searchable: false,
         render: (setting: Setting) => {
-          setting
-            .setName(name)
-            .setDesc(desc)
-            .addToggle(toggle =>
+          setting.setName(name).setDesc(desc);
+
+          // The popup inserts dates: a bare time is not one, so a time preset
+          // carries no pinning toggle whether or not it is the user's.
+          if (type !== 'time') {
+            setting.addToggle(toggle =>
               toggle
                 .setValue(preset.showInSuggest === true)
                 .setTooltip(t('settings.presets.showInSuggest'))
@@ -89,6 +113,22 @@ function presetGroup(
                   await plugin.saveSettings();
                 })
             );
+          }
+
+          if (own) {
+            setting.addExtraButton(button =>
+              button
+                .setIcon('pencil')
+                .setTooltip(t('settings.presets.editor.edit'))
+                .onClick(() => actions.onEdit(preset))
+            );
+            setting.addExtraButton(button =>
+              button
+                .setIcon('trash')
+                .setTooltip(t('settings.presets.editor.delete'))
+                .onClick(() => actions.onDelete(preset))
+            );
+          }
         },
       };
     }),

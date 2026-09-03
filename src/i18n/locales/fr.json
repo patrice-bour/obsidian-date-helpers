@@ -52,6 +52,10 @@
         "name": "Détection automatique de la langue",
         "desc": "Détecte et analyse automatiquement les expressions de date. Langues supportées : anglais, français, allemand, japonais, portugais, néerlandais."
       },
+      "selectionNamesDate": {
+        "name": "La sélection peut nommer la date",
+        "desc": "Quand un déclencheur est tapé sur du texte sélectionné, lire aussi ce texte comme une expression de date, et pas seulement comme le libellé du lien. Le sélecteur et la liste déroulante suivent ce réglage ensemble."
+      },
       "nlpStrictMode": {
         "name": "Mode d'analyse",
         "desc": "Contrôle la permissivité de l'analyseur",
@@ -81,7 +85,6 @@
     },
     "triggers": {
       "description": "Tapez l'une de ces séquences dans une note pour insérer une date. Chaque déclencheur ouvre le sélecteur de date ou les suggestions en ligne, selon son mode.",
-      "reloadNote": "Les déclencheurs sont lus au chargement du plugin : en ajouter un, en retirer un ou en changer le mode prend effet après un rechargement.",
       "characters": {
         "name": "Séquence",
         "desc": "Les caractères à taper, {{max}} au maximum (ex. : @@, //d)",
@@ -154,7 +157,33 @@
           "name": "Standard",
           "desc": "Format standard"
         }
+      },
+      "add": "Ajouter un format",
+      "editor": {
+        "editTitle": "Modifier le format",
+        "edit": "Modifier ce format",
+        "delete": "Supprimer ce format",
+        "save": "Enregistrer",
+        "name": "Nom",
+        "nameDesc": "Le nom de ce format dans la palette de commandes et dans les sélecteurs.",
+        "format": "Format",
+        "formatDesc": "Écrit comme l'écrivent Daily Notes et Templater (YYYY-MM-DD), ou comme l'écrit Luxon (yyyy-MM-dd). Les deux sont stockés de la même façon.",
+        "type": "Nature",
+        "typeDesc": "Une date, une heure, ou les deux. Seules les dates sont proposées dans la liste déroulante.",
+        "preview": "Aujourd'hui : {{example}}",
+        "nameEmpty": "Le nom ne peut pas être vide.",
+        "nameDuplicate": "Vous avez déjà un format portant ce nom.",
+        "formatEmpty": "Le format ne peut pas être vide.",
+        "formatNoToken": "Ce format ne nomme ni date ni heure.",
+        "formatUnclosed": "Un littéral ouvert par {{opener}} n'est jamais refermé.",
+        "formatUnknownToken": "{{token}} n'est pas un motif de format connu du plugin.",
+        "inUse": "Ce format sert encore de format par défaut ou de source d'alias. Choisissez-en un autre à cet endroit d'abord.",
+        "notSaved": "Ce format n'a pas pu être enregistré. Rouvrez-le et vérifiez le nom et le format."
       }
+    },
+    "reloadRequired": {
+      "name": "Recharger pour appliquer",
+      "desc": "Les déclencheurs, les formats prédéfinis et la langue des noms de commandes sont lus au chargement du plugin. Ce que vous venez de changer prendra effet après un rechargement (désactiver puis réactiver Date Helpers, ou redémarrer Obsidian)."
     }
   },
   "errors": {

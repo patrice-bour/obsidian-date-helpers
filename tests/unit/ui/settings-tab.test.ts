@@ -18,6 +18,7 @@ import {
   findGroup,
   findList,
   flattenDefinitions,
+  visibleDefinitions,
   groupHeadings,
   isDisabled,
   isVisible,
@@ -768,10 +769,7 @@ describe('DateHelpersSettingTab', () => {
         return el.textContent;
       });
 
-      expect(prose).toEqual([
-        t('settings.triggers.description'),
-        t('settings.triggers.reloadNote'),
-      ]);
+      expect(prose).toEqual([t('settings.triggers.description')]);
     });
 
     it('puts the rows after the prose that introduces them', () => {
@@ -787,18 +785,86 @@ describe('DateHelpersSettingTab', () => {
       expect(groupAt).toBeLessThan(listAt);
     });
 
-    it('warns once, at section level, that a change needs a reload', () => {
-      // Triggers are read at plugin load: adding, removing or reassigning one
-      // looks immediate and is not. Once above the list, not on every row —
-      // repeated on each it reads as a property of that trigger.
+    /** What the tab would draw, honouring the `visible` predicates */
+    function drawn(): string {
       const container = document.createElement('div');
       document.body.appendChild(container);
+      for (const row of visibleDefinitions(tab.getSettingDefinitions()).filter(isRenderRow)) {
+        row.render(new Setting(container) as never);
+      }
+      return container.textContent ?? '';
+    }
 
-      const section = flattenDefinitions(tab.getSettingDefinitions()).filter(isRenderRow);
-      for (const row of section) row.render(new Setting(container) as never);
+    it('says nothing about reloading while nothing has changed', () => {
+      // The prose that used to sit here was permanent, so it could not tell
+      // "you just changed something" from "nothing moved". The banner replaces
+      // it, and with the loaded values still in place it must not show.
+      expect(drawn()).not.toContain(t('settings.reloadRequired.desc'));
+    });
 
-      const occurrences = container.textContent?.split(t('settings.triggers.reloadNote')).length;
-      expect(occurrences).toBe(2); // one split point ⇒ exactly one occurrence
+    it('warns once a trigger is added, and only once', async () => {
+      // Once for the three settings that feed it: they sit in three sections,
+      // and the user reloads once for all of them.
+      await tab.addTrigger({ sequence: ';;', mode: 'inline' });
+
+      const texte = drawn();
+      expect(texte).toContain(t('settings.reloadRequired.desc'));
+      expect(texte.split(t('settings.reloadRequired.desc'))).toHaveLength(2);
+    });
+
+    it('stops warning once the trigger is taken back out', async () => {
+      await tab.addTrigger({ sequence: ';;', mode: 'inline' });
+      expect(drawn()).toContain(t('settings.reloadRequired.desc'));
+
+      await tab.removeTrigger(';;');
+
+      expect(drawn()).not.toContain(t('settings.reloadRequired.desc'));
+    });
+
+    // The picker toggle is the one that would have slipped through: turning it
+    // on registers no suggest until a reload, and the tab redraws for it only
+    // because `applySideEffect` was told to.
+    // Measured in Obsidian: the banner sits at the top, the trigger list is the
+    // fifth section, and a rebuild keeps the scroll — so the warning was drawn
+    // 2083 px above the fold for the user who had just raised it.
+    it('brings the warning into view when it is raised', async () => {
+      const scrollIntoView = jest.fn();
+      const banner = document.createElement('div');
+      banner.className = 'settings-reload-required';
+      banner.scrollIntoView = scrollIntoView;
+      tab.containerEl.appendChild(banner);
+
+      await tab.addTrigger({ sequence: ';;', mode: 'inline' });
+
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+
+    it('scrolls nothing while there is no warning to read', async () => {
+      const scrollIntoView = jest.fn();
+      const banner = document.createElement('div');
+      banner.className = 'settings-reload-required';
+      banner.scrollIntoView = scrollIntoView;
+      tab.containerEl.appendChild(banner);
+
+      await tab.addTrigger({ sequence: ';;', mode: 'inline' });
+      scrollIntoView.mockClear();
+      await tab.removeTrigger(';;');
+
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    it('warns when the picker is switched on, and redraws to show it', async () => {
+      // Through `loadData`, not by assigning after the fact: `onload` re-reads
+      // the stored settings, so a value set beforehand is thrown away — and the
+      // snapshot has to be taken from a load where the picker was off.
+      plugin.loadData.mockResolvedValue({ enableDatePicker: false });
+      await plugin.onload();
+      expect(plugin.settings.enableDatePicker).toBe(false);
+
+      await tab.setControlValue('enableDatePicker', true);
+
+      expect(refreshDomState()).toHaveBeenCalled();
+      expect(drawn()).toContain(t('settings.reloadRequired.desc'));
     });
 
     it('draws the add affordance as a button, not as a bare glyph', () => {

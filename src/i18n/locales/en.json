@@ -52,6 +52,10 @@
         "name": "Auto-detect language",
         "desc": "Automatically detect and parse date expressions. Supported: English, French, German, Japanese, Portuguese, Dutch."
       },
+      "selectionNamesDate": {
+        "name": "Selection can name the date",
+        "desc": "When you type a trigger over selected text, read that text as a date expression too — not only as the link's label. The picker and the popup follow this together."
+      },
       "nlpStrictMode": {
         "name": "Parsing mode",
         "desc": "Controls how aggressively the parser matches text",
@@ -81,7 +85,6 @@
     },
     "triggers": {
       "description": "Type one of these sequences in a note to insert a date. Each trigger opens either the date picker or the inline suggestions, whichever its mode says.",
-      "reloadNote": "Triggers are read when the plugin loads: adding, removing or reassigning one takes effect after a reload.",
       "characters": {
         "name": "Sequence",
         "desc": "The characters to type, {{max}} at most (e.g., @@, //d)",
@@ -154,7 +157,33 @@
           "name": "Standard",
           "desc": "Standard datetime format"
         }
+      },
+      "add": "Add a format",
+      "editor": {
+        "editTitle": "Edit the format",
+        "edit": "Edit this format",
+        "delete": "Delete this format",
+        "save": "Save",
+        "name": "Name",
+        "nameDesc": "What this format is called in the command palette and in the pickers.",
+        "format": "Format",
+        "formatDesc": "Written the way Daily Notes and Templater write it (YYYY-MM-DD) or the way Luxon does (yyyy-MM-dd). Either is stored the same.",
+        "type": "Kind",
+        "typeDesc": "A date, a time, or both. Only dates are offered in the inline popup.",
+        "preview": "Today: {{example}}",
+        "nameEmpty": "The name cannot be empty.",
+        "nameDuplicate": "You already have a format by that name.",
+        "formatEmpty": "The format cannot be empty.",
+        "formatNoToken": "This format names no date or time at all.",
+        "formatUnclosed": "A literal opened with {{opener}} is never closed.",
+        "formatUnknownToken": "{{token}} is not a format token this plugin knows.",
+        "inUse": "This format is still in use as a default or as an alias source. Choose another there first.",
+        "notSaved": "That format could not be saved. Reopen it and check the name and the format."
       }
+    },
+    "reloadRequired": {
+      "name": "Reload to apply",
+      "desc": "Triggers, format presets and the language of command names are read when the plugin loads. What you just changed takes effect after a reload (disable and re-enable Date Helpers, or restart Obsidian)."
     }
   },
   "errors": {

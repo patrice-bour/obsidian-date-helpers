@@ -268,6 +268,12 @@ describe('DatePickerSuggest — popup chrome', () => {
 
       const held = popup().querySelector('.date-suggest-held') as HTMLElement;
       expect(held).not.toBeNull();
+      // The role label carries no class of its own — it has nothing to style
+      // that the row does not already give it — so this is what holds it in
+      // place: nothing else looks for it. On the node rather than the row's
+      // text, which is what the class used to guarantee implicitly: its own
+      // span, and the first of the row.
+      expect(held.firstElementChild?.textContent).toBe(i18n.t('suggest.instructions.selection'));
       expect(held.textContent).toContain('selected text');
       expect(held.textContent).toContain('Esc');
       expect(held.textContent).toContain(i18n.t('suggest.givesItBack'));

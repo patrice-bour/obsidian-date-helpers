@@ -229,6 +229,12 @@ export class Setting {
           buttonEl.addEventListener('click', () => handler());
           return component;
         },
+        // The real component has it, and a mock that lacks a method the API
+        // publishes fails the code rather than the code failing the test.
+        setCta() {
+          buttonEl.addClass('mod-cta');
+          return component;
+        },
       };
       cb(component);
     }

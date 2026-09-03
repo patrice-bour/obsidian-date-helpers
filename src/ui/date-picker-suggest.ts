@@ -88,7 +88,18 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
    * What the header row shows: the date the expression resolved to, the query
    * it came from, and whether the parse failed. Null before the first render.
    */
-  header: { resolved: string; query: string; failed: boolean } | null = null;
+  header: {
+    resolved: string;
+    query: string;
+    /** Nothing named a day at all — the date slot has a failure to state */
+    failed: boolean;
+    /**
+     * Something was typed and it named no day, while the selection did.
+     * Distinct from `failed`: the date shown is true, and it is the typed word
+     * that goes nowhere — it is not the alias either, so validating drops it.
+     */
+    queryIgnored: boolean;
+  } | null = null;
 
   /** Set by the last successful onTrigger; read by getSuggestions */
   private lastTriggerIsModal = false;
@@ -324,25 +335,34 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
 
     const expression = context.query.trim();
 
-    // What names the date: the typed expression, or — with nothing typed — a
-    // held selection that reads as one.
+    // What names the date: the typed expression, or a held selection that reads
+    // as one.
     //
-    // The selection stays the alias either way. Reading it as a date as well
-    // is what stops the link from lying: `demain` selected, nothing typed,
-    // used to give a link to TODAY labelled "demain". The picker, opened on
-    // the same keystrokes, already answered tomorrow, so the two surfaces
-    // disagreed on the same input.
+    // The selection stays the alias either way. Reading it as a date as well is
+    // what stops the link from lying: `demain` selected, nothing typed, used to
+    // give a link to TODAY labelled "demain". The picker, opened on the same
+    // keystrokes, already answered tomorrow, so the two surfaces disagreed on
+    // the same input.
     //
-    // The typed expression wins whenever there is one: it is the later word.
-    const named = expression || this.lastKeptText?.trim() || '';
-    const parsed = named ? this.plugin.nlpService.parse(named) : null;
+    // The typed expression wins as soon as it names a day of its own — it is
+    // the later word. While it names none, the selection keeps naming the day:
+    // handing the target back to today mid-word made it jump under the user's
+    // fingers, and `blabla` is no more a date than `bla` was.
+    //
+    const typed = expression ? this.plugin.nlpService.parse(expression) : null;
+    const kept = this.lastKeptText?.trim();
+    const fromKept =
+      kept && this.plugin.settings.selectionNamesDate ? this.plugin.nlpService.parse(kept) : null;
+    const parsed = typed ?? fromKept;
     const date = parsed?.date ?? this.plugin.dateService.now();
 
     const entries: DateSuggestion[] = [];
 
     // Plain formats only make sense for a date the user actually named: they
     // cannot carry the typed string, so offering them would throw it away.
-    if (parsed || !expression) {
+    // `typed`, never the fallback: a format chosen while `blabla` stands would
+    // discard it just the same, whatever day the selection names.
+    if (typed || !expression) {
       for (const preset of this.plugin.settings.formatPresets) {
         if (!preset.showInSuggest) continue;
         // A time-only format is not a date, and a datetime one would render an
@@ -416,6 +436,10 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
           : this.translate('suggest.header.unparsable'),
       query: context.query ? `${this.lastTriggerSequence}${context.query}` : '',
       failed: Boolean(expression) && !parsed,
+      // The selection rescuing the day must not swallow the news that the typed
+      // word named none: it is dropped when the entry is validated, and the red
+      // header used to be the only thing saying so.
+      queryIgnored: Boolean(expression) && !typed && Boolean(parsed),
     };
 
     this.renderChrome();
@@ -457,7 +481,13 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
     if (this.header?.failed) header.addClass('is-error');
     setIcon(header.createSpan({ cls: 'date-suggest-header-icon' }), 'calendar');
     header.createSpan({ cls: 'date-suggest-header-date', text: this.header?.resolved ?? '' });
-    header.createSpan({ cls: 'date-suggest-header-query', text: this.header?.query ?? '' });
+    const query = header.createSpan({
+      cls: 'date-suggest-header-query',
+      text: this.header?.query ?? '',
+    });
+    // Only when the date itself is sound: a failed header already says it in
+    // the date slot, and marking both would say it twice.
+    if (this.header?.queryIgnored) query.addClass('is-ignored');
     root.prepend(header);
 
     // The held text sits under the date it is being given, so the two roles
@@ -465,10 +495,18 @@ export class DatePickerSuggest extends EditorSuggest<DateSuggestion> {
     const captured = this.lastKeptText;
     if (captured) {
       const held = createDiv({ cls: 'date-suggest-held' });
-      held.createSpan({
-        cls: 'date-suggest-held-label',
-        text: this.translate('suggest.instructions.selection'),
-      });
+      // Sans classe : le libellé de rôle n'a rien à styler en propre. Il hérite
+      // du gris atténué et de la petite taille de `.date-suggest-held`, et un
+      // `flex-shrink: 0` serait redondant — le libellé tient en UN SEUL MOT
+      // dans les deux langues livrées, donc il ne descend pas sous sa largeur
+      // `min-content`, alors que le texte voisin, lui, a `overflow: hidden` et
+      // absorbe tout le rétrécissement. Mesuré jusqu'à 24 px de police
+      // d'interface : le libellé n'est jamais rogné.
+      //
+      // Une traduction en deux mots romprait ce raisonnement — elle casserait
+      // sur deux lignes. Une locale qui en apporte une devra rendre une classe
+      // à ce libellé, avec `white-space: nowrap`.
+      held.createSpan({ text: this.translate('suggest.instructions.selection') });
       held.createSpan({ cls: 'date-suggest-held-text', text: shortenForBar(captured) });
       const back = held.createSpan({ cls: 'date-suggest-held-back' });
       back.createSpan({ cls: 'date-suggest-key', text: 'Esc' });

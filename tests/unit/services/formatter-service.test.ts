@@ -170,24 +170,35 @@ describe('FormatterService', () => {
   });
 
   describe('isValidFormat()', () => {
-    it('should return true for valid format strings', () => {
+    it('accepts a format written in Luxon syntax', () => {
       expect(service.isValidFormat('yyyy-MM-dd')).toBe(true);
       expect(service.isValidFormat('HH:mm:ss')).toBe(true);
       expect(service.isValidFormat('MMMM d, yyyy')).toBe(true);
-      expect(service.isValidFormat('D')).toBe(true);
-      expect(service.isValidFormat('DDD')).toBe(true);
     });
 
-    it('should return true for any string that Luxon can process', () => {
-      // Luxon is very permissive - it treats unrecognized tokens as literals
-      // So most strings are technically "valid" even if they don't contain format tokens
-      expect(service.isValidFormat('invalid%%%')).toBe(true);
-      expect(service.isValidFormat('xyz123')).toBe(true);
+    // Two shipped presets store these, and `format()` handles them by name.
+    // Read as format strings they are runs of letters no vocabulary knows, so
+    // the guard would have called the plugin's own defaults invalid.
+    it('accepts the two locale sentinels the plugin ships', () => {
+      expect(service.isValidFormat('LOCALE_MED')).toBe(true);
+      expect(service.isValidFormat('LOCALE_MED_TIME')).toBe(true);
     });
 
-    it('should return true for empty string', () => {
-      // Empty format is technically valid (returns empty string)
-      expect(service.isValidFormat('')).toBe(true);
+    it('accepts a format written in moment syntax', () => {
+      expect(service.isValidFormat('YYYY-MM-DD')).toBe(true);
+      expect(service.isValidFormat('DD/MM/YYYY')).toBe(true);
+    });
+
+    // The contract this replaces answered yes to all of these, because it only
+    // asked whether `toFormat` threw — and it never does. A field cannot warn
+    // about a format on an answer that is always yes.
+    // `xyz123` is gone from this list on purpose: `x`, `y` and `z` are all real
+    // Luxon tokens, so it names a timestamp, a year and a zone. Odd, but not
+    // nothing — and a guard that refused it would be refusing a valid format.
+    it('refuses what names nothing, where it used to say yes', () => {
+      expect(service.isValidFormat('invalid%%%')).toBe(false);
+      expect(service.isValidFormat('---')).toBe(false);
+      expect(service.isValidFormat('')).toBe(false);
     });
   });
 

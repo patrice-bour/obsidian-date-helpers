@@ -21,7 +21,7 @@ export interface FormatPreset {
   /** Type categorization */
   type: 'date' | 'time' | 'datetime';
 
-  /** If true, cannot be deleted (can be edited) */
+  /** If true, the plugin ships it: neither editable nor deletable */
   builtin: boolean;
 
   /** Optional tooltip/help text */
