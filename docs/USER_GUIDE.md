@@ -6,6 +6,8 @@ You know the date you mean — *next Tuesday*, *three weeks from now* — but wr
 
 Your mental calendar can stand down.
 
+> **Two words this guide uses throughout.** A *daily note* is the one note per day that Obsidian's core Daily Notes plugin creates and names after its date. A *wikilink* is Obsidian's `[[note]]` link syntax; written `[[note|some words]]`, it shows *some words* in your text instead of the filename, and those words are called its alias.
+
 This guide covers every workflow and every setting. For a quick overview, see the [README](../README.md).
 
 ## Table of contents
@@ -102,7 +104,7 @@ The plugin registers **no default keyboard shortcuts** — Obsidian's community 
 
 <br>
 
-The picker leads with your expression: a full-width natural-language field sits on top, and the three icon buttons beside it choose what confirming does — insert as text, link to a daily note, or open the note. Hover one for its name. The calendar sits below, and the footer stacks, in order: the [alias field](#the-alias-field) when there is text to reuse, the format selector — absent on **Open daily note** — and the **Today** and **Insert** buttons; on **Open daily note**, a read-only line names the day that confirming would open, as `Open: August 26, 2026`. Navigate with the keyboard, press `Enter` to confirm, `Escape` to cancel.
+The picker leads with your expression: a full-width natural-language field sits on top, and the three icon buttons beside it choose what confirming does — insert as text, link to a daily note, or open the note. Hover one for its name. The calendar sits below, the [alias field](#the-alias-field), the format selector and the buttons in the footer underneath. Navigate with the keyboard, press `Enter` to confirm, `Escape` to cancel; [Keyboard shortcuts & commands](#keyboard-shortcuts--commands) lists the footer in order, and every key the calendar answers.
 
 ---
 
@@ -125,7 +127,7 @@ When your expression reads as no date, the popup does not go blank — it lists 
 
 **Open the picker…** opens the full picker with your expression carried into its natural-language field, so nothing is retyped.
 
-Which formats the popup lists is yours to choose: each date and datetime preset — eight of the eleven that ship, plus any you write — carries a **Show in the inline suggestion popup** toggle — see [Format presets](#format-presets).
+Which formats the popup lists is yours to choose: each date and datetime preset — eight of the eleven that ship, plus any date or datetime format you write — carries a **Show in the inline suggestion popup** toggle — see [Format presets](#format-presets).
 
 ### 2. Insert a date as plain text
 
@@ -203,13 +205,25 @@ A bar above the list says what is going on: the header row carries the resolved 
 
 While a selection is held, the **daily note link leads the list** and is the entry `Enter` confirms — it is the only one that carries an alias. The plain formats are still there below it, and confirming one writes the date instead: your selected text is then replaced, and one undo brings it back.
 
-**Which day, when your selection could name one too.** What you type wins as soon as it reads as a date: select `tomorrow`, type `@friday`, and the link points at Friday while still reading `tomorrow`. Type nothing after the trigger and the selection names the day itself — `tomorrow` selected, `@` typed, and the link points at tomorrow. In between, while what you type reads as no date at all — `@blabla`, or `@nex` half-written — the selection keeps naming the day rather than handing it back to today, so the target does not walk back and forth under your fingers. The list is down to the daily note link then, since a plain format cannot carry your words.
+**Which day, when your selection could name one too.** Your selection is always the link's label. Which day it points at depends on what you type after the trigger — three cases, with `tomorrow` selected:
 
-Setting **Selection can name the date** to off, under [Features](#features), stops a selection from ever naming a day: it stays the link's label and the day comes from what you type, or from today. The `@` popup and the `@@` picker follow that switch together.
+| What you type after the trigger | The link points at | Example |
+|---|---|---|
+| A date | The day you typed | `@friday` → Friday, the label still reading `tomorrow` |
+| Nothing | The day your selection names | `@` alone → tomorrow |
+| Text that reads as no date | The day your selection names | `@blabla`, or `@nex` half-written → tomorrow |
+
+The last line is the one that needs a reason: while what you type reads as nothing, the selection keeps naming the day rather than handing it back to today, so the target does not walk back and forth under your fingers. The list is down to the daily note link then, since a plain format cannot carry your words.
+
+Setting **Selection can name the date** to off, under [Features](#features), stops a selection from ever naming a day: it stays the link's label and the day comes from what you type, or from today. The switch covers both surfaces at once — the inline popup, and the picker however you open it, trigger or command palette.
 
 #### With `@@`, the full picker
 
-`@@` behaves the same way: it opens the full picker with your selection already chosen as the alias source, on the **Link to daily note** action — the only one an alias means anything to. Cancelling gives the text back **and gives it back selected**, exactly as you had it, so you can type another trigger over the same words without picking them out again — whether you cancel with `Escape`, with the close button, or by clicking outside the picker. Opening there does not change the action the picker remembers. Two things do: choosing an action inside the picker — a click is enough, confirmed or not — and running one of the three picker commands, which stamps its action the moment the picker opens, even if you then cancel.
+`@@` behaves the same way: it opens the full picker with your selection already chosen as the alias source, on the **Link to daily note** action — the only one an alias means anything to.
+
+**Cancelling gives your text back, and gives it back selected.** Exactly as you had it, so you can type another trigger over the same words without picking them out again — whether you cancel with `Escape`, with the close button, or by clicking outside the picker.
+
+Typing `@@` over a selection does not change the action the picker remembers. Two things do: choosing an action inside the picker — a click is enough, confirmed or not — and running one of the three picker commands, which stamps its action the moment the picker opens, even if you then cancel.
 
 ![Selecting words, typing @@, reaching the alias field with Tab, trimming it, then confirming](media/selection-picker-alias.gif)
 *Typing `@@` over a selection: the picker opens on **Link to daily note** with your words in the alias field. `Tab` reaches that field from the calendar, and the link carries the text you leave there.*
@@ -231,7 +245,7 @@ These commands are registered when the plugin loads, so **reload the plugin afte
 
 ## Natural language parsing
 
-The NLP field accepts relative expressions, weekdays and time expressions, and previews the result live as you type. Parsing is powered by [chrono-node](https://github.com/wanasit/chrono).
+The natural-language field accepts relative expressions, weekdays and time expressions, and previews the result live as you type. Parsing is powered by [chrono-node](https://github.com/wanasit/chrono).
 
 ![Typing "next month" updates the preview and moves the calendar](media/nlp-preview-next-month.gif)
 *Typing "next month" updates the preview and moves the calendar.*
@@ -248,11 +262,11 @@ Three languages have full coverage:
 
 **Japanese, Portuguese and Dutch** are read through chrono-node's basic coverage — a table of them would be mostly empty cells, so here it is in words instead. The plugin itself adds the compound days: `一昨日` and `一昨昨日` in Japanese, `antes de ontem` and `depois de amanhã` in Portuguese; Dutch has no extras yet. One limit worth knowing: Portuguese and Japanese ignore the `next`/`last` modifier and do not read `in N days` — `sexta-feira passada` gives you whichever Friday is nearest, which may be the wrong one. On those two, prefer the calendar for a past or future week.
 
-Coverage in these languages is whatever chrono-node provides: type your expression in the NLP field and the live preview answers immediately, one way or the other.
+Coverage in these languages is whatever chrono-node provides: type your expression in the natural-language field and the live preview answers immediately, one way or the other.
 
 One nuance: the compound day expressions above (`avant-hier`, `après-demain`, `antes de ontem`, `depois de amanhã`, `一昨日`, `一昨昨日`, and English `the day after tomorrow`) are parsed by the plugin itself, so `après-demain` lands two days ahead instead of being read as `demain` — and `一昨昨日` reaches **three** days back, one more than `一昨日`.
 
-**Compound days it does not know yet.** `surlendemain` and `avant-veille` in French, `anteontem` in Portuguese, `おととい`, `明後日` and `あさって` in Japanese, and both Dutch forms — `eergisteren`, `overmorgen` — parse to nothing. Watch what the popup does then: it falls back to **today**, so its one remaining entry is a link to today's daily note carrying your words as the alias — confirm it and `overmorgen` links a day two days off the one you meant. Dismiss instead, and write `dans 2 jours` or `il y a 2 jours`.
+**Compound days it does not know yet.** `surlendemain` and `avant-veille` in French, `anteontem` in Portuguese, `おととい`, `明後日` and `あさって` in Japanese, and both Dutch forms — `eergisteren`, `overmorgen` — parse to nothing. Watch what the popup does then: it falls back to **today**, so its one remaining entry is a link to today's daily note carrying your words as the alias — confirm it and `overmorgen` links a day two days off the one you meant. Dismiss instead, and write `dans 2 jours` or `il y a 2 jours`. One exception to the fallback: if you typed the trigger over a selection that names a day, that day stands instead of today — see [workflow 5](#5-turn-a-selection-into-a-link).
 
 **Auto-detect language** decides which of the six languages are tried — there is no per-language toggle. It does not replace your locale, it extends it: the language of your locale is tried first, and the other five only if that yields nothing. With it off, only your locale's language is tried — so if your locale is not one of the six, leave auto-detect on, or nothing will parse at all.
 
@@ -336,9 +350,9 @@ Eleven presets ship with the plugin, and you can write your own. Examples are re
 | DateTime | Readable | `Nov 2, 2025 14:30` |
 | DateTime | Standard | `2025-11-02 14:30:45` |
 
-In the picker, the format selector draws on date presets only — the five above and any date format you add. Time and datetime presets insert through their own commands — and the datetime ones can surface in the `@` popup when your expression names a time.
+In the picker, the only formats the selector offers are date presets — the five above and any date format you add. On **Link to daily note** it also offers your own words, selected or typed, which are not formats at all: see [The alias field](#the-alias-field). Time and datetime presets insert through their own commands — and the datetime ones can surface in the `@` popup when your expression names a time.
 
-These eleven are fixed: their format is shipped and re-applied every time the plugin loads, so their rows carry no edit and no delete button. The one control they do carry is the **Show in the inline suggestion popup** toggle, on the date and datetime rows.
+These eleven are fixed: their format is shipped and re-applied every time the plugin loads, so their rows carry no edit and no delete button. If one of them is nearly what you want, write your own from it — [Writing your own format](#writing-your-own-format) is right below. The one control the eleven do carry is the **Show in the inline suggestion popup** toggle, on the date and datetime rows.
 
 Preset names and descriptions follow your **Locale** too — the table above shows the English names. The names above appear in the command palette as `Insert date: ISO 8601`; in French the same command reads `Insérer une date : ISO 8601`, after a plugin reload.
 
@@ -354,7 +368,7 @@ If none of the eleven writes what you want, write it yourself. The **+** on the 
 
 **Write the format the way the rest of Obsidian writes it.** `YYYY-MM-DD` — the syntax of Daily Notes and Templater — is read as you expect, and so is `yyyy-MM-dd`, the syntax of [Luxon](https://moment.github.io/luxon/), the library doing the formatting. The line under the field renders today's date in what you have typed: it is the format, read it before saving.
 
-Whichever syntax you write, the format is stored in Luxon's, and that is the one you see afterwards — in the list and again in the editor. Type `GGGG-[W]WW` and the row reads `kkkk-'W'WW`: the same format, spelled the way the plugin keeps it, writing the same `2026-W36`.
+**Your format may come back respelled, and it still writes the same date.** Type `DD/MM/YYYY`, save, and the row reads `dd/MM/yyyy`. Only the spelling changed: the plugin stores every format in Luxon's syntax, and both spellings write the same `03/09/2026`.
 
 | You want | Write | You get |
 |---|---|---|
@@ -362,22 +376,28 @@ Whichever syntax you write, the format is stored in Luxon's, and that is the one
 | A day, spelled out | `dddd D MMMM YYYY` | `Thursday 3 September 2026` |
 | A day, abbreviated | `ddd D MMM` | `Thu 3 Sep` |
 | A day, day first | `DD/MM/YYYY` | `03/09/2026` |
-| An ISO week | `GGGG-[W]WW` | `2026-W36` |
+| A month and its year | `MMMM YYYY` | `September 2026` |
 | A time on the clock | `hh:mm A` | `02:30 PM` |
 
-Anything you want printed as it stands goes in square brackets — that is the `[W]` above, and `[Week] WW` writes `Week 36`. Everything else is read as a token, and **a token the plugin does not know is refused by name** rather than printed as it stands. Two you may expect are among them: `Do`, the ordinal `3rd`, which the formatting library has no equivalent for, and `z`, the `CEST` style time zone abbreviation, whose counterpart writes `Europe/Paris` instead. The refusal names the letters it could not place, so you can try something else.
+Anything you want printed as it stands goes in square brackets — `[Week] WW` writes `Week 36`. Everything else is read as a token, and **a token the plugin does not know is refused by name** rather than printed as it stands. The refusal names the letters it could not place, so you can try something else.
 
-![The + on the preset list opens an editor: a name, a format written GGGG-[W]WW, a live preview reading 2026-W36, and the saved row in the list](media/format-preset-editor.gif)
-*The **+** on the preset list, a name, a format written the way Daily Notes writes it — the preview reads it back as you type, and the saved format takes its place among the others.*
+`Do`, the ordinal `3rd`, is refused whichever way you write the rest of the format: the formatting library has no equivalent for it. Time zones go one way or the other depending on the syntax you write them in. Written Luxon's way — `dd/MM/yyyy z` — the `z` is accepted, and it writes the name of the zone, `Europe/Paris`. Written the Daily Notes way — `YYYY-MM-DD z` — it is refused, because there `z` asks for the `CEST` abbreviation, which nothing here can write.
+
+Two other strings are refused whatever their tokens: a square bracket you open and never close, and a string holding no token at all — `[Week]` on its own would write the same thing every day, so the editor asks you for a format rather than a label.
+
+Your formats sit in the list beside the shipped ones, each with a pencil to edit it and a bin to delete it.
+
+> **Deleting is immediate — no confirmation, and no undo.** Keep a copy of a format string you might want back.
+
+Two edits are held back, with a notice telling you why — no setting is left pointing at nothing:
+
+- **Deleting a format that something still names** — your **Default date format**, or one of the two daily note alias formats. Point that setting elsewhere first and the delete goes through.
+- **Changing the kind of such a format.** A date format turned into a time format would vanish from the very menu that named it, without the setting noticing.
+
+![The + on the preset list opens an editor: the name Day first, the format DD/MM/YYYY, a live preview reading Today: 31/08/2026, and the saved row reading dd/MM/yyyy](media/format-preset-editor.gif)
+*The **+** on the preset list, the name **Day first**, and `DD/MM/YYYY` typed the way Daily Notes writes it: the preview reads back `Today: 31/08/2026` as you type, and the saved row takes its place among the others as `dd/MM/yyyy → Example: 31/08/2026`.*
 
 <br>
-
-Your formats sit in the list beside the shipped ones, each with a pencil to edit it and a bin to delete it. **Deleting is immediate — no confirmation, and no undo.** Keep a copy of a format string you might want back.
-
-Two things are refused, with a notice saying why:
-
-- **Deleting a format that something still names** — your **Default date format**, or one of the two daily note alias formats. Point that setting elsewhere first.
-- **Changing the kind of such a format.** A date format that becomes a time format would disappear from the very menu that named it, without the setting noticing.
 
 **A format you create gets its own command**, alongside **Insert date: ISO 8601** and the rest — but only after a plugin reload, since commands are registered when the plugin loads. Same for a format you delete, whose command stays in the palette until then. The settings tab says so itself: see [When a change needs a reload](#when-a-change-needs-a-reload).
 
@@ -396,16 +416,21 @@ The tab renders its groups in this order — the same order this section follows
 
 ### When a change needs a reload
 
-Three settings are only read when the plugin loads, so changing them does nothing until it loads again: the **trigger characters** list, the set of **format presets**, and the **Locale**, because command names are built at load and Obsidian offers no way to rename a command afterwards.
+**Reload to apply** is the warning at the top of the settings tab, and it carries good news: your change is saved, it is only waiting. Four settings are read when the plugin loads, so a change to one of them waits for the next load.
 
-**Reload to apply** — a warning at the top of the tab — appears the moment one of the three differs from the value the plugin started with, and names what to do: disable and re-enable Date Helpers in **Settings → Community plugins**, or restart Obsidian. Put the value back and the warning goes away by itself. When you changed a setting far below it, the tab scrolls the warning into view rather than letting it sit unread above the fold.
+- The **trigger characters** list.
+- The set of **format presets** — adding one, deleting one, or renaming one, since the preset commands are built from those. The **Show in the inline suggestion popup** toggles are another matter: they apply straight away.
+- The **Locale**, because command names are built at load and Obsidian offers no way to rename a command afterwards.
+- **Enable date picker**, in one direction only: turning it on when it was off at load asks for a reload, since the triggers were never registered that time round. Turning it off asks for nothing — the triggers stop firing at once.
+
+The warning appears the moment one of those changes in a way the next load has to pick up — turning **Enable date picker** off is the one change in this list that raises nothing — and it names what to do: disable and re-enable Date Helpers in **Settings → Community plugins**, or restart Obsidian. Put the value back and the warning goes away by itself. When you changed a setting far below it, the tab scrolls the warning into view rather than letting it sit unread above the fold.
 
 ![Changing a trigger's mode at the bottom of the tab raises the Reload to apply warning at the top, and the tab scrolls to it](media/settings-reload-required.gif)
 *Changing a trigger's mode, at the bottom of the tab: the warning appears at the top, and the tab goes and shows it to you.*
 
 <br>
 
-Everything else in the tab applies straight away.
+Every setting outside that list applies straight away.
 
 ### Daily note link settings
 
@@ -456,14 +481,16 @@ Format examples in the settings re-render as soon as you change the locale, and 
 
 | Setting | What it does |
 |---|---|
-| **Enable date picker** | One switch, two surfaces, despite its name: it governs the triggers you type in a note — `@@`, `@`, and any you add. Turned off, no trigger fires and the `@` popup is gone; the commands still open the calendar picker. |
+| **Enable date picker** | One switch, two surfaces, despite its name: it governs the triggers you type in a note — `@@`, `@`, and any you add. Turned off, no trigger fires and the `@` popup is gone; the commands still open the calendar picker. Turning it back on takes a plugin reload before the triggers answer again, and the **Reload to apply** warning says so — see [When a change needs a reload](#when-a-change-needs-a-reload). |
 | **Enable natural language parsing** | Parses expressions such as `tomorrow` or `next Monday`. |
 | **Auto-detect language** | Tries your locale's language first, then the other five when it yields nothing — see [Natural language parsing](#natural-language-parsing). |
 | **Parsing mode** | Casual or Strict, see [above](#parsing-modes). |
-| **Selection can name the date** | On by default. Governs whether text you select is read as a date expression as well as as the link's label — see [workflow 5](#5-turn-a-selection-into-a-link). Turned off, a selection is only ever the label, and the day comes from what you type. The `@` popup and the `@@` picker follow it together. |
+| **Selection can name the date** | On by default. Governs whether text you select is read as a date expression as well as as the link's label — see [workflow 5](#5-turn-a-selection-into-a-link). Turned off, a selection is only ever the label, and the day comes from what you type. It covers the inline popup and the picker alike, however you open the picker. |
 
-![Turning natural language parsing off hides its two dependent settings](media/nlp-subsettings.gif)
-*Turning natural language parsing off hides its two dependent settings.*
+The last three rows depend on **Enable natural language parsing**: turn it off and **Auto-detect language**, **Parsing mode** and **Selection can name the date** leave the tab, since there is nothing left for them to govern. Turn it back on and they are there again.
+
+![Turning natural language parsing off hides the settings that depend on it](media/nlp-subsettings.gif)
+*Turning natural language parsing off hides the settings that depend on it.*
 
 <br>
 
@@ -530,7 +557,7 @@ Check that **Enable natural language parsing** is on. If your expression is in a
 
 ### The date picker doesn't open when I type the trigger
 
-Verify **Enable date picker** is on — it governs every trigger, `@@` included — and that no other plugin intercepts the sequence. You can add a different trigger with **+** and delete the one that clashes — as long as one remains — or ignore the trigger entirely and use the command palette. Either way, reload the plugin afterwards (`Cmd/Ctrl+R`): the trigger list is read when it loads.
+Verify **Enable date picker** is on — it governs every trigger, `@@` included. If you have just turned it on, the triggers only answer after a plugin reload. Then check that no other plugin intercepts the sequence: you can add a different trigger with **+** and delete the one that clashes — as long as one remains — or ignore the trigger entirely and use the command palette. Either way, reload the plugin afterwards, since the trigger list too is read when it loads — [When a change needs a reload](#when-a-change-needs-a-reload) says how.
 
 ### Typing an email address opens a popup
 
@@ -574,7 +601,7 @@ It appears in **Insert as text** and **Link to daily note**. The **Open daily no
 
 Write it: the **+** on the format preset list in the settings opens an editor that takes a name, a format string and a kind, in the `YYYY-MM-DD` syntax Daily Notes and Templater use. [Writing your own format](#writing-your-own-format) covers the syntax, what cannot be deleted, and the reload your new command waits for.
 
-If the editor refuses a token you need — an ordinal like `3rd`, or a `CEST` style time zone, neither of which the formatting library can write — say so in [Discussions](https://github.com/patrice-bour/obsidian-date-helpers/discussions).
+If the editor refuses a token you need — an ordinal like `3rd`, or the `CEST` style time zone abbreviation, neither of which the formatting library can write — say so in [Discussions](https://github.com/patrice-bour/obsidian-date-helpers/discussions).
 
 ---
 
@@ -582,7 +609,7 @@ If the editor refuses a token you need — an ordinal like `3rd`, or a `CEST` st
 
 The `@` trigger owes its shape to [Natural Language Dates](https://community.obsidian.md/plugins/nldates-obsidian) by Argenos, which has served the Obsidian community for years and showed what date entry in a note could feel like.
 
-Date Helpers pushes elsewhere: six parsing languages rather than one, eleven format presets — the date and datetime ones each carrying a pinning choice for the `@` popup — a translated interface, and a single picker covering text insertion, daily note links and opening the note. If you want a small, focused `@today` and nothing more, nldates is the better fit — and it remains the plugin others build their parsing on.
+Date Helpers pushes elsewhere: six parsing languages rather than one, eleven format presets plus any you write yourself — the date and datetime ones each carrying a pinning choice for the `@` popup — a translated interface, and a single picker covering text insertion, daily note links and opening the note. If you want a small, focused `@today` and nothing more, nldates is the better fit — and it remains the plugin others build their parsing on.
 
 ---
 

@@ -120,10 +120,15 @@ export class UnifiedDatePickerModal extends Modal {
     // expression, and putting it there would state a failure the user did not
     // cause. An expression handed over from the popup wins: the user typed it
     // after making the selection, so it is the later word.
+    // The selection is read whatever the setting says, because the result also
+    // decides whether the text may alias a given day: `tomorrow` over next
+    // Thursday lies, and that guard is not the setting's to lift. What the
+    // setting governs is narrower — whether the selection may move the calendar
+    // and fill the field.
     if (this.state.selectionText) {
       const parsed = this.nlpService.parse(this.state.selectionText);
       this.state.setSelectionParseResult(parsed?.date ?? null);
-      if (parsed) {
+      if (parsed && settings.selectionNamesDate) {
         this.state.setFocusedDay(parsed.date);
         if (!initialNLPText) this.state.updateNLPText(this.state.selectionText);
       }

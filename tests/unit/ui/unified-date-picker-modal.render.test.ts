@@ -389,6 +389,65 @@ describe('UnifiedDatePickerModal rendering (characterization)', () => {
         expect(statusError(modal)).toBeNull();
       });
 
+      // The setting governs both surfaces together: the popup and the picker
+      // would otherwise answer different days for the same keystrokes, which is
+      // the disagreement the selection-as-date rule closed in the first place.
+      describe('with the selection-as-date setting off', () => {
+        it('opens on today with an empty field', () => {
+          settings.selectionNamesDate = false;
+          const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+
+          expect(nlpInput(modal).value).toBe('');
+          expect(content(modal).querySelector('.date-picker-day.is-focused')?.textContent).toBe(
+            String(dateService.now().day)
+          );
+        });
+
+        // A selection that reads no date has no day to contradict, so it
+        // aliases whichever day is confirmed — the setting changes nothing
+        // about that, which is the whole of what it must not touch.
+        it('still aliases any day with a selection that reads no date', () => {
+          settings.selectionNamesDate = false;
+          const modal = openModal('insert-daily-note', undefined, 'kickoff meeting');
+          const select = formatSelector(modal);
+          if (!select) throw new Error('format selector missing');
+
+          expect(Array.from(select.options).map(o => o.value)).toContain('selected-text');
+          expect(preview(modal).textContent).toContain('|kickoff meeting]]');
+        });
+
+        // The setting says the selection may not MOVE the day. It does not say
+        // the plugin may write `tomorrow` on a day that is not tomorrow: that
+        // guard belongs to the link's truthfulness, not to this preference, and
+        // it reads the selection whatever the setting says.
+        it('still refuses to label a day the selection would misname', () => {
+          settings.selectionNamesDate = false;
+          const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+
+          // Opened on today, which `tomorrow` does not name.
+          expect(preview(modal).textContent).not.toContain('|tomorrow]]');
+        });
+
+        it('aliases the day the selection does name, once navigated to it', () => {
+          settings.selectionNamesDate = false;
+          const modal = openModal('insert-daily-note', undefined, 'tomorrow');
+
+          modal.navigateDay('next');
+
+          expect(preview(modal).textContent).toContain('|tomorrow]]');
+        });
+
+        it('still lets an expression carried in name the day', () => {
+          settings.selectionNamesDate = false;
+          const modal = openModal('insert-daily-note', 'tomorrow', 'kickoff meeting');
+
+          expect(nlpInput(modal).value).toBe('tomorrow');
+          expect(content(modal).querySelector('.date-picker-day.is-focused')?.textContent).toBe(
+            String(dateService.now().plus({ days: 1 }).day)
+          );
+        });
+      });
+
       // One text, one option. The two sources would render the same alias, and
       // a second entry saying the same thing is a choice with no difference.
       it('does not list the same text twice as an alias source', () => {

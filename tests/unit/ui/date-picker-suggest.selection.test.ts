@@ -200,6 +200,144 @@ describe('DatePickerSuggest — a selection typed over', () => {
       expect(entry.date.toISODate()).toBe(DateTime.now().toISODate());
     });
 
+    // The typed expression only unseats the selection once it names a day of
+    // its own. Anything else — a word being typed through, a word that is no
+    // date at all — used to send the target back to today under the user's
+    // fingers, while the picker opened on the same keystrokes still answered
+    // tomorrow.
+    it('lets the kept text keep naming the date while the typed expression names none', () => {
+      selectThenType('tomorrow');
+
+      const entry = dailyNoteEntry(suggestionsFor(keptLine('blabla', 'tomorrow')));
+
+      expect(entry.alias).toBe('tomorrow');
+      expect(entry.date.toISODate()).toBe(DateTime.now().plus({ days: 1 }).toISODate());
+    });
+
+    // Typing `in 5 days` through, one key at a time. Every prefix that names no
+    // day must answer the selection's day, or the target flickers under the
+    // user's fingers; the first prefix that does name one takes over at once.
+    //
+    // Which prefixes parse is read from the parser rather than assumed: `in 5 d`
+    // already reads as five days, and a hard-coded list would have called that
+    // handover a defect.
+    it('names the same day until the typed expression names one of its own', () => {
+      selectThenType('tomorrow');
+      const demain = DateTime.now().plus({ days: 1 }).toISODate();
+
+      const releve = ['i', 'in', 'in ', 'in 5', 'in 5 d', 'in 5 days'].map(prefixe => ({
+        prefixe,
+        nommeUnJour: Boolean(plugin.nlpService.parse(prefixe.trim())),
+        jour: dailyNoteEntry(suggestionsFor(keptLine(prefixe, 'tomorrow'))).date.toISODate(),
+      }));
+
+      const muets = releve.filter(r => !r.nommeUnJour);
+      const parlants = releve.filter(r => r.nommeUnJour);
+      // Sans ces deux bornes le test passerait à vide le jour où le parseur
+      // change d'avis sur tous les préfixes.
+      expect(muets.length).toBeGreaterThan(0);
+      expect(parlants.length).toBeGreaterThan(0);
+
+      expect(muets.map(r => r.jour)).toEqual(muets.map(() => demain));
+      expect(parlants.every(r => r.jour !== demain)).toBe(true);
+    });
+
+    // The list stays the one an unparsable expression gets: a plain format
+    // cannot carry `blabla`, so offering one would throw the typed word away.
+    // Only the day the link points at changes.
+    it('lists no plain format while the typed expression names no date', () => {
+      selectThenType('tomorrow');
+
+      const list = suggestionsFor(keptLine('blabla', 'tomorrow'));
+
+      expect(list).toHaveLength(1);
+      expect(list[0].kind).toBe('daily-note');
+    });
+
+    // The header answers "which day is this popup about". Naming a failure
+    // while the only entry links tomorrow would put the two at odds — the very
+    // disagreement the selection-as-date rule exists to close.
+    it('names the day the entry links, rather than the failure, in the header', () => {
+      selectThenType('tomorrow');
+
+      const entry = dailyNoteEntry(suggestionsFor(keptLine('blabla', 'tomorrow')));
+
+      expect(suggest.header).not.toBeNull();
+      expect(suggest.header!.failed).toBe(false);
+      // Compared to the entry, not to a shape any long date would satisfy —
+      // today included, which is the very day this must not be.
+      expect(suggest.header!.resolved).toBe(plugin.formatterService.format(entry.date, 'DDDD'));
+    });
+
+    // The selection rescues the day; it does not make the typed word land
+    // anywhere. `blabla` is neither the date nor the alias, so validating drops
+    // it — and the red header used to be the only thing saying so.
+    it('marks the typed word as ignored when the selection names the day', () => {
+      selectThenType('tomorrow');
+
+      suggestionsFor(keptLine('blabla', 'tomorrow'));
+
+      expect(suggest.header!.queryIgnored).toBe(true);
+    });
+
+    it('marks nothing ignored when the typed word names the day itself', () => {
+      selectThenType('tomorrow');
+
+      suggestionsFor(keptLine('in 5 days', 'tomorrow'));
+
+      expect(suggest.header!.queryIgnored).toBe(false);
+    });
+
+    // A failed header already states it in the date slot; marking the query too
+    // would say it twice.
+    it('marks nothing ignored when nothing named a day at all', () => {
+      selectThenType(KEPT);
+
+      suggestionsFor(keptLine('blabla'));
+
+      expect(suggest.header!.failed).toBe(true);
+      expect(suggest.header!.queryIgnored).toBe(false);
+    });
+
+    // Without a capture nothing rescues an unparsable expression, and the
+    // header must still say so: the fallback is the selection's doing, not a
+    // softening of the failure.
+    it('still names the failure with no kept text at all', () => {
+      suggestionsFor('@blabla');
+
+      expect(suggest.header!.failed).toBe(true);
+    });
+  });
+
+  describe('the selection-as-date setting', () => {
+    // Nothing typed and a word that names no day run through the same branch —
+    // `fromKept` is null either way — so they are one case, not two.
+    it.each([
+      ['nothing typed', ''],
+      ['a word that names no day', 'blabla'],
+    ])('leaves the kept text as an alias only, with %s', (_cas, tape) => {
+      settings.selectionNamesDate = false;
+      selectThenType('tomorrow');
+
+      const entry = dailyNoteEntry(suggestionsFor(keptLine(tape, 'tomorrow')));
+
+      expect(entry.alias).toBe('tomorrow');
+      expect(entry.date.toISODate()).toBe(DateTime.now().toISODate());
+    });
+
+    // A selection that reads a date, so the setting is what decides: with
+    // `réunion de lancement` the answer would be the same either way, and the
+    // test would survive a fallback made unconditional.
+    it('leaves a typed expression naming the date when off', () => {
+      settings.selectionNamesDate = false;
+      selectThenType('tomorrow');
+
+      const entry = dailyNoteEntry(suggestionsFor(keptLine('in 5 days', 'tomorrow')));
+
+      expect(entry.alias).toBe('tomorrow');
+      expect(entry.date.toISODate()).toBe(DateTime.now().plus({ days: 5 }).toISODate());
+    });
+
     it('flattens a kept selection that spans several lines', () => {
       // The capture holds `deux\nlignes`; the line the popup reads shows it
       // with the break already behind, which is what the note looks like from

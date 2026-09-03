@@ -26,6 +26,9 @@ describe('NLPService', () => {
       formatPresets: DEFAULT_FORMAT_PRESETS,
       defaultDatePresetId: 'iso8601',
       nlpAutoDetectLanguage: false,
+      // Le service NLP ne lit pas ce réglage — il vit dans les deux surfaces
+      // qui l'appellent. Au défaut, donc, pour ne rien laisser croire d'autre.
+      selectionNamesDate: true,
       // Phase 6
       lastUsedAction: 'insert-daily-note',
       dailyNotesAliasPresetId: 'locale-long',

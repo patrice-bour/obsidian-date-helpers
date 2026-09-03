@@ -13,6 +13,7 @@ describe('Settings', () => {
         { sequence: '@', mode: 'inline' },
       ]);
       expect(DEFAULT_SETTINGS.enableNLP).toBe(true);
+      expect(DEFAULT_SETTINGS.selectionNamesDate).toBe(true);
       expect(DEFAULT_SETTINGS.enableDatePicker).toBe(true);
     });
 
@@ -121,6 +122,10 @@ describe('Settings', () => {
         formatPresets: DEFAULT_SETTINGS.formatPresets,
         defaultDatePresetId: 'iso8601',
         nlpAutoDetectLanguage: false,
+        // Non-défaut à dessein : ce test dit que le validateur PRÉSERVE, donc
+        // une valeur égale au défaut ne distinguerait pas « préservée » de
+        // « remise au défaut ».
+        selectionNamesDate: false,
         // Phase 7.2
         lastUsedAction: 'insert-daily-note',
         dailyNotesAliasPresetId: 'locale-long',
@@ -350,6 +355,26 @@ describe('Settings', () => {
     });
 
     // Phase 4: Advanced NLP settings validation
+    it('should validate selectionNamesDate boolean', () => {
+      const invalidBoolean: any = {
+        ...DEFAULT_SETTINGS,
+        selectionNamesDate: 'yes', // Not a boolean
+      };
+      const validated = validateSettings(invalidBoolean);
+      expect(typeof validated.selectionNamesDate).toBe('boolean');
+      expect(validated.selectionNamesDate).toBe(DEFAULT_SETTINGS.selectionNamesDate);
+    });
+
+    // The migration path proper: a `data.json` written before the key existed.
+    // `loadSettings` does not merge the defaults, so this block is the only
+    // thing that fills it — passing a boolean never takes that branch.
+    it('should fill selectionNamesDate when older data omits it', () => {
+      const sansCle: any = { ...DEFAULT_SETTINGS };
+      delete sansCle.selectionNamesDate;
+
+      expect(validateSettings(sansCle).selectionNamesDate).toBe(true);
+    });
+
     it('should validate nlpAutoDetectLanguage boolean', () => {
       const invalidBoolean: any = {
         ...DEFAULT_SETTINGS,

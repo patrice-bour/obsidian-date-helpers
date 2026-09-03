@@ -37,6 +37,12 @@ export function buildFeaturesSection(
         control: { type: 'toggle', key: 'nlpAutoDetectLanguage' },
       },
       {
+        name: t('settings.features.selectionNamesDate.name'),
+        desc: t('settings.features.selectionNamesDate.desc'),
+        visible: nlpEnabled,
+        control: { type: 'toggle', key: 'selectionNamesDate' },
+      },
+      {
         name: t('settings.features.nlpStrictMode.name'),
         desc: t('settings.features.nlpStrictMode.desc'),
         visible: nlpEnabled,

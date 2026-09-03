@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { FormatPreset } from '@/types/format-preset';
 import { I18nService } from './i18n-service';
+import { readFormat } from './format-syntax';
 
 /**
  * FormatterService handles all date-to-string formatting operations using Luxon.
@@ -107,14 +108,18 @@ export class FormatterService implements IFormatterService {
     return this.format(dt, format);
   }
 
+  /**
+   * Whether `format` names a date this plugin can render.
+   *
+   * By token, not by whether `toFormat` throws — it never does, so the old
+   * check answered yes to everything. Why that matters: `format-syntax.ts`.
+   */
   isValidFormat(format: string): boolean {
-    try {
-      const testDate = DateTime.now();
-      testDate.toFormat(format);
-      return true;
-    } catch {
-      return false;
-    }
+    // The two locale sentinels first: they are the stored format of two shipped
+    // presets, handled by `format()` above and by no token vocabulary. Read as
+    // a format string, `LOCALE_MED` is a run of letters nobody knows.
+    if (format === 'LOCALE_MED' || format === 'LOCALE_MED_TIME') return true;
+    return readFormat(format).ok;
   }
 
   getLocale(): string {

@@ -182,6 +182,11 @@ export function validateSettings(settings: Partial<DateHelpersSettings>): DateHe
     validated.nlpAutoDetectLanguage = DEFAULT_SETTINGS.nlpAutoDetectLanguage;
   }
 
+  if (typeof validated.selectionNamesDate !== 'boolean') {
+    console.warn('selectionNamesDate must be a boolean, resetting to default');
+    validated.selectionNamesDate = DEFAULT_SETTINGS.selectionNamesDate;
+  }
+
   // Validate locale is a string and has valid format
   if (typeof validated.locale !== 'string' || validated.locale.trim() === '') {
     console.warn('locale must be a non-empty string, resetting to default');

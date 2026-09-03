@@ -371,6 +371,30 @@ describe('UnifiedDatePickerModal styling contract', () => {
       expect(body).not.toMatch(/text-overflow|overflow:\s*hidden/);
     });
 
+    /**
+     * La feuille porte-t-elle une règle pour CETTE classe, et non pour une
+     * classe dont elle n'est que le préfixe ?
+     *
+     * Hissé hors du garde-fou qui s'en sert, parce qu'à l'intérieur il n'était
+     * mesuré par rien : `nlp-input` étant déclarée accroche, le remplacer par
+     * un `includes` laissait la suite entière au vert. Le test juste en
+     * dessous est le seul endroit qui tienne cette frontière.
+     */
+    const aUneRegle = (nom: string, css: string) => new RegExp(`\\.${nom}(?![\\w-])`).test(css);
+
+    it('does not read a longer selector as a rule for a shorter class', () => {
+      // Le trou que la liste d'exemptions masquait : `.nlp-input-container`
+      // déclarait `nlp-input` stylée, donc une classe posée sans règle passait
+      // en silence.
+      expect(aUneRegle('nlp-input', '.nlp-input-container { color: red; }')).toBe(false);
+      expect(aUneRegle('nlp-input', '.nlp-input { color: red; }')).toBe(true);
+      expect(aUneRegle('nlp-input', '.nlp-input-container .nlp-input { color: red; }')).toBe(true);
+      // Une pseudo-classe, une virgule ou une descendance ferment le nom
+      // aussi bien qu'une accolade.
+      expect(aUneRegle('nlp-input', '.nlp-input:focus { }')).toBe(true);
+      expect(aUneRegle('nlp-input', '.other, .nlp-input { }')).toBe(true);
+    });
+
     // Le garde-fou ci-dessus va du CSS vers le code. Le sens inverse manquait,
     // et c'est celui qui a laissé passer un renommage : `.date-picker-result`
     // est devenue `.date-picker-alias` dans la feuille pendant que le code
@@ -394,16 +418,24 @@ describe('UnifiedDatePickerModal styling contract', () => {
           .filter(nom => PREFIXES.some(p => nom.startsWith(p)))
       );
 
-      // `date-suggest-held-label` n'a jamais eu de règle, sur `main` non plus :
-      // le span hérite du style de `.date-suggest-held`, ses trois voisins ont
-      // la leur. Nommé ici plutôt que toléré en silence — si quelqu'un lui
-      // donne un style un jour, cette ligne s'en va.
-      const SANS_STYLE_ASSUME = ['date-suggest-held-label'];
-
       const css = STYLES.replace(/\/\*[\s\S]*?\*\//g, '');
+
+      // Une classe peut n'avoir aucune règle et mériter de vivre : `nlp-input`
+      // est le point d'accroche par lequel les tests trouvent le champ, plus
+      // stable qu'un `input[type='text']` qui suit le type de l'élément. La
+      // feuille le style par son conteneur.
+      //
+      // Ce qui n'est pas légitime, c'est qu'une tolérance survive à ce qui l'a
+      // justifiée : `date-suggest-held-label` a vécu ici après avoir cessé
+      // d'avoir une raison. D'où la vérification d'abord — un nom listé doit
+      // encore être posé par le code, sans quoi la liste élargit le garde-fou
+      // pour une classe qui n'existe plus.
+      const ACCROCHES_SANS_STYLE = ['nlp-input'];
+      expect(ACCROCHES_SANS_STYLE.filter(nom => !posees.has(nom))).toEqual([]);
+
       const sansRegle = [...posees]
-        .filter(nom => !SANS_STYLE_ASSUME.includes(nom))
-        .filter(nom => !css.includes(`.${nom}`))
+        .filter(nom => !ACCROCHES_SANS_STYLE.includes(nom))
+        .filter(nom => !aUneRegle(nom, css))
         .sort();
       expect(sansRegle).toEqual([]);
     });

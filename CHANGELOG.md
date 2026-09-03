@@ -5,18 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-09-03
 
-Formats stop being something only the plugin ships: you can write your own, in the syntax the rest of Obsidian already uses. The settings tab also learns to tell you when a change you just made is waiting for a reload, instead of saying so permanently about settings you never touched. Nothing breaks, and no stored setting changes shape.
+Formats stop being something only the plugin ships: you can write your own, in the syntax the rest of Obsidian already uses. A **Reload to apply** warning at the top of the settings tab names the changes that need a reload, replacing the permanent line under the trigger list. A held selection keeps naming its day while what you type reads as nothing, and cancelling the picker gives it back, still selected. A new setting decides whether a selection may name the day at all. Nothing breaks, and no stored setting changes shape.
 
 ### Added
 
-- **Write your own formats.** The **+** on the format preset list opens an editor asking for a name, a format string and a kind — date, time or both. Your formats then behave like the eleven that ship: the picker offers them, the popup can list them, each gets its own insertion command. The shipped eleven stay as they are, with no edit and no delete button, since their format is re-applied every time the plugin loads.
-- **Both format syntaxes are accepted.** `YYYY-MM-DD`, the syntax Daily Notes and Templater use, and `yyyy-MM-dd`, the syntax of Luxon, the library doing the formatting. You are not learning a second one: whichever you type, the format is read and stored the same. A line under the field renders today's date in what you have typed, so you read the format before saving it.
-- **A format string is now checked.** A token the plugin cannot place is refused by name, a `[literal]` left open is named too, and a string naming no date or time at all is refused. Until now nothing was checked: the formatting library does not reject `YYYY-MM-DD` — it prints what it does not recognise and reads the rest its own way, so that string quietly produced `YYYY-08-Aug 31, 2026`.
+- **Write your own formats.** The **+** on the format preset list opens an editor asking for a name, a format string and a kind — date, time or both. Your formats then behave like the eleven that ship, kind for kind: a date format joins the picker's format selector, a date or datetime format can be pinned to the `@` popup, and every format, a bare time included, gets its own insertion command. The shipped eleven stay as they are, with no edit and no delete button, since their format is re-applied every time the plugin loads.
+- **Both format syntaxes are accepted.** `YYYY-MM-DD`, the syntax Daily Notes and Templater use, and `yyyy-MM-dd`, the syntax of Luxon, the library doing the formatting. Both are read, so write the one you know. What is kept is Luxon's spelling, so your string comes back rewritten: type `DD/MM/YYYY` and the saved row reads `dd/MM/yyyy` — the same format, still writing `31/08/2026`. A line under the field renders today's date in what you have typed, so you read the format before saving it.
+- **A format string is now checked.** A token the plugin cannot place is refused by name, a `[literal]` left open is named too, and a string naming no date or time at all is refused. Nothing checked anything before, and no editor existed either: a format string of your own could only reach the plugin through a hand-edited `data.json`, and it went to Luxon untouched. Luxon does not reject `YYYY-MM-DD` — it prints what it does not recognise and reads the rest its own way, so that string quietly produced `YYYY-08-Aug 31, 2026`. It is the same string the bullet above accepts as the Daily Notes syntax: it writes a date now because the plugin translates it first, instead of handing it over as it stands.
 - **A format still in use cannot be deleted**, nor change kind — while it is your **Default date format** or one of the two daily note alias formats. A notice says so; the setting is not left pointing at nothing.
-- **Reload to apply**, a warning at the top of the settings tab. Three settings are only read when the plugin loads — the trigger list, the set of format presets, and the locale, since Obsidian fixes command names at registration — and the warning appears as soon as one of them differs from the value the plugin started with. Put the value back and it goes away. Change a setting far below it and the tab scrolls the warning into view rather than leaving it unread above the fold.
-- **Selection can name the date**, a new setting under **Features**, on by default. Turned off, text you select is only ever the link's label, never the day. The `@` popup and the `@@` picker follow it together.
+- **Reload to apply**, a warning at the top of the settings tab. Four settings only reach the plugin when it loads: the trigger list, the set of format presets, the locale — since Obsidian fixes command names at registration — and **Enable date picker**, when you switch it on. The warning appears as soon as one of them is waiting on a reload. Put the value back and it goes away. Change a setting far below it and the tab scrolls the warning into view rather than leaving it unread above the fold.
+- **Selection can name the date**, a new setting under **Features**, on by default. Turned off, text you select is only ever the link's label, never the day. The inline popup and the picker follow it together, however you open the picker.
 
 ### Changed
 
@@ -283,6 +283,7 @@ Pre-1.0 release: the settings API may still evolve based on user feedback before
 - [Issue Tracker](https://github.com/patrice-bour/obsidian-date-helpers/issues)
 - [Discussions](https://github.com/patrice-bour/obsidian-date-helpers/discussions)
 
+[0.4.0]: https://github.com/patrice-bour/obsidian-date-helpers/releases/tag/0.4.0
 [0.3.0]: https://github.com/patrice-bour/obsidian-date-helpers/releases/tag/0.3.0
 [0.2.0]: https://github.com/patrice-bour/obsidian-date-helpers/releases/tag/0.2.0
 [0.1.6]: https://github.com/patrice-bour/obsidian-date-helpers/releases/tag/0.1.6
